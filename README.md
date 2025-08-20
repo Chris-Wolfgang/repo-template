@@ -1,2 +1,3 @@
-# repo-template
-Template for Create Repositories
+# Repository Template
+
+This repository is intended to be used as a template for creating other repositories.
