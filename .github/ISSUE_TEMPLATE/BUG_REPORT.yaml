@@ -1,0 +1,79 @@
+name: "🐞 Bug report"
+description: "File a bug report to help us improve"
+title: "[Bug]: "
+labels: [bug, needs-triage]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Thanks for reporting a bug!
+
+        Please fill out the information below to help us resolve the issue as quickly as possible.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Describe the bug"
+      description: "A clear and concise description of what the bug is."
+      placeholder: "Bug details go here..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: "Steps to reproduce"
+      description: "How can we reproduce the behavior?"
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "Expected behavior"
+      description: "What did you expect to happen?"
+      placeholder: "It should..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: "Actual behavior"
+      description: "What actually happened?"
+      placeholder: "Instead, it..."
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: "Environment"
+      description: "Please provide information about your environment (OS, browser, version, etc.)"
+      placeholder: "e.g. Windows 11, Chrome 124.0.1"
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Screenshots"
+      description: "If applicable, add screenshots to help explain your problem."
+      placeholder: "Drag & drop images or paste them here."
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: "Additional context"
+      description: "Add any other context about the problem here."
+      placeholder: "Anything else?"
+    validations:
+      required: false
