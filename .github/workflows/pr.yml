@@ -1,0 +1,75 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Find solution file
+        id: find_sln
+        run: |
+          SLN_FILE=$(find . -maxdepth 1 -name '*.sln' | head -n 1)
+          echo "sln_file=${SLN_FILE}" >> $GITHUB_OUTPUT
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ steps.find_sln.outputs.sln_file }}
+
+      - name: Check code formatting
+        run: dotnet format ${{ steps.find_sln.outputs.sln_file }} --verify-no-changes
+
+      - name: Build (fail on warnings)
+        run: dotnet build ${{ steps.find_sln.outputs.sln_file }} --no-restore --configuration Release -warnaserror
+
+      - name: Run tests with coverage
+        run: dotnet test ${{ steps.find_sln.outputs.sln_file }} --no-build --configuration Release --collect:"XPlat Code Coverage"
+
+      - name: Generate coverage report
+        uses: danielpalme/ReportGenerator-GitHub-Action@v5
+        with:
+          reports: '**/TestResults/*/coverage.cobertura.xml'
+          targetdir: 'coverage-report'
+          reporttypes: 'HtmlInline;Cobertura;Badges'
+
+      - name: Enforce coverage threshold
+        run: |
+          # Find the generated summary.xml file
+          SUMMARY_FILE=$(find coverage-report -name 'Summary*.xml' | head -n 1)
+          if [ -z "$SUMMARY_FILE" ]; then
+            echo "Coverage summary file not found!"
+            exit 1
+          fi
+
+          # Extract line coverage percentage using grep/sed/awk
+          LINE_COVERAGE=$(grep -oP 'Linecoverage="[\d.]+"' "$SUMMARY_FILE" | head -n1 | cut -d'"' -f2)
+          MIN_COVERAGE=80
+
+          echo "Line coverage: $LINE_COVERAGE%"
+          LC_INT=${LINE_COVERAGE%.*} # Get integer part
+
+          if [ "$LC_INT" -lt "$MIN_COVERAGE" ]; then
+            echo "Code coverage $LINE_COVERAGE% is below minimum threshold of $MIN_COVERAGE%"
+            exit 1
+          fi
+
+          echo "Code coverage $LINE_COVERAGE% meets minimum threshold of $MIN_COVERAGE%."
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report
