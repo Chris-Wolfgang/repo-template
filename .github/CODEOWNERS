@@ -1,0 +1,77 @@
+# CODEOWNERS file for repo-template
+# 
+# This file defines ownership for different parts of the repository.
+# When a pull request is created, the listed users/teams will automatically
+# be requested as reviewers for the corresponding files.
+#
+# Format: [file pattern] [owner(s)]
+# Owners can be:
+# - @username (individual GitHub user)
+# - @organization/team-name (GitHub team)
+# - email@domain.com (email address)
+#
+# Learn more about CODEOWNERS: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for all files in the repository
+# The last matching pattern has the highest precedence
+* @Chris-Wolfgang
+
+# Documentation files
+*.md @Chris-Wolfgang
+docs/ @Chris-Wolfgang
+
+# Configuration files
+.github/ @Chris-Wolfgang
+.gitignore @Chris-Wolfgang
+.editorconfig @Chris-Wolfgang
+
+# Source code (customize these patterns for your specific project)
+src/ @Chris-Wolfgang
+
+# Tests (customize these patterns for your specific project) 
+tests/ @Chris-Wolfgang
+
+# Benchmarks
+benchmarks/ @Chris-Wolfgang
+
+# License and legal files
+LICENSE @Chris-Wolfgang
+CODE_OF_CONDUCT.md @Chris-Wolfgang
+CONTRIBUTING.md @Chris-Wolfgang
+
+# Examples for template users (uncomment and modify as needed):
+# 
+# # Frontend code
+# frontend/ @frontend-team
+# *.js @frontend-team
+# *.ts @frontend-team
+# *.jsx @frontend-team
+# *.tsx @frontend-team
+# *.css @frontend-team
+# *.scss @frontend-team
+# *.vue @frontend-team
+#
+# # Backend code  
+# backend/ @backend-team
+# api/ @backend-team
+# *.py @backend-team
+# *.java @backend-team
+# *.go @backend-team
+# *.rs @backend-team
+#
+# # Infrastructure and deployment
+# .github/workflows/ @devops-team
+# docker/ @devops-team
+# Dockerfile @devops-team
+# k8s/ @devops-team
+# terraform/ @devops-team
+# *.yml @devops-team
+# *.yaml @devops-team
+#
+# # Database migrations
+# migrations/ @backend-team @database-team
+# *.sql @database-team
+#
+# # Security-sensitive files
+# .github/workflows/ @security-team @Chris-Wolfgang
+# secrets/ @security-team @Chris-Wolfgang
