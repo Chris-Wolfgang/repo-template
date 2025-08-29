@@ -1,0 +1,36 @@
+# This workflow runs all branches when a pull request is created. 
+# If security settings have been properly configured, any branch that fails this workflow will be blocked from being merged into main and possibly other common branches link develop depending your specific settings
+
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      # List any other branches here that you want this workflow to run on
+      - main
+
+jobs:
+  build-and-test:
+    # Specifies the OS to run this workflow on. You can specify more than one. For a complete and current list, review the [documentation] (https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          # Specifies the version of dotnet to use. You can specify multiple versions. For a complate list of supported versions review the [documentation](https://github.com/actions/setup-dotnet#inputs)
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        # Specify any additional build options
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        # Specify any additional test options
+        run: dotnet test --no-build --configuration Release
