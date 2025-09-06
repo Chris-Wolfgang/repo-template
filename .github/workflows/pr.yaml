@@ -82,3 +82,23 @@ jobs:
           path: |
             TestResults/
             CoverageReport/
+
+      - name: Install DevSkim CLI
+        run: dotnet tool install --global Microsoft.CST.DevSkim.CLI
+
+      - name: Run DevSkim Security Scan (Save output)
+        run: devskim analyze --source-code . -f text --output-file devskim-results.txt -E
+
+      - name: Show DevSkim Results in Summary
+        if: failure()
+        run: |
+          echo "### DevSkim Security Issues Found"
+          cat devskim-results.txt
+        shell: bash
+
+      - name: Upload DevSkim Results as Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devskim-results
+          path: devskim-results.txt
