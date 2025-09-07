@@ -36,6 +36,16 @@ These settings require that all checks in the pr.yaml file succeed before you ca
 5. Enable “Require branches to be up to date before merging.”
 
 
+## Add Custom Labels
+
+You will need to create the following custom labels
+
+Go to `Issues` tab at the top of your repo and the select `Labels` and click `New label`
+
+1. dependabot-dependencies
+2. dependabot-security
+
+
 ## Creating the project
 
 1. Create a blank solution and save it in the root folder
