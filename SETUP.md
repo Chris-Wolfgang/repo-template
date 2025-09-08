@@ -34,6 +34,13 @@ These settings require that all checks in the pr.yaml file succeed before you ca
 3. Check “Require status checks to pass before merging.”
 4. Select your PR workflow (it will be listed after it runs at least once).
 5. Enable “Require branches to be up to date before merging.”
+6. Check `Restrict deleteions`
+7. Check `Require a pull request before merging`
+	1. Check `Dismiss stale pull request approvals when new commits are pushed`
+ 	2. Check `Reuquire review from Code Owners`
+	3. Check `Require pull request review from Coplot`
+9. Check `Block force pushes`
+10. Check `Require code scanning`
 
 
 ## Add Custom Labels
