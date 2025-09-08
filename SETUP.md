@@ -45,7 +45,12 @@ These settings require that all checks in the pr.yaml file succeed before you ca
 
 ## Add Custom Labels
 
+1. On the `Actions` tab select `Create Custom Labels`
+2. Select `Run workflow`
+3. Select `main` branch and click `Run`
 You will need to create the following custom labels
+
+If that doesn't work try the following
 
 Go to `Issues` tab at the top of your repo and the select `Labels` and click `New label`
 
