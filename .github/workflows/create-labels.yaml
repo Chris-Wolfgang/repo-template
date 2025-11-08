@@ -4,6 +4,8 @@ on:
 
 jobs:
   create-labels:
+    permissions:
+      issues: write
     runs-on: ubuntu-latest
     steps:
       - name: Create "dependabot - security" label

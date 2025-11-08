@@ -1,0 +1,54 @@
+name: Deploy DocFX Pages
+
+on:
+  push:
+    branches:
+      - main # Your primary branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read # Allow read access for checkout
+      pages: write      # Allow write access for Pages deployment
+      id-token: write   # Allow writing of ID tokens for deployment
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install DocFX
+        run: dotnet tool update docfx --global
+
+      - name: Build DocFx Metadata
+        run: docfx metadata 
+        working-directory: docfx_project
+
+      - name: Build Docs
+        run: docfx build 
+        working-directory: docfx_project
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docfx_project/_site # The path to the folder to upload
+
+  deploy:
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
