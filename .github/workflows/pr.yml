@@ -55,7 +55,7 @@ jobs:
           fi
 
           # Extract line coverage percentage using grep/sed/awk
-          LINE_COVERAGE=$(grep -oP 'Linecoverage="[\d.]+"' "$SUMMARY_FILE" | head -n1 | cut -d'"' -f2)
+          LINE_COVERAGE=$(grep -oP 'Linecoverage="\d+(?:\.\d+)?"' "$SUMMARY_FILE" | head -n1 | cut -d'"' -f2)
           MIN_COVERAGE=80
 
           echo "Line coverage: $LINE_COVERAGE%"
