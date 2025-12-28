@@ -1,104 +1,162 @@
-# Repository Template (.NET)
-This repository is a template for creating .NET applications with comprehensive CI/CD pipelines, testing, and security scanning. It follows .NET project conventions with structured directories for source code, tests, benchmarks, and examples.
+# Copilot Coding Agent Instructions
 
-Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
+## Repository Summary
 
-## Working Effectively
+This is a **repository template** for creating new .NET repositories. It provides a standardized structure with comprehensive GitHub integration, CI/CD workflows, and development tooling. The template is designed for .NET 8.0 projects using C# and follows Microsoft's recommended project organization patterns.
 
-### Repository State
-- This is a template repository - it contains placeholder directories but NO actual .NET projects by default
-- The GitHub workflow (`.github/workflows/pr.yaml`) only runs when `github.repository != 'Chris-Wolfgang/repo-template'` to avoid failures in the template itself
-- You MUST create actual .NET projects before build commands will work
+**Repository Type**: Template (not a working project)  
+**Target Platform**: .NET 8.0  
+**Primary Language**: C#  
+**Size**: Small template (~15 configuration files, empty project folders)  
 
-### Setting Up Projects (Required Before Building)
-Follow the structure described in `SETUP.md`:
-- Create a solution file in root: `dotnet new sln -n YourSolution`
-- Create application projects in `/src` folder: `dotnet new console -n YourApp -o src/YourApp`
-- Create test projects in `/tests` folder: `dotnet new xunit -n YourApp.Tests -o tests/YourApp.Tests`
-- Add projects to solution: `dotnet sln add src/YourApp/YourApp.csproj tests/YourApp.Tests/YourApp.Tests.csproj`
-- Optional: Create benchmark projects in `/benchmarks` folder
+## Build and Validation Instructions
 
-### Build and Test Commands
-Only run these commands AFTER creating actual .NET projects:
+### Prerequisites
+- .NET 8.0.x SDK (always install if not present)
+- ReportGenerator tool (installed via `dotnet tool install -g dotnet-reportgenerator-globaltool`)
+- DevSkim CLI (installed via `dotnet tool install --global Microsoft.CST.DevSkim.CLI`)
 
-#### Prerequisites
-- .NET 8.0.x SDK (confirmed working)
-- `dotnet tool install -g dotnet-reportgenerator-globaltool` (takes ~2 seconds)
-- `dotnet tool install --global Microsoft.CST.DevSkim.CLI` (takes ~2 seconds)
+### Build Process (For Repositories Created from This Template)
+**IMPORTANT**: This template has no buildable projects. These commands apply to repositories created FROM this template.
 
-#### Core Build Process
-- `dotnet restore` -- takes ~1-2 seconds with projects, FAILS without projects
-- `dotnet build --no-restore --configuration Release` -- takes ~6 seconds. NEVER CANCEL. Set timeout to 10+ minutes.
-- Test execution with coverage:
-  ```bash
-  find ./tests -type f -name '*Test*.csproj' | while read proj; do
-    echo "Testing $proj"
-    dotnet test "$proj" --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory "./TestResults"
-  done
-  ```
-  -- takes ~4 seconds per test project. NEVER CANCEL. Set timeout to 15+ minutes.
+1. **Restore Dependencies** (always run first):
+   ```bash
+   dotnet restore
+   ```
 
-#### Coverage Reporting
-- `reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:"CoverageReport" -reporttypes:"Html;TextSummary;MarkdownSummaryGithub;CsvSummary"` -- takes ~1 second
-- Coverage threshold check is automated in the workflow and requires 80% line coverage
+2. **Build Solution**:
+   ```bash
+   dotnet build --no-restore --configuration Release
+   ```
 
-#### Security Scanning
-- `devskim analyze --source-code . -f text --output-file devskim-results.txt -E` -- takes ~1 second. Exit code 28 indicates security issues found (this is normal).
+3. **Run Tests with Coverage**:
+   ```bash
+   # Find and test all test projects
+   find ./tests -type f -name '*Test*.csproj' | while read proj; do
+     dotnet test "$proj" --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory "./TestResults"
+   done
+   ```
 
-### Running Applications
-- Console applications: `dotnet run --project src/YourApp`
-- Web applications: `dotnet run --project src/YourWebApp` (typically runs on localhost:5000 or localhost:5001)
+4. **Generate Coverage Reports**:
+   ```bash
+   reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:"CoverageReport" -reporttypes:"Html;TextSummary;MarkdownSummaryGithub;CsvSummary"
+   ```
 
-## Validation
-- ALWAYS create and test with actual .NET projects when making changes
-- The template itself has NO buildable projects - commands will fail until projects are created
-- ALWAYS run through at least one complete build → test → security scan cycle after making changes
-- Run `dotnet --version` to confirm .NET 8.0.x is available
-- ALWAYS run the full workflow commands to ensure CI compatibility
+5. **Security Scanning**:
+   ```bash
+   devskim analyze --source-code . -f text --output-file devskim-results.txt -E
+   ```
 
-## Common Tasks
+### Critical Build Requirements
+- **Code Coverage**: Minimum 80% line coverage required for all projects
+- **Security Scanning**: DevSkim must pass with no errors
+- **Build Configuration**: Always use Release configuration for CI
+- **Test Pattern**: Test projects must match `*Test*.csproj` pattern in `/tests` folder
 
-### Repository Structure
+### Common Issues and Workarounds
+- **Timeout Issues**: Coverage and security scans can take 5-10 minutes for larger projects
+- **Coverage Threshold Failures**: If below 80%, the build will fail - this is by design
+- **Missing Test Projects**: The workflow expects at least one test project in `/tests` folder
+- **DevSkim False Positives**: Review `devskim-results.txt` for any security findings
+
+## Project Layout and Architecture
+
+### Standard Directory Structure
 ```
-repo-template/
-├── .github/
-│   └── workflows/
-│       └── pr.yaml          # Main CI/CD pipeline
-├── src/                     # Application projects go here
-├── tests/                   # Test projects go here  
-├── benchmarks/              # Benchmark projects go here
-├── examples/                # Example code goes here
-├── docs/                    # Documentation
-├── SETUP.md                 # Template setup instructions
-├── README.md                # Project documentation
-├── .editorconfig            # Code formatting rules
-└── .gitignore               # .NET-specific ignore rules
+root/
+├── MySolution.sln              # Solution file (create in root)
+├── src/                        # Application projects
+│   ├── MyApp/
+│   │   └── MyApp.csproj
+│   └── MyLib/
+│       └── MyLib.csproj
+├── tests/                      # Test projects (required)
+│   ├── MyApp.Tests/
+│   │   └── MyApp.Tests.csproj
+│   └── MyLib.Tests/
+│       └── MyLib.Tests.csproj
+├── benchmarks/                 # Performance benchmarks (optional)
+│   └── MyApp.Benchmarks/
+│       └── MyApp.Benchmarks.csproj
+├── examples/                   # Example projects (optional)
+├── docs/                       # Documentation
+└── .github/                    # GitHub configuration
 ```
 
-### Key Files
-- `.github/workflows/pr.yaml`: Defines CI/CD pipeline with build, test, coverage, and security scanning
-- `SETUP.md`: Instructions for setting up a new repository from this template
-- `.editorconfig`: Enforces C# coding standards and formatting rules
-- `.gitignore`: Comprehensive .NET gitignore with Visual Studio and build artifact exclusions
+### Key Configuration Files
+- **`.editorconfig`**: Code style rules (C# file-scoped namespaces, var preferences, analyzer severity)
+- **`.gitignore`**: Comprehensive .NET gitignore (Visual Studio, build artifacts, packages)
+- **`SETUP.md`**: Detailed repository setup instructions (delete after setup)
+- **`CONTRIBUTING.md`**: Empty - populate with contribution guidelines
+- **`CODE_OF_CONDUCT.md`**: Standard Contributor Covenant v2.0
 
-### CI/CD Pipeline Details
-The `pr.yaml` workflow includes:
-1. .NET 8.0.x setup
-2. Package restoration
-3. Release build
-4. Test execution with code coverage collection
-5. Coverage report generation and 80% threshold enforcement
-6. DevSkim security scanning
-7. Artifact upload for coverage reports and security results
+### GitHub Integration
+- **Workflows**: `.github/workflows/pr.yaml` - Comprehensive CI/CD pipeline
+- **Issue Templates**: Bug reports (YAML) and feature requests (Markdown)
+- **PR Template**: Structured pull request template with checklists
+- **CODEOWNERS**: Default owner `@Chris-Wolfgang`, update usernames as needed
+- **Dependabot**: Configured for NuGet packages in all project directories
 
-### Expected Command Failures in Template State
-- `dotnet restore` -- FAILS with "MSB1003: Specify a project or solution file" (expected when no projects exist)
-- `dotnet build` -- FAILS with same error (expected when no projects exist)  
-- `dotnet test` -- FAILS with same error (expected when no projects exist)
+### Continuous Integration Pipeline (`.github/workflows/pr.yaml`)
+The workflow runs on pull requests to `main` branch and includes:
 
-### Working with the Template
-1. NEVER try to build the template repository itself - it has no projects
-2. ALWAYS create actual .NET projects first using the structure in `SETUP.md`
-3. Use this template by clicking "Use this template" on GitHub, not by cloning directly
-4. Delete `SETUP.md` after completing repository setup
-5. The workflow automatically skips execution in the template repository itself
+1. **Environment**: Ubuntu Latest with .NET 8.0.x
+2. **Build Steps**: Checkout → Setup .NET → Restore → Build → Test → Coverage → Security
+3. **Artifacts**: Coverage reports and DevSkim results uploaded
+4. **Branch Protection**: Configured to require this workflow to pass before merging
+
+**Security Note**: Workflow includes safeguard `if: github.repository != 'Chris-Wolfgang/repo-template'` to prevent running on the template itself.
+
+### Branch Protection Configuration
+When using this template, configure these settings in GitHub (detailed in `SETUP.md`):
+- Require status checks to pass before merging
+- Require branches to be up to date
+- Require pull request reviews (including Copilot reviews)
+- Restrict deletions and block force pushes
+- Require code scanning
+
+## Key Files and Locations
+
+### Root Directory Files
+- `README.md` - Basic template description (update for your project)
+- `LICENSE` - Mozilla Public License 2.0
+- `SETUP.md` - Template setup instructions (delete after setup)
+- `.editorconfig` - Code style configuration
+- `.gitignore` - .NET-specific gitignore
+
+### GitHub Directory (`.github/`)
+- `workflows/pr.yaml` - Main CI/CD pipeline
+- `ISSUE_TEMPLATE/` - Bug report (YAML) and feature request templates
+- `pull_request_template.md` - PR template with checklists
+- `CODEOWNERS` - Code ownership rules
+- `dependabot.yml` - Dependency update configuration
+
+### Project Directories (Currently Empty in Template)
+- `src/` - Application source code
+- `tests/` - Unit and integration tests
+- `benchmarks/` - Performance benchmarks
+- `examples/` - Example usage projects
+- `docs/` - Documentation (contains placeholder `index.html`)
+
+## Agent Guidelines
+
+### Trust These Instructions
+This information has been validated against the template structure and GitHub workflows. **Only search for additional information if these instructions are incomplete or found to be incorrect.**
+
+### When Working with This Template
+1. **Creating New Projects**: Follow the structure outlined in `SETUP.md`
+2. **Adding Dependencies**: Use `dotnet add package` commands
+3. **Code Style**: Follow `.editorconfig` rules (file-scoped namespaces, explicit typing)
+4. **Testing**: Ensure test projects follow `*Test*.csproj` naming convention
+5. **Coverage**: Aim for >80% code coverage to pass CI
+6. **Security**: Review DevSkim findings and address security concerns
+
+### Validation Steps
+Before submitting changes:
+1. Run `dotnet restore && dotnet build --configuration Release`
+2. Run tests with coverage collection
+3. Verify coverage meets 80% threshold
+4. Run DevSkim security scan
+5. Ensure all GitHub Actions checks pass
+
+This template provides a solid foundation for .NET projects with enterprise-grade CI/CD, security scanning, and development best practices built-in.

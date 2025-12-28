@@ -1,0 +1,90 @@
+name: Release on Version Tag
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            5.0.x
+            6.0.x
+            7.0.x
+            8.0.x
+            9.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build Solution (Release)
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run tests for all test projects
+        shell: bash
+        run: |
+          find ./tests -type f -name '*Test*.csproj' | while read proj; do
+            echo "Running tests for $proj"
+            dotnet test "$proj" --no-build --configuration Release
+          done
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: '**/TestResults*.trx'
+
+  publish:
+    name: Pack and Publish NuGet
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            5.0.x
+            6.0.x
+            7.0.x
+            8.0.x
+            9.0.x
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build Solution (Release)
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Pack NuGet Package for Each Project in Src (Release)
+        shell: bash
+        run: |
+            dotnet pack src/Wolfgang.DbContextBuilder-Core-EF6/Wolfgang.DbContextBuilder-Core-EF6.csproj --no-build --configuration Release --output ./nuget-packages 
+            dotnet pack src/Wolfgang.DbContextBuilder-Core-EF7/Wolfgang.DbContextBuilder-Core-EF7.csproj --no-build --configuration Release --output ./nuget-packages 
+            dotnet pack src/Wolfgang.DbContextBuilder-Core-EF8/Wolfgang.DbContextBuilder-Core-EF8.csproj --no-build --configuration Release --output ./nuget-packages 
+            dotnet pack src/Wolfgang.DbContextBuilder-Core-EF9/Wolfgang.DbContextBuilder-Core-EF9.csproj --no-build --configuration Release --output ./nuget-packages 
+            
+      - name: Publish NuGet Package
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }} # Ensure this secret is set in repository settings
+        run: |
+          for pkg in ./nuget-packages/*.nupkg; do
+            dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+          done

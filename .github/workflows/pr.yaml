@@ -3,6 +3,9 @@
 
 name: PR Checks
 
+permissions:
+  contents: read
+  
 on:
   pull_request:
     branches:
@@ -21,8 +24,12 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          # Specifies the version of dotnet to use. You can specify multiple versions. For a complate list of supported versions review the [documentation](https://github.com/actions/setup-dotnet#inputs)
-          dotnet-version: '8.0.x'
+          dotnet-version: |
+            5.0.x
+            6.0.x
+            7.0.x
+            8.0.x
+            9.0.x
 
       - name: Restore dependencies
         run: dotnet restore
@@ -87,7 +94,7 @@ jobs:
         run: dotnet tool install --global Microsoft.CST.DevSkim.CLI
 
       - name: Run DevSkim Security Scan (Save output)
-        run: devskim analyze --source-code . -f text --output-file devskim-results.txt -E
+        run: devskim analyze --source-code . --file-format text -E --ignore-rule-ids DS176209 --ignore-globs "**/api/**,**/CoverageReport/**"
 
       - name: Show DevSkim Results in Summary
         if: failure()

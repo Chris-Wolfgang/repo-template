@@ -1,0 +1,38 @@
+name: Create Dependabot Security and Dependencies Labels
+on:
+  workflow_dispatch:
+
+jobs:
+  create-labels:
+    permissions:
+      issues: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create "dependabot - security" label
+        uses: actions/github-script@v6
+        with:
+          script: |
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: "dependabot - security",
+                color: "b60205"
+              });
+            } catch (error) {
+              // Ignore if label already exists
+            }
+      - name: Create "dependabot-dependencies" label
+        uses: actions/github-script@v6
+        with:
+          script: |
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: "dependabot-dependencies",
+                color: "d93f0b"
+              });
+            } catch (error) {
+              // Ignore if label already exists
+            }
