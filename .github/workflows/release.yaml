@@ -10,11 +10,8 @@ permissions:
 
 jobs:
   build-and-test:
-    name: Build and Test on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    name: Build and Test
+    runs-on: windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,6 +25,7 @@ jobs:
             7.0.x
             8.0.x
             9.0.x
+            10.0.x
 
       - name: Restore dependencies
         run: dotnet restore
@@ -36,24 +34,28 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Run tests for all test projects
-        shell: bash
+        shell: pwsh
         run: |
-          find ./tests -type f -name '*Test*.csproj' | while read proj; do
-            echo "Running tests for $proj"
-            dotnet test "$proj" --no-build --configuration Release
-          done
+          Get-ChildItem -Path './tests' -Recurse -Filter '*Test*.csproj' | ForEach-Object {
+            Write-Host "Running tests for $($_.FullName)"
+            dotnet test $_.FullName --no-build --configuration Release
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Tests failed for $($_.FullName)"
+              exit $LASTEXITCODE
+            }
+          }
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.os }}
+          name: test-results
           path: '**/TestResults*.trx'
 
   publish:
     name: Pack and Publish NuGet
     needs: build-and-test
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -67,24 +69,47 @@ jobs:
             7.0.x
             8.0.x
             9.0.x
+            10.0.x
+
       - name: Restore dependencies
         run: dotnet restore
 
       - name: Build Solution (Release)
         run: dotnet build --no-restore --configuration Release
 
-      - name: Pack NuGet Package for Each Project in Src (Release)
-        shell: bash
+      - name: Pack NuGet Packages
+        shell: pwsh
         run: |
-            dotnet pack src/Wolfgang.DbContextBuilder-Core-EF6/Wolfgang.DbContextBuilder-Core-EF6.csproj --no-build --configuration Release --output ./nuget-packages 
-            dotnet pack src/Wolfgang.DbContextBuilder-Core-EF7/Wolfgang.DbContextBuilder-Core-EF7.csproj --no-build --configuration Release --output ./nuget-packages 
-            dotnet pack src/Wolfgang.DbContextBuilder-Core-EF8/Wolfgang.DbContextBuilder-Core-EF8.csproj --no-build --configuration Release --output ./nuget-packages 
-            dotnet pack src/Wolfgang.DbContextBuilder-Core-EF9/Wolfgang.DbContextBuilder-Core-EF9.csproj --no-build --configuration Release --output ./nuget-packages 
-            
+          $packagesPath = Join-Path $PWD 'nuget-packages'
+          New-Item -ItemType Directory -Force -Path $packagesPath | Out-Null
+
+          Get-ChildItem -Path 'src' -Recurse -Filter '*.csproj' | ForEach-Object {
+            Write-Host "Packing $($_.FullName)"
+            dotnet pack $_.FullName --no-build --configuration Release --output $packagesPath
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "dotnet pack failed for $($_.FullName)"
+              exit $LASTEXITCODE
+            }
+          }
+
+      - name: Upload NuGet packages as artifacts
+        uses: actions/upload-artifact@v4
+        with: 
+          name: nuget-packages
+          path: ./nuget-packages/*.nupkg
+          retention-days: 30
+
       - name: Publish NuGet Package
+        shell: pwsh
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }} # Ensure this secret is set in repository settings
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          for pkg in ./nuget-packages/*.nupkg; do
-            dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
-          done
+          $packagesPath = Join-Path $PWD 'nuget-packages'
+          Get-ChildItem -Path $packagesPath -Filter '*.nupkg' | ForEach-Object {
+            Write-Host "Publishing $($_.FullName)"
+            dotnet nuget push $_.FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "dotnet nuget push failed for $($_.FullName)"
+              exit $LASTEXITCODE
+            }
+          }

@@ -20,7 +20,12 @@ jobs:
                 color: "b60205"
               });
             } catch (error) {
-              // Ignore if label already exists
+              if (error.status === 422 && error.response?.data?.errors?.[0]?.code === 'already_exists') {
+                console.log('Label "dependabot - security" already exists, skipping creation');
+              } else {
+                console.error('Failed to create label "dependabot - security":', error.message);
+                throw error;
+              }
             }
       - name: Create "dependabot-dependencies" label
         uses: actions/github-script@v6
@@ -34,5 +39,48 @@ jobs:
                 color: "d93f0b"
               });
             } catch (error) {
-              // Ignore if label already exists
+              if (error.status === 422 && error.response?.data?.errors?.[0]?.code === 'already_exists') {
+                console.log('Label "dependabot-dependencies" already exists, skipping creation');
+              } else {
+                console.error('Failed to create label "dependabot-dependencies":', error.message);
+                throw error;
+              }
+            }
+      - name: Create "dependencies" label
+        uses: actions/github-script@v6
+        with:
+          script: |
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: "dependencies",
+                color: "0366d6"
+              });
+            } catch (error) {
+              if (error.status === 422 && error.response?.data?.errors?.[0]?.code === 'already_exists') {
+                console.log('Label "dependencies" already exists, skipping creation');
+              } else {
+                console.error('Failed to create label "dependencies":', error.message);
+                throw error;
+              }
+            }
+      - name: Create "dotnet" label
+        uses: actions/github-script@v6
+        with:
+          script: |
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: "dotnet",
+                color: "512bd4"
+              });
+            } catch (error) {
+              if (error.status === 422 && error.response?.data?.errors?.[0]?.code === 'already_exists') {
+                console.log('Label "dotnet" already exists, skipping creation');
+              } else {
+                console.error('Failed to create label "dotnet":', error.message);
+                throw error;
+              }
             }
