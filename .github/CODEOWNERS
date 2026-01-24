@@ -1,0 +1,17 @@
+# This CODEOWNERS file designates code owners for different parts of the repository.
+# Update usernames or teams as appropriate for your project.
+
+# Set the default owner for everything in the repository
+* @Chris-Wolfgang
+
+# Example: Assign a team or user to a specific directory
+# /src/ @Chris-Wolfgang
+
+# Example: Assign a different owner to documentation files
+# /docs/ @Chris-Wolfgang
+
+# Example: Assign an owner to GitHub Actions workflows
+# /.github/workflows/ @Chris-Wolfgang
+
+# Example: Assign an owner to the .github folder to protect the CODEOWNERS file
+/.github/ @Chris-Wolfgang
