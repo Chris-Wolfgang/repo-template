@@ -21,7 +21,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Install DocFX
         run: dotnet tool update docfx --global
@@ -33,6 +33,15 @@ jobs:
       - name: Build Docs
         run: docfx build 
         working-directory: docfx_project
+
+      - name: Verify build output
+        run: |
+          if [ ! -d "docfx_project/_site" ]; then
+            echo "Error: _site directory not found!"
+            exit 1
+          fi
+          echo "Build successful. Contents of _site:"
+          ls -la docfx_project/_site
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
