@@ -160,12 +160,12 @@ dotnet_analyzer_diagnostic.severity = error
 
 ### GitHub Workflow Summary (.github/workflows/pr.yaml)
 - **Trigger**: Pull requests to `main` branch
-- **OS**: Ubuntu Latest
-- **Runtime**: .NET 8.0.x
+- **OS Matrix**: Ubuntu, Windows, and macOS (GitHub-hosted runners)
+- **Runtimes**: .NET 5.0–10.0 (where supported per OS) and .NET Framework 4.x on Windows
 - **Safety Guard**: `if: github.repository != 'Chris-Wolfgang/repo-template'`
-- **Steps**: Checkout → Setup .NET → Restore → Build → Test → Coverage → Security
+- **Structure**: Multi-stage, gated pipeline (matrix build/test jobs → coverage/reporting → security scanning), with later stages depending on earlier ones
 - **Artifacts**: Coverage reports and DevSkim results uploaded
-- **Required**: All steps must pass for PR to be mergeable
+- **Required**: All required jobs/stages must pass for PRs to be mergeable
 
 ### Expected Project Structure (When Using Template)
 ```
@@ -213,7 +213,7 @@ After making changes, always test these specific scenarios:
 
 1. **Create New Class Library** (timing: 3-5 seconds):
    ```bash
-   cd src/MyProject && dotnet new classlib -n MyProject
+   dotnet new classlib -n MyProject -o src/MyProject
    dotnet sln add src/MyProject/MyProject.csproj
    ```
 
