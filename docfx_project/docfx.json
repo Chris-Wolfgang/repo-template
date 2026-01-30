@@ -1,0 +1,46 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "files": [
+			"src/<path>/<project>.csproj"
+          ],
+          "src": "../"
+        }
+      ],
+      "dest": "api"
+    }
+  ],
+  "build": {
+    "content": [
+      {
+		"files": [
+			"**/*.{md,yml}"
+		],
+        "exclude": [
+          "_site/**"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": [
+          "images/**"
+        ]
+      }
+    ],
+    "output": "_site",
+    "template": [
+      "modern",
+      "default"
+    ],
+    "globalMetadata": {
+      "_appName": "",
+      "_appTitle": "<title>",
+      "_enableSearch": true,
+      "pdf": true
+    }
+  }
+}

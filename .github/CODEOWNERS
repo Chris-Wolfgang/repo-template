@@ -14,4 +14,4 @@
 # /.github/workflows/ @Chris-Wolfgang
 
 # Example: Assign an owner to the .github folder to protect the CODEOWNERS file
-/.github/ @owner_username
+/.github/ @Chris-Wolfgang

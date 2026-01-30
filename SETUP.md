@@ -1,5 +1,5 @@
 # Setting Up Your Repository
-After you create you repo from the template you will still need to configure some settings. 
+After you create your repo from the template you will still need to configure some settings. 
 Below is a list of what needs to be done. Once you have completed the checklist below you can delete this file
 
 ## Creating Your Repository
@@ -10,10 +10,10 @@ Below is a list of what needs to be done. Once you have completed the checklist 
  	2. `Description`
   	3. Select `Public` or `Private`
 1. `Start with a template` select `Chris-Wolfgang/repo-template`
-1. `Include all branches` set `On` - this will include the `develop` branch. If you don't want the `develop` branch or if there are other branches you don't want you can leave this `off` and create the `develop` branch in your new respoitory
+1. `Include all branches` set `On` - this will include the `develop` branch. If you don't want the `develop` branch or if there are other branches you don't want you can leave this `off` and create the `develop` branch in your new repository
 
 
-## Add Bracnch Protection Rules
+## Add Branch Protection Rules
 
 1. Go to your repository’s Settings → Branches.
 2. Under “Branch protection rules,” click `Add branch ruleset`
@@ -45,7 +45,12 @@ These settings require that all checks in the pr.yaml file succeed before you ca
 
 ## Add Custom Labels
 
+1. On the `Actions` tab select `Create Custom Labels`
+2. Select `Run workflow`
+3. Select `main` branch and click `Run`
 You will need to create the following custom labels
+
+If that doesn't work try the following
 
 Go to `Issues` tab at the top of your repo and the select `Labels` and click `New label`
 
