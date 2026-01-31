@@ -10,9 +10,6 @@ on:
   push:
     tags:
       - 'build-*'
-    branches:
-      - main
-      - develop
       
 permissions:
   contents: read

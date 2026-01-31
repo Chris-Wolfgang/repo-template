@@ -160,12 +160,13 @@ dotnet_analyzer_diagnostic.severity = error
 
 ### GitHub Workflow Summary (.github/workflows/pr.yaml)
 - **Trigger**: Pull requests to `main` branch
-- **OS Matrix**: Ubuntu, Windows, and macOS (GitHub-hosted runners)
-- **Runtimes**: .NET 5.0–10.0 (where supported per OS) and .NET Framework 4.x on Windows
+- **OS / Runner**: Single Linux job on `ubuntu-latest` (GitHub-hosted runner)
+- **Runtimes**: .NET 8.0.x SDK
 - **Safety Guard**: `if: github.repository != 'Chris-Wolfgang/repo-template'`
-- **Structure**: Multi-stage, gated pipeline (matrix build/test jobs → coverage/reporting → security scanning), with later stages depending on earlier ones
+- **Structure**: Single-stage job that runs restore, build, tests with coverage, and DevSkim security scanning sequentially
 - **Artifacts**: Coverage reports and DevSkim results uploaded
-- **Required**: All required jobs/stages must pass for PRs to be mergeable
+- **Required**: This PR validation job must pass for pull requests to be mergeable (when configured as a required status check)
+- **Additional Multi-OS Builds**: If present, `.github/workflows/build.yaml` can be used for matrix builds on Ubuntu, Windows, and macOS
 
 ### Expected Project Structure (When Using Template)
 ```
