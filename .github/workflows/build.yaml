@@ -51,9 +51,9 @@ jobs:
         run: |
           echo "Finding all projects in solution..."
           
-          # Get list of all projects from solution file
-          if [ -f "*.sln" ]; then
-            sln_file=$(ls *.sln | head -n 1)
+          # Get list of all projects from solution file (if any .sln files exist)
+          if ls ./*.sln 1> /dev/null 2>&1; then
+            sln_file=$(ls ./*.sln | head -n 1)
             echo "Using solution file: $sln_file"
           fi
           
