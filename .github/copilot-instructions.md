@@ -60,15 +60,15 @@ dotnet tool install --global Microsoft.CST.DevSkim.CLI
 
 6. **Validate Coverage Thresholds** (timing: <1 second):
    ```bash
-   # Check 80% coverage requirement
+   # Check 90% coverage requirement
    failed_projects=""
    while read -r line; do
      module=$(echo "$line" | awk '{print $1}')
      percent=$(echo "$line" | awk '{print $NF}' | tr -d '%' | xargs)
      echo "Checking module: '$module', percent: '$percent'"
      if [[ "$percent" =~ ^[0-9]+$ ]]; then
-       if [ "$percent" -lt 80 ]; then
-         echo "FAIL: $module is below 80% ($percent%)"
+       if [ "$percent" -lt 90 ]; then
+         echo "FAIL: $module is below 90% ($percent%)"
          failed_projects="$failed_projects $module ($percent%)"
        else
          echo "PASS: $module meets coverage ($percent%)"
@@ -77,13 +77,13 @@ dotnet tool install --global Microsoft.CST.DevSkim.CLI
    done < <(grep -E '^[^ ].*[0-9]+%$' CoverageReport/Summary.txt | grep -v '^Summary')
    
    if [ -n "$failed_projects" ]; then
-     echo "The following projects are below 80% line coverage:$failed_projects"
+     echo "The following projects are below 90% line coverage:$failed_projects"
      exit 1
    fi
    ```
 
 ### Critical Build Requirements
-- **Code Coverage**: Minimum 80% line coverage required for all projects
+- **Code Coverage**: Minimum 90% line coverage required for all projects
 - **Security Scanning**: DevSkim must run without errors (exit code issues from generated files are normal)
 - **Build Configuration**: Always use Release configuration for CI/CD
 - **Test Pattern**: Test projects must match `*Test*.csproj` pattern in `/tests` folder
@@ -92,13 +92,13 @@ dotnet tool install --global Microsoft.CST.DevSkim.CLI
 Always manually validate changes after building:
 1. **Build Validation**: Verify `dotnet build` succeeds with no warnings in Release mode
 2. **Test Validation**: Confirm all tests pass and coverage reports generate
-3. **Coverage Validation**: Check that `CoverageReport/Summary.txt` shows ≥80% for all modules
+3. **Coverage Validation**: Check that `CoverageReport/Summary.txt` shows ≥90% for all modules
 4. **Security Validation**: Review `devskim-results.txt` for actual security issues (ignore false positives from generated coverage files)
 5. **CI Validation**: Ensure all GitHub Actions checks pass before merging
 
 ### Common Issues and Workarounds
 - **Timeout Issues**: Use timeouts of 300+ seconds for all commands. Coverage and security scans can take several minutes for larger projects
-- **Coverage Threshold Failures**: If below 80%, add more tests or mark uncoverable code with `[ExcludeFromCodeCoverage]`
+- **Coverage Threshold Failures**: If below 90%, add more tests or mark uncoverable code with `[ExcludeFromCodeCoverage]`
 - **Missing Test Projects**: The workflow expects at least one test project in `/tests` folder matching `*Test*.csproj`
 - **DevSkim False Positives**: Coverage report JS files trigger security warnings - these are safe to ignore
 
@@ -236,7 +236,7 @@ After making changes, always test these specific scenarios:
    devskim analyze --source-code . -f text --output-file devskim-results.txt -E
    ```
 
-4. **Coverage Validation Test**: Add a simple class and test to verify 80% threshold works:
+4. **Coverage Validation Test**: Add a simple class and test to verify 90% threshold works:
    ```csharp
    // In src project
    public class Calculator 
@@ -315,14 +315,14 @@ This information has been validated against the template structure and GitHub wo
 2. **Adding Dependencies**: Use `dotnet add package` commands
 3. **Code Style**: Follow `.editorconfig` rules (file-scoped namespaces, explicit typing)
 4. **Testing**: Ensure test projects follow `*Test*.csproj` naming convention
-5. **Coverage**: Aim for >80% code coverage to pass CI
+5. **Coverage**: Aim for >90% code coverage to pass CI
 6. **Security**: Review DevSkim findings and address security concerns
 
 ### Validation Steps
 Before submitting changes:
 1. Run `dotnet restore && dotnet build --configuration Release`
 2. Run tests with coverage collection
-3. Verify coverage meets 80% threshold
+3. Verify coverage meets 90% threshold
 4. Run DevSkim security scan
 5. Ensure all GitHub Actions checks pass
 
