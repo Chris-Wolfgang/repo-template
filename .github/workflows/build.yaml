@@ -12,7 +12,7 @@ on:
       - 'build-*'
     branches:
       - main
-
+      - develop
 permissions:
   contents: read
 
