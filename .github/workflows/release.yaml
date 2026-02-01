@@ -29,6 +29,7 @@ jobs:
           fetch-depth: 0  # Fetch all history for branch verification
 
       - name: Verify tag is on main branch
+        shell: bash
         run: |
           git fetch origin main
           if ! git merge-base --is-ancestor ${{ github.sha }} origin/main; then
