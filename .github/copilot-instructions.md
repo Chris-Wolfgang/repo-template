@@ -161,7 +161,7 @@ dotnet_analyzer_diagnostic.severity = error
 ### GitHub Workflow Summary (.github/workflows/pr.yaml)
 - **Trigger**: Pull requests to `main` branch
 - **OS / Runner**: Single Linux job on `ubuntu-latest` (GitHub-hosted runner)
-- **Runtimes**: .NET 8.0.x SDK
+- **Runtimes**: .NET 5.0.x, 6.0.x, 7.0.x, 8.0.x, 9.0.x, 10.0.x SDKs
 - **Safety Guard**: `if: github.repository != 'Chris-Wolfgang/repo-template'`
 - **Structure**: Single-stage job that runs restore, build, tests with coverage, and DevSkim security scanning sequentially
 - **Artifacts**: Coverage reports and DevSkim results uploaded
