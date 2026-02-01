@@ -1,4 +1,9 @@
-name: Release on Version Tag
+# Release workflow - Build and deploy to NuGet
+# Triggers on tags starting with 'v' on the main branch
+# Builds both .NET Framework and .NET Core/5+ versions
+# Publishes packages to NuGet.org
+
+name: Release and Publish to NuGet
 
 on:
   push:
@@ -9,12 +14,29 @@ permissions:
   contents: read
 
 jobs:
-  build-and-test:
-    name: Build and Test
+  # ============================================================================
+  # Build and Publish NuGet Packages
+  # ============================================================================
+  build-and-publish:
+    name: Build and Publish to NuGet
     runs-on: windows-latest
+    if: github.repository != 'Chris-Wolfgang/repo-template'
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for branch verification
+
+      - name: Verify tag is on main branch
+        shell: bash
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor ${{ github.sha }} origin/main; then
+            echo "Error: Tag must be created from a commit on the main branch"
+            exit 1
+          fi
+          echo "✅ Verified: Tag is reachable from main branch"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -30,52 +52,37 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build Solution (Release)
+      - name: Build Solution (Release) - All Frameworks
         run: dotnet build --no-restore --configuration Release
 
       - name: Run tests for all test projects
         shell: pwsh
         run: |
-          Get-ChildItem -Path './tests' -Recurse -Filter '*Test*.csproj' | ForEach-Object {
-            Write-Host "Running tests for $($_.FullName)"
-            dotnet test $_.FullName --no-build --configuration Release
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "Tests failed for $($_.FullName)"
-              exit $LASTEXITCODE
+          $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*Test*.csproj'
+          
+          if ($testProjects.Count -eq 0) {
+            Write-Error "❌ No test projects found in ./tests directory!"
+            exit 1
+          } else {
+            Write-Host "==========================================" -ForegroundColor Cyan
+            Write-Host "Found test projects:" -ForegroundColor Cyan
+            Write-Host "==========================================" -ForegroundColor Cyan
+            $testProjects | ForEach-Object { Write-Host $_.FullName -ForegroundColor White }
+            Write-Host ""
+            
+            foreach ($testProj in $testProjects) {
+              Write-Host "Running tests for $($testProj.FullName)" -ForegroundColor Yellow
+              dotnet test $testProj.FullName --no-build --configuration Release --logger "console;verbosity=normal"
+              
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "Tests failed for $($testProj.Name)"
+                exit $LASTEXITCODE
+              }
             }
+            
+            Write-Host ""
+            Write-Host "✅ All tests passed" -ForegroundColor Green
           }
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: '**/TestResults*.trx'
-
-  publish:
-    name: Pack and Publish NuGet
-    needs: build-and-test
-    runs-on: windows-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: |
-            5.0.x
-            6.0.x
-            7.0.x
-            8.0.x
-            9.0.x
-            10.0.x
-
-      - name: Restore dependencies
-        run: dotnet restore
-
-      - name: Build Solution (Release)
-        run: dotnet build --no-restore --configuration Release
 
       - name: Pack NuGet Packages
         shell: pwsh
@@ -83,13 +90,27 @@ jobs:
           $packagesPath = Join-Path $PWD 'nuget-packages'
           New-Item -ItemType Directory -Force -Path $packagesPath | Out-Null
 
-          Get-ChildItem -Path 'src' -Recurse -Filter '*.csproj' | ForEach-Object {
-            Write-Host "Packing $($_.FullName)"
-            dotnet pack $_.FullName --no-build --configuration Release --output $packagesPath
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "dotnet pack failed for $($_.FullName)"
-              exit $LASTEXITCODE
+          Write-Host "==========================================" -ForegroundColor Cyan
+          Write-Host "Packing NuGet packages" -ForegroundColor Cyan
+          Write-Host "==========================================" -ForegroundColor Cyan
+
+          $projects = Get-ChildItem -Path 'src' -Recurse -Filter '*.csproj'
+          
+          if ($projects.Count -eq 0) {
+            Write-Warning "No projects found in src directory - skipping packaging"
+          } else {
+            foreach ($proj in $projects) {
+              Write-Host "Packing: $($proj.FullName)" -ForegroundColor Yellow
+              dotnet pack $proj.FullName --no-build --configuration Release --output $packagesPath
+              
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "dotnet pack failed for $($proj.FullName)"
+                exit $LASTEXITCODE
+              }
             }
+            
+            Write-Host ""
+            Write-Host "✅ All packages created successfully" -ForegroundColor Green
           }
 
       - name: Upload NuGet packages as artifacts
@@ -97,19 +118,44 @@ jobs:
         with: 
           name: nuget-packages
           path: ./nuget-packages/*.nupkg
-          retention-days: 30
+          retention-days: 90
+          if-no-files-found: warn
 
-      - name: Publish NuGet Package
+      - name: Publish to NuGet.org
         shell: pwsh
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           $packagesPath = Join-Path $PWD 'nuget-packages'
-          Get-ChildItem -Path $packagesPath -Filter '*.nupkg' | ForEach-Object {
-            Write-Host "Publishing $($_.FullName)"
-            dotnet nuget push $_.FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          $packages = Get-ChildItem -Path $packagesPath -Filter '*.nupkg'
+          
+          if ($packages.Count -eq 0) {
+            Write-Warning "No packages found to publish"
+            exit 0
+          }
+          
+          Write-Host "==========================================" -ForegroundColor Cyan
+          Write-Host "Publishing to NuGet.org" -ForegroundColor Cyan
+          Write-Host "==========================================" -ForegroundColor Cyan
+          
+          foreach ($package in $packages) {
+            Write-Host "Publishing: $($package.Name)" -ForegroundColor Yellow
+            
+            dotnet nuget push $package.FullName `
+              --api-key $env:NUGET_API_KEY `
+              --source https://api.nuget.org/v3/index.json `
+              --skip-duplicate
+            
             if ($LASTEXITCODE -ne 0) {
-              Write-Error "dotnet nuget push failed for $($_.FullName)"
+              Write-Error "Failed to publish $($package.Name)"
               exit $LASTEXITCODE
             }
+            
+            Write-Host "  ✅ Published successfully" -ForegroundColor Green
           }
+          
+          Write-Host ""
+          Write-Host "==========================================" -ForegroundColor Green
+          Write-Host "✅ ALL PACKAGES PUBLISHED" -ForegroundColor Green
+          Write-Host "==========================================" -ForegroundColor Green
+          Write-Host "Total packages: $($packages.Count)" -ForegroundColor Green
