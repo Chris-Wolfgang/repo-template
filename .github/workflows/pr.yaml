@@ -11,6 +11,10 @@ on:
     branches: 
       - main
 
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
 jobs:
   # ============================================================================
   # Linux - .NET Core/5+ Tests with Coverage Gate
