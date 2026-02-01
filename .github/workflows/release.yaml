@@ -58,7 +58,7 @@ jobs:
       - name: Run tests for all test projects
         shell: pwsh
         run: |
-          $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
+          $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*Test*.csproj'
           
           if ($testProjects.Count -eq 0) {
             Write-Error "❌ No test projects found in ./tests directory!"
