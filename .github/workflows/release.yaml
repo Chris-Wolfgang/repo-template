@@ -60,7 +60,8 @@ jobs:
           $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
           
           if ($testProjects.Count -eq 0) {
-            Write-Warning "No test projects found in ./tests directory - skipping tests"
+            Write-Error "❌ No test projects found in ./tests directory!"
+            exit 1
           } else {
             Write-Host "==========================================" -ForegroundColor Cyan
             Write-Host "Found test projects:" -ForegroundColor Cyan

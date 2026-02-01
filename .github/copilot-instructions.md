@@ -84,7 +84,7 @@ dotnet tool install --global Microsoft.CST.DevSkim.CLI
 
 ### Critical Build Requirements
 - **Code Coverage**: Minimum 90% line coverage required for all projects
-- **Security Scanning**: DevSkim must run without errors (exit code issues from generated files are normal)
+- **Security Scanning**: DevSkim must execute successfully and report no security issues; workflow will fail if security vulnerabilities are detected
 - **Build Configuration**: Always use Release configuration for CI/CD
 - **Test Pattern**: Test projects must match `*Test*.csproj` pattern in `/tests` folder
 
