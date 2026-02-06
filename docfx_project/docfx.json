@@ -10,15 +10,20 @@
           "src": "../"
         }
       ],
-      "dest": "api"
+      "dest": "api",
+      "properties": {
+        "TargetFramework": "net8.0"
+      },
+      "disableGitFeatures": false,
+      "disableDefaultFilter": false
     }
   ],
   "build": {
     "content": [
       {
-		"files": [
-			"**/*.{md,yml}"
-		],
+        "files": [
+          "**/*.{md,yml}"
+        ],
         "exclude": [
           "_site/**"
         ]
@@ -31,15 +36,21 @@
         ]
       }
     ],
-    "output": "_site",
+    "output": "../docs",
     "template": [
+      "default",
       "modern",
-      "default"
+      "modern-dark"
     ],
     "globalMetadata": {
-      "_appName": "",
-      "_appTitle": "<title>",
+      "_appName": "<Application Name>",
+      "_appTitle": "<Application Name> Documentation",
       "_enableSearch": true,
+      "_appFooter": "Made with DocFX",
+      "_disableSidebar": false,
+      "_disableTocFilter": false,
+      "_enableDarkMode": true,
+      "_baseUrl": "<Base URL>",
       "pdf": true
     }
   }

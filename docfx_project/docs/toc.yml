@@ -1,8 +1,10 @@
-- name: Index
-  href: Index.md
+- name: Home
+  href: ../index.md
 - name: Introduction
   href: introduction.md
 - name: Getting Started
   href: getting-started.md
+- name: API Reference
+  href: ../api/toc.yml
 - name: Project website
-  href: https://github.com/Chris-Wolfgang/DbContextBuilder
+  href: <URL to Repo>
