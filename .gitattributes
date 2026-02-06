@@ -1,0 +1,48 @@
+# Auto detect text files and perform LF normalization
+* text=auto eol=lf
+
+# Source code
+*.cs text eol=lf
+*.csx text eol=lf
+*.vb text eol=lf
+*.fs text eol=lf
+*.fsx text eol=lf
+
+# Scripts
+*.sh text eol=lf
+*.ps1 text eol=crlf
+
+
+# Build and configuration files
+*.xml text eol=lf
+*.csproj text eol=lf
+*.vbproj text eol=lf
+*.fsproj text eol=lf
+*.sln text eol=lf
+*.slnx text eol=lf
+*.props text eol=lf
+*.targets text eol=lf
+*.ruleset text eol=lf
+*.config text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Documentation
+*.md text eol=lf
+*.txt text eol=lf
+
+# SVG files (XML-based text)
+*.svg text eol=lf
+
+# Denote all files that are truly binary and should not be modified
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.dll binary
+*.exe binary
+*.nupkg binary
+*.snupkg binary
