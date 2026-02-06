@@ -1,0 +1,62 @@
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+  schedule:
+    - cron: '30 1 * * 0'  # Weekly scan on Sundays
+
+jobs:
+  analyze:
+    name: CodeQL analysis (csharp)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'csharp' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: |
+          8.0.x
+
+    - name: Build for CodeQL Analysis
+      run: |
+        echo "Building solution for CodeQL analysis..."
+        
+        # Find solution file (.sln or .slnx) with correct syntax
+        solution=$(find . -maxdepth 2 \( -name "*.sln" -o -name "*.slnx" \) | head -n 1)
+        
+        if [ -n "$solution" ]; then
+          echo "Found solution: $solution"
+          dotnet restore "$solution"
+          dotnet build "$solution" --configuration Release --no-restore
+        else
+          echo "No solution file found, building all projects..."
+          dotnet restore
+          dotnet build --configuration Release --no-restore
+        fi
+        
+        echo "✅ Build completed for CodeQL analysis"
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"

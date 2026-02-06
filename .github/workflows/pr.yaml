@@ -12,10 +12,11 @@ on:
   pull_request: 
     branches: 
       - main
-      - develop
+
     paths-ignore:
       - '**.md'
       - 'docs/**'
+
 jobs:
   # ============================================================================
   # STAGE 1: Linux - .NET Core/5+ Tests with Coverage Gate
@@ -32,7 +33,7 @@ jobs:
       # Fix for .NET 5.0 on Ubuntu 22.04+ - install libssl1.1
       - name: Install OpenSSL 1.1 for .NET 5.0
         run: |
-          wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+          wget https://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
           sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
 
       - name: Setup .NET
@@ -45,6 +46,20 @@ jobs:
             8.0.x
             9.0.x
             10.0.x
+
+      - name: Check Code Formatting
+        run: |
+          # dotnet format is built into .NET 6+ SDK (no separate installation needed)
+          # Find solution file
+          solution=$(find . -maxdepth 2 \( -name "*.sln" -o -name "*.slnx" \) | head -n 1)
+          
+          if [ -n "$solution" ]; then
+            echo "Checking formatting for: $solution"
+            dotnet format "$solution" --verify-no-changes --verbosity diagnostic
+          else
+            echo "No solution file found, checking entire workspace"
+            dotnet format --verify-no-changes --verbosity diagnostic
+          fi
 
       - name: Restore and build (exclude .NET Framework 4.x projects)
         run: |
@@ -146,6 +161,12 @@ jobs:
           echo "Coverage Summary:"
           cat CoverageReport/Summary.txt
           echo ""
+          
+          # Validate that the report contains expected content
+          if ! grep -q "Summary" CoverageReport/Summary.txt; then
+            echo "❌ Coverage report format is invalid!"
+            exit 1
+          fi
           
           failed_projects=""
           threshold=90
@@ -474,7 +495,6 @@ jobs:
         run: dotnet tool install --global Microsoft.CST.DevSkim.CLI
 
       - name: Run DevSkim security scan
-        continue-on-error: true
         run: |
           devskim analyze \
             --source-code . \
