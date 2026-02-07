@@ -29,10 +29,19 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 Prevent Merging When Checks Fail
 These settings require that all checks in the pr.yaml file succeed before you can merge a branch into main
 
+
+**Note:** The pr.yaml workflow uses `pull_request_target` to always run from the trusted main branch, even for PRs from feature branches. This prevents malicious workflow modifications in untrusted PR branches while still testing the PR's code.
+
 1. Go to your repository’s Settings → Branches.
 2. Under “Branch protection rules,” edit the rule for main.
 3. Check “Require status checks to pass before merging.”
-4. Select your PR workflow (it will be listed after it runs at least once).
+4. In the "Status checks that are required" list, select the status check contexts produced by your PR workflow jobs. These options appear after the workflow has run at least once on `main`. For example:
+   - "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate"
+   - "Stage 2a: Windows Tests (.NET 5.0-10.0)"
+   - "Stage 2b: Windows .NET Framework Tests (4.6.2-4.8.1)"
+   - "Stage 3: macOS Tests (.NET 6.0-10.0)"
+   - "Security Scan (DevSkim)"
+
 5. Enable “Require branches to be up to date before merging.”
 6. Check `Restrict deletions`
 7. Check `Require a pull request before merging`
@@ -45,10 +54,12 @@ These settings require that all checks in the pr.yaml file succeed before you ca
 
 ## Add Custom Labels
 
-1. On the `Actions` tab select `Create Custom Labels`
-2. Select `Run workflow`
-3. Select `main` branch and click `Run`
-You will need to create the following custom labels
+1. Go to your repository
+2. Click on the `Actions` tab
+3. Select `Create Dependabot Security and Dependencies Labels` from the workflow list
+4. Click `Run workflow` button
+5. Select the branch `main` and click `Run workflow`
+6. This will create all four labels:
 
 If that doesn't work try the following
 

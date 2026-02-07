@@ -11,7 +11,7 @@ on:
 jobs:
   analyze:
     name: CodeQL analysis (csharp)
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       actions: read
       contents: read
@@ -35,26 +35,43 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: |
-          8.0.x
+          10.0.x
 
     - name: Build for CodeQL Analysis
+      shell: pwsh
       run: |
-        echo "Building solution for CodeQL analysis..."
+        Write-Host "Building solution for CodeQL analysis..."
         
-        # Find solution file (.sln or .slnx) with correct syntax
-        solution=$(find . -maxdepth 2 \( -name "*.sln" -o -name "*.slnx" \) | head -n 1)
+        # Find solution file (.sln or .slnx)
+        $solution = Get-ChildItem -Path . -Recurse -Depth 2 -Include "*.sln", "*.slnx" | Select-Object -First 1
         
-        if [ -n "$solution" ]; then
-          echo "Found solution: $solution"
-          dotnet restore "$solution"
-          dotnet build "$solution" --configuration Release --no-restore
-        else
-          echo "No solution file found, building all projects..."
+        if ($solution) {
+          Write-Host "Found solution: $($solution.FullName)"
+          dotnet restore $solution.FullName
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "dotnet restore failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
+          dotnet build $solution.FullName --configuration Release --no-restore
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "dotnet build failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
+        } else {
+          Write-Host "No solution file found, building all projects..."
           dotnet restore
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "dotnet restore failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
           dotnet build --configuration Release --no-restore
-        fi
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "dotnet build failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
+        }
         
-        echo "✅ Build completed for CodeQL analysis"
+        Write-Host "✅ Build completed for CodeQL analysis"
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3

@@ -55,20 +55,6 @@ M:System.IO.Stream.CopyTo(System.IO.Stream,System.Int32); Use 'CopyToAsync()' in
 M:System.IO.Stream.Flush(); Use 'FlushAsync()' instead
 M:System.IO.FileStream.Read(System.Byte[],System.Int32,System.Int32); Use 'ReadAsync()' instead
 M:System.IO.FileStream.Write(System.Byte[],System.Int32,System.Int32); Use 'WriteAsync()' instead
-# TextReader
-M:System.IO.TextReader.ReadToEnd(); Use 'ReadToEndAsync()' instead
-M:System.IO.TextReader.ReadLine(); Use 'ReadLineAsync()' instead
-M:System.IO.TextReader.Read(); Use 'ReadAsync()' instead
-M:System.IO.TextReader.Read(System.Char[],System.Int32,System.Int32); Use 'ReadAsync()' instead
-M:System.IO.TextReader.ReadBlock(System.Char[],System.Int32,System.Int32); Use 'ReadBlockAsync()' instead
-# TextWriter
-M:System.IO.TextWriter.Write(System.String); Use 'WriteAsync()' instead
-M:System.IO.TextWriter.Write(System.Char); Use 'WriteAsync()' instead
-M:System.IO.TextWriter.Write(System.Char[]); Use 'WriteAsync()' instead
-M:System.IO.TextWriter.Write(System.Char[],System.Int32,System.Int32); Use 'WriteAsync()' instead
-M:System.IO.TextWriter.WriteLine(); Use 'WriteLineAsync()' instead
-M:System.IO.TextWriter.WriteLine(System.String); Use 'WriteLineAsync()' instead
-M:System.IO.TextWriter.Flush(); Use 'FlushAsync()' instead
 # Obsolete Network APIs - Use HttpClient
 T:System.Net.WebClient; Obsolete - use HttpClient instead
 T:System.Net.WebRequest; Obsolete - use HttpClient instead
