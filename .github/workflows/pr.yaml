@@ -1,18 +1,25 @@
 # Sequential PR validation workflow with coverage gating
 # Stage 1: Linux tests with 90% coverage requirement
-# Stage 2: Windows and macOS tests (only if Linux passes)
-# Stage 3: .NET Framework 4.x tests on Windows (only if Stage 2 passes)
+# Stage 2: Windows .NET Core and .NET Framework tests (only if Linux passes)
+# Stage 3: macOS tests (only if Stage 2 passes)
+#
+# SECURITY NOTE:
+# - Uses pull_request_target to run workflow from the trusted main branch, not from the PR branch
+# - This prevents malicious workflow YAML changes in untrusted PR branches from taking effect
+# - All checkout steps use PR refs (refs/pull/*/head) to check out PR code from the base repo
+# - persist-credentials: false prevents the checkout token from being written to git config for subsequent git commands
+#   (it does NOT, by itself, prevent steps from accessing github.token / GITHUB_TOKEN if you explicitly expose it)
+# - Default GITHUB_TOKEN permissions are restricted to read-only repository contents to limit impact if exposed
 
-name: PR Checks v2 (Gated)
+name: PR Checks v3 (Gated)
 
 permissions:
   contents: read
   
 on:
-  pull_request: 
-    branches: 
+  pull_request_target:  # Runs from the main branch, not from PR branch
+    branches:
       - main
-      - develop
     paths-ignore:
       - '**.md'
       - 'docs/**'
@@ -28,6 +35,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/head
+          persist-credentials: false
 
       # Fix for .NET 5.0 on Ubuntu 22.04+ - install libssl1.1
       - name: Install OpenSSL 1.1 for .NET 5.0
@@ -203,10 +213,10 @@ jobs:
             tests/**/bin/Release
 
   # ============================================================================
-  # STAGE 2: Windows & macOS - .NET Core/5+ Tests (Gated by Stage 1)
+  # STAGE 2: Windows - All .NET Tests (Gated by Stage 1)
   # ============================================================================
-  test-windows-core:
-    name: "Stage 2a: Windows Tests (.NET 5.0-10.0)"
+  test-windows:
+    name: "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)"
     runs-on: windows-latest
     needs: test-linux-core
     if: github.repository != 'Chris-Wolfgang/repo-template'
@@ -214,6 +224,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/head
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -232,7 +245,7 @@ jobs:
       - name: Build solution
         run: dotnet build --no-restore --configuration Release
 
-      - name: Run tests (.NET Core 5.0 - 10.0)
+      - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
         run: |
           $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
@@ -248,7 +261,8 @@ jobs:
           $testProjects | ForEach-Object { Write-Host $_.FullName -ForegroundColor White }
           Write-Host ""
           
-          $frameworks = @('net5.0', 'net6.0', 'net7.0', 'net8.0', 'net9.0', 'net10.0')
+          # Combined frameworks: .NET 5.0-10.0 and .NET Framework 4.6.2-4.8.1
+          $frameworks = @('net5.0', 'net6.0', 'net7.0', 'net8.0', 'net9.0', 'net10.0', 'net462', 'net472', 'net48', 'net481')
           
           foreach ($testProj in $testProjects) {
             Write-Host "==========================================" -ForegroundColor Cyan
@@ -256,7 +270,7 @@ jobs:
             Write-Host "==========================================" -ForegroundColor Cyan
             
             foreach ($fw in $frameworks) {
-              Write-Host "Testing framework:  $fw" -ForegroundColor Yellow
+              Write-Host "Testing framework: $fw" -ForegroundColor Yellow
               
               dotnet test $testProj.FullName `
                 --configuration Release `
@@ -271,15 +285,21 @@ jobs:
             Write-Host ""
           }
 
-  test-macos-core:  
-    name: "Stage 2b: macOS Tests (.NET 6.0-10.0)"
+  # ============================================================================
+  # STAGE 3: macOS Tests (Gated by Stage 2)
+  # ============================================================================
+  test-macos-core:
+    name: "Stage 3: macOS Tests (.NET 6.0-10.0)"
     runs-on: macos-latest
-    needs: test-linux-core
+    needs: test-windows
     if: github.repository != 'Chris-Wolfgang/repo-template'
     
     steps:
-      - name:  Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/head
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -383,80 +403,18 @@ jobs:
           echo "  - .NET 10.0 ✅"
           echo ""
           echo ".NET Core 5.0 are tested on Linux and Windows"
+          echo ""
 
-  # ============================================================================
-  # STAGE 3: Windows - .NET Framework 4.x Tests (Gated by Stage 2)
-  # ============================================================================
-  test-windows-framework: 
-    name: "Stage 3: Windows .NET Framework Tests (4.6.2-4.8.1)"
-    runs-on: windows-latest
-    needs: [test-windows-core, test-macos-core]
-    if: github.repository != 'Chris-Wolfgang/repo-template'
-    
-    steps: 
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: |
-            8.0.x
-
-      - name: Restore dependencies
-        run: dotnet restore
-
-      - name: Build solution
-        run: dotnet build --no-restore --configuration Release
-
-      - name:  Run .NET Framework tests (4.6.2 - 4.8.1)
-        shell: pwsh
+      - name: Summarize pipeline result
         run: |
-          $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
-          
-          if ($testProjects.Count -eq 0) {
-            Write-Error "❌ No test projects found in ./tests directory!"
-            exit 1
-          }
-          
-          Write-Host "==========================================" -ForegroundColor Cyan
-          Write-Host "Found test projects:" -ForegroundColor Cyan
-          Write-Host "==========================================" -ForegroundColor Cyan
-          $testProjects | ForEach-Object { Write-Host $_.FullName -ForegroundColor White }
-          Write-Host ""
-          
-          $frameworks = @('net462', 'net472', 'net48', 'net481')
-          
-          foreach ($testProj in $testProjects) {
-            Write-Host "==========================================" -ForegroundColor Cyan
-            Write-Host "Testing project: $($testProj.FullName)" -ForegroundColor Cyan
-            Write-Host "==========================================" -ForegroundColor Cyan
-            
-            foreach ($fw in $frameworks) {
-              Write-Host "Testing framework: $fw" -ForegroundColor Yellow
-              
-              dotnet test $testProj.FullName `
-                --configuration Release `
-                --framework $fw `
-                --logger "console;verbosity=normal"
-              
-              if ($LASTEXITCODE -ne 0) {
-                Write-Error "Tests failed for $fw in $($testProj.Name)"
-                exit 1
-              }
-            }
-            Write-Host ""
-          }
-          
-          Write-Host ""
-          Write-Host "==========================================" -ForegroundColor Green
-          Write-Host "✅ ALL STAGES PASSED" -ForegroundColor Green
-          Write-Host "==========================================" -ForegroundColor Green
-          Write-Host "Stage 1: Linux tests + 90% coverage ✅" -ForegroundColor Green
-          Write-Host "Stage 2: Windows & macOS tests ✅" -ForegroundColor Green
-          Write-Host "Stage 3: .NET Framework 4.x tests ✅" -ForegroundColor Green
-          Write-Host ""
-          Write-Host "PR is ready to merge! 🎉" -ForegroundColor Green
+          echo "=========================================="
+          echo "✅ ALL STAGES PASSED"
+          echo "=========================================="
+          echo "Stage 1: Linux tests + 90% coverage ✅"
+          echo "Stage 2: Windows .NET Core & .NET Framework tests ✅"
+          echo "Stage 3: macOS tests ✅"
+          echo ""
+          echo "PR is ready to merge! 🎉"
 
   # ============================================================================
   # Security Scan (Runs in parallel with tests)
@@ -469,6 +427,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/head
+          persist-credentials: false
 
       - name: Install DevSkim CLI
         run: dotnet tool install --global Microsoft.CST.DevSkim.CLI

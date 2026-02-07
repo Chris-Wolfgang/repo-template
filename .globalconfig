@@ -1,0 +1,10 @@
+is_global = true
+
+# Global analyzer configuration
+global_level = 9999
+
+# Roslynator configuration
+roslynator_accessibility_modifiers = explicit
+roslynator_enum_has_flag_style = method
+roslynator_object_creation_type_style = implicit_when_type_is_obvious
+roslynator_use_anonymous_function_or_method_group = method_group

@@ -1,6 +1,9 @@
 name: Create Dependabot Security and Dependencies Labels
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   create-labels:

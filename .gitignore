@@ -420,3 +420,11 @@ FodyWeavers.xsd
 # Test results and coverage
 TestResults/
 CoverageReport/
+
+# DocFX generated files
+docfx_project/_site/
+docfx_project/obj/
+
+# Generated documentation (built by CI/CD)
+docs/*
+!docs/.gitkeep
