@@ -42,11 +42,12 @@ Ensure the following settings are enabled:
   - **Single developer repos:** 0 approvals (default)
   - **Multi-developer repos:** 1+ approvals (recommended)
 - ✅ **Require status checks to pass before merging**
-  - Required checks should include jobs from `pr.yaml`:
-    - `test-linux-core`
-    - `test-windows`
-    - `test-macos-core`
-    - `security-scan`
+  - Required checks should include the following status check contexts:
+    - "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate"
+    - "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)"
+    - "Stage 3: macOS Tests (.NET 6.0-10.0)"
+    - "Security Scan (DevSkim)"
+    - "Security Scan (CodeQL)"
 - ✅ **Require branches to be up to date before merging**
 - ✅ **Require conversation resolution before merging**
 - ✅ **Do not allow bypassing the above settings** (recommended, even for admins)
