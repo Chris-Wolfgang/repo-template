@@ -213,11 +213,14 @@ jobs:
       - name: Pack NuGet packages
         shell: pwsh
         run: |
+          # Create output directory for NuGet packages
           $packagesPath = Join-Path $PWD 'nuget-packages'
           New-Item -ItemType Directory -Force -Path $packagesPath | Out-Null
 
+          # Find all .csproj files in the src directory recursively
           $projects = Get-ChildItem -Path 'src' -Recurse -Filter '*.csproj'
           
+          # Handle case when no projects are found (e.g., template repository)
           if ($projects.Count -eq 0) {
             Write-Warning "No projects found in src/ directory"
             # Create empty directory for artifact upload
@@ -225,16 +228,19 @@ jobs:
             exit 0
           }
           
+          # Iterate through each project and create NuGet package
           foreach ($proj in $projects) {
             Write-Host "📦 Packing $($proj.Name)" -ForegroundColor Cyan
             dotnet pack $proj.FullName --no-build --configuration Release --output $packagesPath
             
+            # Check if pack operation failed and exit with error
             if ($LASTEXITCODE -ne 0) {
               Write-Error "❌ Pack failed for $($proj.Name)"
               exit $LASTEXITCODE
             }
           }
           
+          # All packages created successfully
           Write-Host "✅ All packages packed successfully" -ForegroundColor Green
 
       - name: Smoke test NuGet package installation
