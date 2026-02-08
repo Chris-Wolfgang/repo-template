@@ -293,7 +293,7 @@ function Start-Setup {
                 break
             }
             default {
-                Write-Error "Invalid choice. Please enter 1, 2, or 3."
+                Write-TemplateError "Invalid choice. Please enter 1, 2, or 3."
                 continue
             }
         }
