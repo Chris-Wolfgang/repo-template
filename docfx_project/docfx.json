@@ -5,7 +5,7 @@
       "src": [
         {
           "files": [
-			"src/<path>/<project>.csproj"
+            "src/**/*.csproj"
           ],
           "src": "../"
         }
@@ -43,14 +43,14 @@
       "modern-dark"
     ],
     "globalMetadata": {
-      "_appName": "<Application Name>",
-      "_appTitle": "<Application Name> Documentation",
+      "_appName": "{{PROJECT_NAME}}",
+      "_appTitle": "{{PROJECT_NAME}} Documentation",
       "_enableSearch": true,
       "_appFooter": "Made with DocFX",
       "_disableSidebar": false,
       "_disableTocFilter": false,
       "_enableDarkMode": true,
-      "_baseUrl": "<Base URL>",
+      "_baseUrl": "{{DOCS_URL}}",
       "pdf": true
     }
   }
