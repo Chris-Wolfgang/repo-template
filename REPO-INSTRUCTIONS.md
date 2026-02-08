@@ -18,7 +18,7 @@ chmod +x setup.sh
 The automated scripts will:
 1. ✅ Prompt for all required information (with examples and defaults)
 2. ✅ Auto-detect git repository information where possible
-3. ✅ Replace all placeholders in template files
+3. ✅ Replace placeholders in core template files (see TEMPLATE-PLACEHOLDERS.md for details and any manual steps, including DocFX docs)
 4. ✅ Delete the template README.md
 5. ✅ Rename README-TEMPLATE.md to README.md
 6. ✅ Set up your chosen LICENSE (MIT, Apache 2.0, or MPL 2.0)

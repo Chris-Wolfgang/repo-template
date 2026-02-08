@@ -373,6 +373,9 @@ main() {
         "CONTRIBUTING.md"
         ".github/CODEOWNERS"
         "REPO-INSTRUCTIONS.md"
+        "docfx_project/docfx.json"
+        "docfx_project/index.md"
+        "docfx_project/docs/toc.yml"
     )
     
     for file in "${FILES_TO_UPDATE[@]}"; do
