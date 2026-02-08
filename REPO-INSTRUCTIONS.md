@@ -195,5 +195,5 @@ After creating your repository from the template, update the following files wit
 ### Update Documentation (Optional)
 
 If you're using DocFX for documentation:
-1. Update references in `docfx_project/docs/toc.yml` to point to your repository
-2. Customize the documentation content in `docfx_project/`
+1. Review and customize the generated table of contents in `docfx_project/docs/toc.yml` as needed (the setup scripts already point this to your repository)
+2. Customize the rest of the documentation content in `docfx_project/`

@@ -106,12 +106,24 @@ The workflow runs on pull requests to `main` branch and includes:
 4. **Branch Protection**: Configured to require this workflow to pass before merging
 
 ### Branch Protection Configuration
-The repository has branch protection rules configured:
+The repository has branch protection rules configured via `.github/ruleset-config.json`:
+
+**Single-Developer Configuration (Default):**
+- `required_approving_review_count`: 0 (no approval required)
+- `require_code_owner_review`: false
+- This allows solo developers to merge their own PRs while still enforcing CI/CD checks
+
+**For Multi-Developer Repositories:**
+Update `.github/ruleset-config.json` to require approvals:
+- Set `required_approving_review_count` to 1 or higher
+- Set `require_code_owner_review` to true
+
+**All Configurations Include:**
 - Require status checks to pass before merging
 - Require branches to be up to date
-- Require pull request reviews (including Copilot reviews)
+- Require conversation resolution before merging
 - Restrict deletions and block force pushes
-- Require code scanning
+- Require code scanning (CodeQL High+ severity)
 
 ## Key Files and Locations
 
