@@ -117,12 +117,12 @@ jobs:
                   }
                   
                   # Expect lines like "TargetFrameworks=net7.0;net8.0" or "TargetFramework=net8.0"
-                  if ($line -match '^\s*TargetFrameworks\s*=\s*(.+)$') {
+                  # Support both '=' and ':' separators for different MSBuild output formats
+                  if ($line -match '^\s*TargetFrameworks\s*[:=]\s*(.+)$') {
                     $propertyValue = $Matches[1].Trim()
-                    if ($line -match 'TargetFrameworks\s*[:=]') {
                     $resolvedFrameworks = $propertyValue -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
                     break
-                  } elseif ($line -match '^\s*TargetFramework\s*=\s*(.+)$') {
+                  } elseif ($line -match '^\s*TargetFramework\s*[:=]\s*(.+)$') {
                     $propertyValue = $Matches[1].Trim()
                     if ($propertyValue) {
                       $resolvedFrameworks = @($propertyValue)
@@ -167,10 +167,7 @@ jobs:
                 continue
               }
               
-                Write-Host "Testing framework: $fw" -ForegroundColor Yellow
-              } else {
-                Write-Host "Testing all frameworks (no explicit framework specified)" -ForegroundColor Yellow
-              }
+              Write-Host "Testing framework: $fw" -ForegroundColor Yellow
               
               # Collect coverage only for .NET 5.0+ TFMs; still run tests for all frameworks
               if ($fw -match '^net([5-9]|[1-9][0-9]+)\.') {
