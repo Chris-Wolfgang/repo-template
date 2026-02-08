@@ -29,12 +29,12 @@ function Write-Info {
     Write-Host "ℹ️  $Message" -ForegroundColor Cyan
 }
 
-function Write-Warning {
+function Write-TemplateWarning {
     param([string]$Message)
     Write-Host "⚠️  $Message" -ForegroundColor Yellow
 }
 
-function Write-Error {
+function Write-TemplateError {
     param([string]$Message)
     Write-Host "❌ $Message" -ForegroundColor Red
 }
@@ -167,7 +167,7 @@ function Replace-Placeholders {
     }
     
     if ($modified) {
-        Set-Content -Path $FilePath -Value $content -NoNewline
+        Set-Content -Path $FilePath -Value $content
         Write-Success "Updated: $FilePath"
     }
 }
@@ -383,7 +383,10 @@ function Start-Setup {
         'README.md',
         'CONTRIBUTING.md',
         '.github/CODEOWNERS',
-        'Repo-Instructions.md'
+        'Repo-Instructions.md',
+        'docfx_project/docfx.json',
+        'docfx_project/index.md',
+        'docfx_project/docs/toc.yml'
     )
     
     foreach ($file in $filesToUpdate) {

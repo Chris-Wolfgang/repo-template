@@ -161,12 +161,7 @@ jobs:
       
       - name: Remove template files
         run: |
-          rm -f setup.ps1
-          rm -f setup.sh
-          rm -f TEMPLATE-PLACEHOLDERS.md
           rm -f LICENSE-SELECTION.md
-          rm -f README-FORMATTING.md
-          rm -f Repo-Instructions.md
           rm -f .github/workflows/setup-template.yml
       
       - name: Commit changes

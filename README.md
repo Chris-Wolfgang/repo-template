@@ -58,7 +58,7 @@ All code is analyzed during builds by these industry-standard tools:
 #### Pull Request Workflow (`.github/workflows/pr.yaml`)
 - **Multi-stage testing** across Linux, Windows, macOS
 - **Multi-framework testing** (.NET 5.0-10.0, .NET Framework 4.6.2-4.8.1)
-- **Code coverage** with 80% threshold enforcement
+- **Code coverage** with 90% threshold enforcement
 - **Security scanning** with DevSkim
 - **Coverage reports** as build artifacts
 - **Branch protection** integration
