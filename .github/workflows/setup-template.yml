@@ -143,9 +143,15 @@ jobs:
             sed -i "s|{{TEMPLATE_REPO_NAME}}|repo-template|g" "$file"
           }
           
-          # Replace placeholders in all tracked files
+          # Replace placeholders in all tracked files, excluding template documentation
           while IFS= read -r file; do
             if [ -f "$file" ]; then
+              case "$file" in
+                TEMPLATE-PLACEHOLDERS.md|LICENSE-SELECTION.md)
+                  # Skip template documentation files that intentionally contain {{...}} examples
+                  continue
+                  ;;
+              esac
               replace_in_file "$file"
             fi
           done < <(git ls-files)
