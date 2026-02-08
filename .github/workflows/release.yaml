@@ -263,9 +263,17 @@ jobs:
             }
           }
           
-          # All packages created successfully
-          Write-Host "✅ All packages packed successfully" -ForegroundColor Green
-          # Set output to indicate packages were created
+          # Check whether any .nupkg files were actually created
+          $packages = Get-ChildItem -Path $packagesPath -Filter '*.nupkg' -ErrorAction SilentlyContinue
+          
+          if ($packages.Count -eq 0) {
+            Write-Warning "No .nupkg files were produced during packing - downstream publish and release jobs will be skipped"
+            "has-packages=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            exit 0
+          }
+          
+          # At least one package was created successfully
+          Write-Host "✅ NuGet packages created successfully" -ForegroundColor Green
           "has-packages=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Smoke test NuGet package installation
