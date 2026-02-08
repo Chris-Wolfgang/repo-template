@@ -71,20 +71,17 @@ jobs:
             exit 1
           fi
 
-      - name: Delete this workflow (self-destruct)
+      - name: Finalize setup (requires manual cleanup)
         if: steps.check.outputs.exists == 'true' || (steps.check.outputs.exists == 'false' && steps.create_ruleset.outcome == 'success')
         run: |
-          echo "Self-destructing workflow..."
-          
-          # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Remove the workflow file
-          git rm .github/workflows/setup-branch-ruleset.yml
-          
-          # Commit and push
-          git commit -m "chore: remove one-time setup workflow [skip ci]"
-          git push
-          
-          echo "✅ Setup complete! This workflow has deleted itself."
+          echo "✅ Branch ruleset setup is complete."
+          echo
+          echo "This workflow was intended as a one-time setup helper."
+          echo "However, deleting it automatically via 'git push' from GitHub Actions"
+          echo "is unreliable once branch protection and rulesets are enabled on 'main'."
+          echo
+          echo "To clean up, please manually delete this file from the default branch:"
+          echo "  .github/workflows/setup-branch-ruleset.yml"
+          echo
+          echo "After deleting the file and pushing the change, this setup workflow"
+          echo "will no longer run."
