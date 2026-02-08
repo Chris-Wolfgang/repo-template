@@ -88,17 +88,73 @@ jobs:
                 exit 1
               }
             } else {
-              Write-Error "❌ No TargetFramework or TargetFrameworks found in $($testProj.Name)"
-              exit 1
+              # If no TargetFramework/TargetFrameworks are defined directly in the project file,
+              # attempt to resolve them via MSBuild (to account for Directory.Build.props, imports, etc.).
+              Write-Host "No TargetFramework or TargetFrameworks found directly in $($testProj.Name); querying MSBuild..." -ForegroundColor Yellow
+              $msbuildOutput = dotnet msbuild $testProj.FullName /nologo -getProperty:TargetFrameworks,TargetFramework
+              
+              if ($LASTEXITCODE -ne 0 -or -not $msbuildOutput) {
+                Write-Warning "Unable to query MSBuild for target frameworks for $($testProj.Name) (exit code $LASTEXITCODE). Tests will run without explicit --framework."
+                $frameworks = @('')
+              } else {
+                $resolvedFrameworks = @()
+                foreach ($line in $msbuildOutput) {
+                  if ([string]::IsNullOrWhiteSpace($line)) {
+                    continue
+                  }
+                  
+                  # Expect lines like "TargetFrameworks: net7.0;net8.0" or "TargetFramework: net8.0"
+                  if ($line -match '^\s*TargetFrameworks?\s*[:=]\s*(.+)$') {
+                    $propertyValue = $Matches[1].Trim()
+                    if ($line -match 'TargetFrameworks\s*[:=]') {
+                      $resolvedFrameworks = $propertyValue -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                    } elseif ($line -match 'TargetFramework\s*[:=]') {
+                      $resolvedFrameworks = @($propertyValue)
+                    }
+                    
+                    if ($resolvedFrameworks.Count -gt 0) {
+                      break
+                    }
+                  }
+                }
+                
+                if ($resolvedFrameworks.Count -gt 0) {
+                  $frameworks = $resolvedFrameworks
+                } else {
+                  Write-Warning "MSBuild did not return any TargetFramework/TargetFrameworks for $($testProj.Name). Tests will run without explicit --framework."
+                  $frameworks = @('')
+                }
+              }
             }
             
             Write-Host "Detected frameworks: $($frameworks -join ', ')" -ForegroundColor Cyan
             
             foreach ($fw in $frameworks) {
+              if ([string]::IsNullOrWhiteSpace($fw)) {
+                Write-Host "Testing project $($testProj.Name) without explicit --framework (using SDK/MSBuild defaults)" -ForegroundColor Yellow
+                
+                # When framework cannot be determined, run tests once without specifying --framework.
+                # Collect coverage in this case to avoid missing data due to unknown TFM.
+                dotnet test $testProj.FullName `
+                  --configuration Release `
+                  --no-build `
+                  --no-restore `
+                  --collect:"XPlat Code Coverage" `
+                  --results-directory "./TestResults" `
+                  --logger "console;verbosity=minimal"
+                
+                if ($LASTEXITCODE -ne 0) {
+                  Write-Error "❌ Tests failed (no explicit TargetFramework) in $($testProj.Name)"
+                  exit $LASTEXITCODE
+                }
+                
+                continue
+              }
+              
               Write-Host "Testing framework: $fw" -ForegroundColor Yellow
               
               # Collect coverage only for .NET 5.0+ TFMs; still run tests for all frameworks
-              if ($fw -like 'net5.*' -or $fw -like 'net6.*' -or $fw -like 'net7.*' -or $fw -like 'net8.*') {
+              if ($fw -like 'net5.*' -or $fw -like 'net6.*' -or $fw -like 'net7.*' -or $fw -like 'net8.*' -or $fw -like 'net9.*' -or $fw -like 'net10.*') {
                 dotnet test $testProj.FullName `
                   --configuration Release `
                   --framework $fw `
