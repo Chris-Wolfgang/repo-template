@@ -145,26 +145,6 @@ These placeholders represent sections that users should fill in later. They can 
 
 | Line(s) | Placeholder | Context |
 |---------|-------------|---------|
-| Various | `{{PROJECT_NAME}}` | Table of contents titles and references |
-
-### 10. docfx_project/docs/introduction.md
-
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| Various | `{{PROJECT_NAME}}`, `{{PROJECT_DESCRIPTION}}` | Introduction headings and descriptive text |
-| Various | `{{GITHUB_REPO_URL}}` | Links back to the GitHub repository from the introduction |
-
-### 11. docfx_project/docs/getting-started.md
-
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| Various | `{{PROJECT_NAME}}` | Getting started headings and examples |
-| Various | `{{PACKAGE_NAME}}` | NuGet installation and package reference snippets |
-| Various | `{{GITHUB_REPO_URL}}` | Links to source code, issues, and documentation on GitHub |
-### 9. docfx_project/docs/toc.yml
-
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
 | 8 | `{{GITHUB_REPO_URL}}` | Project website link |
 
 ### 10. docfx_project/docs/introduction.md
