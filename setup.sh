@@ -145,6 +145,12 @@ read_input() {
     done
 }
 
+# Escape special characters for sed replacement
+# Escapes backslashes, ampersands, and forward slashes in the correct order
+escape_for_sed() {
+    printf '%s\n' "$1" | sed 's/\\/\\\\/g; s/&/\\&/g; s:/:\\/:g'
+}
+
 # Replace placeholders in a file
 # Expects REPLACEMENTS to be defined in the caller's scope (e.g., main) to avoid Bash 4.3+ nameref requirement
 replace_placeholders() {
@@ -165,9 +171,8 @@ replace_placeholders() {
         local value="${REPLACEMENTS[$key]}"
         
         # Escape special characters for sed (/, &, and \)
-        # Must escape backslashes first, then other characters
-        local escaped_value=$(printf '%s\n' "$value" | sed 's/\\/\\\\/g; s/&/\\&/g; s:/:\\/:g')
-        local escaped_placeholder=$(printf '%s\n' "$placeholder" | sed 's/\\/\\\\/g; s/&/\\&/g; s:/:\\/:g')
+        local escaped_value=$(escape_for_sed "$value")
+        local escaped_placeholder=$(escape_for_sed "$placeholder")
         
         if grep -q "$placeholder" "$temp_file"; then
             sed -i.bak "s/$escaped_placeholder/$escaped_value/g" "$temp_file"
@@ -427,9 +432,8 @@ main() {
         cp "$LICENSE_FILE" "LICENSE"
         
         # Escape special characters for sed (/, &, and \)
-        # Must escape backslashes first, then other characters
-        local escaped_year=$(printf '%s\n' "$YEAR" | sed 's/\\/\\\\/g; s/&/\\&/g; s:/:\\/:g')
-        local escaped_holder=$(printf '%s\n' "$COPYRIGHT_HOLDER" | sed 's/\\/\\\\/g; s/&/\\&/g; s:/:\\/:g')
+        local escaped_year=$(escape_for_sed "$YEAR")
+        local escaped_holder=$(escape_for_sed "$COPYRIGHT_HOLDER")
         
         sed -i.bak "s/{{YEAR}}/$escaped_year/g" "LICENSE"
         sed -i.bak "s/{{COPYRIGHT_HOLDER}}/$escaped_holder/g" "LICENSE"

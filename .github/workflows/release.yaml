@@ -137,6 +137,7 @@ jobs:
               }
               
               # Collect coverage only for .NET 5.0+ TFMs; still run tests for all frameworks
+              # Regex matches net5.x through net9.x and net10+ (future-proof for new .NET versions)
               if ($fw -match '^net([5-9]|[1-9][0-9]+)\.') {
                 dotnet test $testProj.FullName `
                   --configuration Release `
