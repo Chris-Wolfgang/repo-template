@@ -127,6 +127,11 @@ jobs:
             year=$(printf '%s\n' "${{ steps.repo_info.outputs.year }}" | sed -e 's/[&|\\]/\\&/g')
             copyright_holder=$(printf '%s\n' "${{ inputs.copyright_holder }}" | sed -e 's/[&|\\]/\\&/g')
             nuget_status=$(printf '%s\n' "${{ inputs.nuget_status }}" | sed -e 's/[&|\\]/\\&/g')
+            
+            # Extract template repository info from GitHub context
+            # Use github.event.repository.template_repository if available, otherwise default to Chris-Wolfgang/repo-template
+            template_repo_owner=$(printf '%s\n' "${{ github.event.repository.template_repository.owner.login || 'Chris-Wolfgang' }}" | sed -e 's/[&|\\]/\\&/g')
+            template_repo_name=$(printf '%s\n' "${{ github.event.repository.template_repository.name || 'repo-template' }}" | sed -e 's/[&|\\]/\\&/g')
 
             sed -i "s|{{PROJECT_NAME}}|$project_name|g" "$file"
             sed -i "s|{{PROJECT_DESCRIPTION}}|$project_description|g" "$file"
@@ -139,8 +144,8 @@ jobs:
             sed -i "s|{{YEAR}}|$year|g" "$file"
             sed -i "s|{{COPYRIGHT_HOLDER}}|$copyright_holder|g" "$file"
             sed -i "s|{{NUGET_STATUS}}|$nuget_status|g" "$file"
-            sed -i "s|{{TEMPLATE_REPO_OWNER}}|Chris-Wolfgang|g" "$file"
-            sed -i "s|{{TEMPLATE_REPO_NAME}}|repo-template|g" "$file"
+            sed -i "s|{{TEMPLATE_REPO_OWNER}}|$template_repo_owner|g" "$file"
+            sed -i "s|{{TEMPLATE_REPO_NAME}}|$template_repo_name|g" "$file"
           }
           
           # Replace placeholders in all tracked files, excluding template documentation
@@ -174,7 +179,12 @@ jobs:
       
       - name: Remove template file
         run: |
+          # Remove the setup workflow itself
           rm -f .github/workflows/setup-template.yml
+          
+          # Remove template documentation that's no longer needed
+          rm -f REPO-INSTRUCTIONS.md
+          rm -f README-FORMATTING.md
       
       - name: Commit changes
         run: |
@@ -212,10 +222,12 @@ jobs:
           - **Owner:** ${{ inputs.github_username }}
           
           **Changes Made:**
-          - ✅ README.md swapped from template
-          - ✅ All placeholders replaced
+          - ✅ README.md swapped from template version
+          - ✅ All placeholders replaced in tracked files
           - ✅ LICENSE file created (${{ inputs.license_type }})
-          - ✅ Template file removed
+          - ✅ License template files removed
+          - ✅ Setup workflow removed
+          - ✅ Template documentation removed
           
           **Next Steps:**
           1. Review the changes in this PR

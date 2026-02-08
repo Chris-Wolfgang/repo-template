@@ -38,7 +38,7 @@ jobs:
       - name: Run multi-framework tests with coverage
         shell: pwsh
         run: |
-          $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
+          $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*Test*.csproj'
           
           if ($testProjects.Count -eq 0) {
             Write-Error "❌ No test projects found - release requires tests to validate quality"
@@ -91,10 +91,19 @@ jobs:
               # If no TargetFramework/TargetFrameworks are defined directly in the project file,
               # attempt to resolve them via MSBuild (to account for Directory.Build.props, imports, etc.).
               Write-Host "No TargetFramework or TargetFrameworks found directly in $($testProj.Name); querying MSBuild..." -ForegroundColor Yellow
-              $msbuildOutput = dotnet msbuild $testProj.FullName /nologo -getProperty:TargetFrameworks,TargetFramework
               
-              if ($LASTEXITCODE -ne 0 -or -not $msbuildOutput) {
-                Write-Warning "Unable to query MSBuild for target frameworks for $($testProj.Name) (exit code $LASTEXITCODE). Tests will run without explicit --framework."
+              $msbuildOutput = @()
+              $msbuildExitCode = 0
+              foreach ($prop in @("TargetFrameworks", "TargetFramework")) {
+                $result = dotnet msbuild $testProj.FullName /nologo "-getProperty:$prop" 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                  $msbuildExitCode = $LASTEXITCODE
+                }
+                if ($result) {
+                  $msbuildOutput += $result
+                }
+              }
+              
                 $frameworks = @('')
               } else {
                 $resolvedFrameworks = @()
@@ -103,12 +112,15 @@ jobs:
                     continue
                   }
                   
-                  # Expect lines like "TargetFrameworks: net7.0;net8.0" or "TargetFramework: net8.0"
-                  if ($line -match '^\s*TargetFrameworks?\s*[:=]\s*(.+)$') {
+                  # Expect lines like "TargetFrameworks=net7.0;net8.0" or "TargetFramework=net8.0"
+                  if ($line -match '^\s*TargetFrameworks\s*=\s*(.+)$') {
                     $propertyValue = $Matches[1].Trim()
                     if ($line -match 'TargetFrameworks\s*[:=]') {
-                      $resolvedFrameworks = $propertyValue -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-                    } elseif ($line -match 'TargetFramework\s*[:=]') {
+                    $resolvedFrameworks = $propertyValue -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                    break
+                  } elseif ($line -match '^\s*TargetFramework\s*=\s*(.+)$') {
+                    $propertyValue = $Matches[1].Trim()
+                    if ($propertyValue) {
                       $resolvedFrameworks = @($propertyValue)
                     }
                     
@@ -121,7 +133,7 @@ jobs:
                 if ($resolvedFrameworks.Count -gt 0) {
                   $frameworks = $resolvedFrameworks
                 } else {
-                  Write-Warning "MSBuild did not return any TargetFramework/TargetFrameworks for $($testProj.Name). Tests will run without explicit --framework."
+                  Write-Warning "MSBuild query returned no target frameworks for $($testProj.Name). Tests will run without explicit --framework."
                   $frameworks = @('')
                 }
               }
@@ -146,14 +158,17 @@ jobs:
                 if ($LASTEXITCODE -ne 0) {
                   Write-Error "❌ Tests failed (no explicit TargetFramework) in $($testProj.Name)"
                   exit $LASTEXITCODE
-                }
                 
                 continue
               }
               
-              Write-Host "Testing framework: $fw" -ForegroundColor Yellow
+                Write-Host "Testing framework: $fw" -ForegroundColor Yellow
+              } else {
+                Write-Host "Testing all frameworks (no explicit framework specified)" -ForegroundColor Yellow
+              }
               
               # Collect coverage only for .NET 5.0+ TFMs; still run tests for all frameworks
+              if ($fw -like 'net5.*' -or $fw -like 'net6.*' -or $fw -like 'net7.*' -or $fw -like 'net8.*') {
               if ($fw -match '^net([5-9]|[1-9][0-9]+)\.') {
                 dotnet test $testProj.FullName `
                   --configuration Release `
@@ -161,6 +176,15 @@ jobs:
                   --no-build `
                   --no-restore `
                   --collect:"XPlat Code Coverage" `
+                  --results-directory "./TestResults" `
+                  --logger "console;verbosity=minimal"
+              }
+              elseif (-not $fw) {
+                # No framework specified - run tests for all frameworks the project targets (no coverage collection here)
+                dotnet test $testProj.FullName `
+                  --configuration Release `
+                  --no-build `
+                  --no-restore `
                   --results-directory "./TestResults" `
                   --logger "console;verbosity=minimal"
               }
@@ -175,7 +199,11 @@ jobs:
               }
               
               if ($LASTEXITCODE -ne 0) {
-                Write-Error "❌ Tests failed for $fw in $($testProj.Name)"
+                if ($fw) {
+                  Write-Error "❌ Tests failed for $fw in $($testProj.Name)"
+                } else {
+                  Write-Error "❌ Tests failed in $($testProj.Name)"
+                }
                 exit $LASTEXITCODE
               }
             }
