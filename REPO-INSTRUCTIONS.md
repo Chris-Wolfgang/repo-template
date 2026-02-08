@@ -100,9 +100,7 @@ These settings require that all checks in the pr.yaml file succeed before you ca
 6. Check `Restrict deletions`
 7. Check `Require a pull request before merging`
 	1. Check `Dismiss stale pull request approvals when new commits are pushed`
- 	2. **For single developer repos:** Leave `Require review from Code Owners` unchecked
 	3. **For multi-developer repos:** Check `Require review from Code Owners` and set required approvals to 1 or more
-	4. Check `Require pull request review from Copilot` (optional)
 8. Check `Block force pushes`
 9. Check `Require code scanning`
 
