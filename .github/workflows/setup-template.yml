@@ -172,7 +172,7 @@ jobs:
           # Remove license templates
           rm -f LICENSE-MIT.txt LICENSE-APACHE-2.0.txt LICENSE-MPL-2.0.txt
       
-      - name: Remove template files
+      - name: Remove template file
         run: |
           rm -f .github/workflows/setup-template.yml
       
@@ -215,7 +215,7 @@ jobs:
           - ✅ README.md swapped from template
           - ✅ All placeholders replaced
           - ✅ LICENSE file created (${{ inputs.license_type }})
-          - ✅ Template files removed
+          - ✅ Template file removed
           
           **Next Steps:**
           1. Review the changes in this PR
