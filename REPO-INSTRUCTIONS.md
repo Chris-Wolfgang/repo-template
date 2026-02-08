@@ -160,7 +160,7 @@ After creating your repository from the template, update the following files wit
 ### Update CONTRIBUTING.md
 
 1. Open `CONTRIBUTING.md`
-2. Replace `<Application Name>` with your actual project name (appears in 2 locations near the top)
+2. Ensure any project name placeholders (for example, `{{PROJECT_NAME}}`) have been replaced with your actual project name (the automated setup scripts should normally do this for you)
 3. Review and adjust contribution guidelines as needed for your project
 
 ### Update CODEOWNERS
