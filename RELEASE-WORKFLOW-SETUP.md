@@ -34,7 +34,7 @@ After merging this PR, complete the following setup step:
 
 **Location:** Settings → Branches → main
 
-> **Note:** By default, the template is configured for single developer repositories. The automated branch protection setup in `.github/ruleset-config.json` sets `required_approving_review_count: 0`. For multi-developer repositories, update the ruleset configuration before first push (see REPO-INSTRUCTIONS.md).
+> **Note:** By default, the template is configured for single developer repositories. The automated branch protection setup in `.github/ruleset-config.json` sets `"required_approving_review_count": 0`. For multi-developer repositories, update the ruleset configuration before first push (see REPO-INSTRUCTIONS.md).
 
 Ensure the following settings are enabled:
 

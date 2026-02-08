@@ -51,7 +51,7 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 
 > **Note:** Branch protection is now automatically configured by the `setup-branch-ruleset.yml` workflow on first push to main. The configuration in `.github/ruleset-config.json` is pre-configured for **single developer repositories** with no approval requirements.
 >
-> **For multi-developer repositories:** Edit `.github/ruleset-config.json` **before** your first push to main and update the pull request parameters:
+> **For multi-developer repositories:** Edit `.github/ruleset-config.json` **before** your first push to main and update the `pull_request` rule parameters as needed:
 > ```json
 > "required_approving_review_count": 1,
 > "dismiss_stale_reviews_on_push": true,
