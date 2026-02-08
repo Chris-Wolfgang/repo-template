@@ -1,10 +1,8 @@
-- name: Home
-  href: ../index.md
+- name: Index
+  href: index.md
 - name: Introduction
   href: introduction.md
 - name: Getting Started
   href: getting-started.md
-- name: API Reference
-  href: ../api/toc.yml
 - name: Project website
-  href: <URL to Repo>
+  href: '{{GITHUB_REPO_URL}}'

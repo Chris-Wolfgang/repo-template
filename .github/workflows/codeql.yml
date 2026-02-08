@@ -1,16 +1,16 @@
-name: "CodeQL"
+name: "CodeQL Security Analysis"
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
   schedule:
-    - cron: '30 1 * * 0'  # Weekly scan on Sundays
+    - cron: '0 0 * * 0'  # Weekly on Sunday at midnight UTC
 
 jobs:
   analyze:
-    name: CodeQL analysis (csharp)
+    name: "Security Scan (CodeQL)"
     runs-on: windows-latest
     permissions:
       actions: read
@@ -34,8 +34,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: |
-          10.0.x
+        dotnet-version: '10.0.x'
 
     - name: Build for CodeQL Analysis
       shell: pwsh
