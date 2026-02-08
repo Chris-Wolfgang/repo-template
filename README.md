@@ -272,11 +272,13 @@ Once you've run the setup script and committed the changes:
 
 ### 1. Configure Branch Protection
 
-Go to **Settings → Branches → Branch protection rules**:
+> **Note:** This template is configured for single-developer repositories. The automated branch rulesets (`.github/ruleset-config.json`) do not require PR approvals or code owner reviews by default. For multi-developer repositories, it is recommended to update the ruleset to require approving reviews by setting `required_approving_review_count` to 1 or higher and optionally `require_code_owner_review` to `true`.
+
+For manual configuration using the GitHub rulesets UI, go to **Settings → Rules → Rulesets** and configure the rule that applies to your default branch with:
 - ✅ Require status checks before merging
 - ✅ Require branches to be up to date
-- ✅ Require pull request reviews
-- ✅ Require code owner review
+- ✅ Require pull request reviews (recommended for multi-developer repos)
+- ✅ Require code owner review (recommended for multi-developer repos)
 - ✅ Require Copilot review
 - ✅ Restrict deletions
 - ✅ Block force pushes
@@ -375,6 +377,8 @@ This template includes automated security scanning and branch protection that co
 
 #### 🔐 Branch Protection (Main Branch)
 Automatically configured on first push to main:
+
+> **Single-Developer Configuration:** This template is configured for single-developer use, so the default ruleset does **not** require pull request approvals or code owner reviews (0 required approvals). For multi-developer or release-workflow scenarios (as described in `RELEASE-WORKFLOW-SETUP.md`), update `.github/ruleset-config.json` to set `required_approving_review_count` to 1+ and `require_code_owner_review` to `true` to match the recommended “Required approvals: 1 (minimum)” guidance.
 
 - ✅ **Require pull requests** before merging
 - ✅ **Require all status checks to pass:**
