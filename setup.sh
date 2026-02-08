@@ -1,10 +1,42 @@
 #!/usr/bin/env bash
 
 # Automated setup script for .NET repository template
-# Requires: Bash 4.3+, git
-# Compatible with: Linux, macOS
+# Requires: Bash 4.0+, git
+# Compatible with: Linux, macOS (with Homebrew bash)
 
 set -euo pipefail
+
+# Check Bash version (requires 4.0+ for associative arrays)
+check_bash_version() {
+    local required_major=4
+    local required_minor=0
+    
+    if [[ -z "${BASH_VERSINFO[0]:-}" ]] || \
+       [[ "${BASH_VERSINFO[0]}" -lt $required_major ]] || \
+       { [[ "${BASH_VERSINFO[0]}" -eq $required_major ]] && [[ "${BASH_VERSINFO[1]}" -lt $required_minor ]]; }; then
+        echo -e "\033[0;31m❌ Error: This script requires Bash ${required_major}.${required_minor} or later.\033[0m" >&2
+        echo -e "\033[1;33mYour current version: ${BASH_VERSION}\033[0m" >&2
+        echo "" >&2
+        
+        if [[ "$(uname -s)" == "Darwin" ]]; then
+            echo -e "\033[0;36mℹ️  macOS ships with Bash 3.2 by default.\033[0m" >&2
+            echo -e "\033[0;36mTo install a newer version using Homebrew:\033[0m" >&2
+            echo "" >&2
+            echo -e "  \033[1;32mbrew install bash\033[0m" >&2
+            echo "" >&2
+            echo -e "\033[0;36mThen run this script with the updated bash:\033[0m" >&2
+            echo -e "  \033[1;32m\$(brew --prefix)/bin/bash setup.sh\033[0m" >&2
+        else
+            echo -e "\033[0;36mℹ️  Please upgrade Bash to version ${required_major}.${required_minor} or later.\033[0m" >&2
+        fi
+        echo "" >&2
+        exit 1
+    fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    check_bash_version
+fi
 
 # Color codes
 readonly RED='\033[0;31m'
@@ -114,10 +146,9 @@ read_input() {
 }
 
 # Replace placeholders in a file
+# Expects REPLACEMENTS to be defined in the caller's scope (e.g., main) to avoid Bash 4.3+ nameref requirement
 replace_placeholders() {
     local file="$1"
-    shift
-    local -n replacements=$1
     
     if [[ ! -f "$file" ]]; then
         error "File not found: $file"
@@ -128,9 +159,10 @@ replace_placeholders() {
     local temp_file="${file}.tmp"
     cp "$file" "$temp_file"
     
-    for key in "${!replacements[@]}"; do
+    # Iterate over keys in the REPLACEMENTS array
+    for key in "${!REPLACEMENTS[@]}"; do
         local placeholder="{{$key}}"
-        local value="${replacements[$key]}"
+        local value="${REPLACEMENTS[$key]}"
         
         # Escape special characters for sed
         local escaped_value=$(printf '%s\n' "$value" | sed 's:[/\&]:\\&:g')
@@ -383,7 +415,7 @@ main() {
     )
     
     for file in "${FILES_TO_UPDATE[@]}"; do
-        replace_placeholders "$file" REPLACEMENTS
+        replace_placeholders "$file"
     done
     
     # Step 3: Set up LICENSE
