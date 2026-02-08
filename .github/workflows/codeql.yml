@@ -26,17 +26,35 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Check for C# source code
+      id: check-csharp
+      shell: pwsh
+      run: |
+        # Check if any C# source files exist
+        $csharpFiles = Get-ChildItem -Path . -Recurse -Include "*.cs","*.csproj" -File | Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' }
+        
+        if ($csharpFiles.Count -eq 0) {
+          Write-Host "No C# source code found. This appears to be a template repository. Skipping CodeQL analysis."
+          echo "has-csharp=false" >> $env:GITHUB_OUTPUT
+        } else {
+          Write-Host "Found $($csharpFiles.Count) C# file(s). Proceeding with CodeQL analysis."
+          echo "has-csharp=true" >> $env:GITHUB_OUTPUT
+        }
+
     - name: Initialize CodeQL
+      if: steps.check-csharp.outputs.has-csharp == 'true'
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
 
     - name: Setup .NET
+      if: steps.check-csharp.outputs.has-csharp == 'true'
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '10.0.x'
 
     - name: Build for CodeQL Analysis
+      if: steps.check-csharp.outputs.has-csharp == 'true'
       shell: pwsh
       run: |
         Write-Host "Building solution for CodeQL analysis..."
@@ -73,6 +91,7 @@ jobs:
         Write-Host "✅ Build completed for CodeQL analysis"
 
     - name: Perform CodeQL Analysis
+      if: steps.check-csharp.outputs.has-csharp == 'true'
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"

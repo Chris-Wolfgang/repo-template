@@ -104,6 +104,8 @@ jobs:
                 }
               }
               
+              if ($msbuildExitCode -ne 0) {
+                Write-Warning "MSBuild query failed for $($testProj.Name). Tests will run without explicit --framework."
                 $frameworks = @('')
               } else {
                 $resolvedFrameworks = @()
@@ -116,8 +118,9 @@ jobs:
                   if ($line -match '^\s*TargetFrameworks\s*=\s*(.+)$') {
                     $propertyValue = $Matches[1].Trim()
                     if ($line -match 'TargetFrameworks\s*[:=]') {
-                    $resolvedFrameworks = $propertyValue -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-                    break
+                      $resolvedFrameworks = $propertyValue -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                      break
+                    }
                   } elseif ($line -match '^\s*TargetFramework\s*=\s*(.+)$') {
                     $propertyValue = $Matches[1].Trim()
                     if ($propertyValue) {
@@ -158,17 +161,14 @@ jobs:
                 if ($LASTEXITCODE -ne 0) {
                   Write-Error "❌ Tests failed (no explicit TargetFramework) in $($testProj.Name)"
                   exit $LASTEXITCODE
+                }
                 
                 continue
               }
               
-                Write-Host "Testing framework: $fw" -ForegroundColor Yellow
-              } else {
-                Write-Host "Testing all frameworks (no explicit framework specified)" -ForegroundColor Yellow
-              }
+              Write-Host "Testing framework: $fw" -ForegroundColor Yellow
               
               # Collect coverage only for .NET 5.0+ TFMs; still run tests for all frameworks
-              if ($fw -like 'net5.*' -or $fw -like 'net6.*' -or $fw -like 'net7.*' -or $fw -like 'net8.*') {
               if ($fw -match '^net([5-9]|[1-9][0-9]+)\.') {
                 dotnet test $testProj.FullName `
                   --configuration Release `
