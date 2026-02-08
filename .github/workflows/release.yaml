@@ -88,8 +88,8 @@ jobs:
                 exit 1
               }
             } else {
-              # No TargetFramework/TargetFrameworks found directly in project file
-              # Try resolving via MSBuild (to account for Directory.Build.props, imports, etc.)
+              # If no TargetFramework/TargetFrameworks are defined directly in the project file,
+              # attempt to resolve them via MSBuild (to account for Directory.Build.props, imports, etc.).
               Write-Host "No TargetFramework or TargetFrameworks found directly in $($testProj.Name); querying MSBuild..." -ForegroundColor Yellow
               
               $msbuildOutput = @()
@@ -104,8 +104,6 @@ jobs:
                 }
               }
               
-              if ($msbuildExitCode -ne 0 -or -not $msbuildOutput) {
-                Write-Warning "Unable to query MSBuild for target frameworks for $($testProj.Name). Tests will run without explicit --framework."
                 $frameworks = @('')
               } else {
                 $resolvedFrameworks = @()
@@ -117,12 +115,16 @@ jobs:
                   # Expect lines like "TargetFrameworks=net7.0;net8.0" or "TargetFramework=net8.0"
                   if ($line -match '^\s*TargetFrameworks\s*=\s*(.+)$') {
                     $propertyValue = $Matches[1].Trim()
+                    if ($line -match 'TargetFrameworks\s*[:=]') {
                     $resolvedFrameworks = $propertyValue -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
                     break
                   } elseif ($line -match '^\s*TargetFramework\s*=\s*(.+)$') {
                     $propertyValue = $Matches[1].Trim()
                     if ($propertyValue) {
                       $resolvedFrameworks = @($propertyValue)
+                    }
+                    
+                    if ($resolvedFrameworks.Count -gt 0) {
                       break
                     }
                   }
@@ -140,14 +142,33 @@ jobs:
             Write-Host "Detected frameworks: $($frameworks -join ', ')" -ForegroundColor Cyan
             
             foreach ($fw in $frameworks) {
-              if ($fw) {
+              if ([string]::IsNullOrWhiteSpace($fw)) {
+                Write-Host "Testing project $($testProj.Name) without explicit --framework (using SDK/MSBuild defaults)" -ForegroundColor Yellow
+                
+                # When framework cannot be determined, run tests once without specifying --framework.
+                # Collect coverage in this case to avoid missing data due to unknown TFM.
+                dotnet test $testProj.FullName `
+                  --configuration Release `
+                  --no-build `
+                  --no-restore `
+                  --collect:"XPlat Code Coverage" `
+                  --results-directory "./TestResults" `
+                  --logger "console;verbosity=minimal"
+                
+                if ($LASTEXITCODE -ne 0) {
+                  Write-Error "❌ Tests failed (no explicit TargetFramework) in $($testProj.Name)"
+                  exit $LASTEXITCODE
+                
+                continue
+              }
+              
                 Write-Host "Testing framework: $fw" -ForegroundColor Yellow
               } else {
                 Write-Host "Testing all frameworks (no explicit framework specified)" -ForegroundColor Yellow
               }
               
               # Collect coverage only for .NET 5.0+ TFMs; still run tests for all frameworks
-              # Regex matches net5.x through net9.x and net10+ (future-proof for new .NET versions)
+              if ($fw -like 'net5.*' -or $fw -like 'net6.*' -or $fw -like 'net7.*' -or $fw -like 'net8.*') {
               if ($fw -match '^net([5-9]|[1-9][0-9]+)\.') {
                 dotnet test $testProj.FullName `
                   --configuration Release `

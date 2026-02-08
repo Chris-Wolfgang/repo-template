@@ -419,9 +419,9 @@ Automatically configured on first push to main:
 1. **Create repository** from this template
 2. **Make your first commit** and push to main
 3. **Automatic setup runs** - Branch protection configures itself
-4. **Setup workflow deletes itself** - One-time setup, then gone!
+4. **Clean up setup workflow** - After it succeeds, delete `.github/workflows/setup-branch-ruleset.yml`
 
-No manual configuration needed! 🎉
+No manual ruleset configuration needed—only a one-time deletion of the setup workflow file. 🎉
 
 ### For Template Users
 
