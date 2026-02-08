@@ -161,7 +161,6 @@ jobs:
       
       - name: Remove template files
         run: |
-          rm -f LICENSE-SELECTION.md
           rm -f .github/workflows/setup-template.yml
       
       - name: Commit changes
