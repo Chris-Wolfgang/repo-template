@@ -56,11 +56,11 @@ info() {
 }
 
 warn() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+    echo -e "${YELLOW}⚠️  $1${NC}" >&2
 }
 
 error() {
-    echo -e "${RED}❌ $1${NC}"
+    echo -e "${RED}❌ $1${NC}" >&2
 }
 
 step() {
