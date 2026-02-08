@@ -118,7 +118,7 @@ The repository has branch protection rules configured:
 ### Root Directory Files
 - `README.md` - Basic template description (update for your project)
 - `LICENSE` - Mozilla Public License 2.0
-- `REPO-INSTRUCTIONS` - Template setup instructions (delete after setup)
+- `REPO-INSTRUCTIONS.md` - Template setup instructions (delete after setup)
 - `.editorconfig` - Code style configuration
 - `.gitignore` - .NET-specific gitignore
 
