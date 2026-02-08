@@ -115,6 +115,7 @@ jobs:
                   }
                   
                   # Expect lines like "TargetFrameworks=net7.0;net8.0" or "TargetFramework=net8.0"
+                  # Support both '=' and ':' separators for different MSBuild output formats
                   if ($line -match '^\s*TargetFrameworks\s*[:=]\s*(.+)$') {
                     $propertyValue = $Matches[1].Trim()
                     $resolvedFrameworks = $propertyValue -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
