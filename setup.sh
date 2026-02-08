@@ -11,7 +11,9 @@ check_bash_version() {
     local required_major=4
     local required_minor=0
     
-    if [[ -z "${BASH_VERSINFO[0]}" ]] || [[ "${BASH_VERSINFO[0]}" -lt $required_major ]]; then
+    if [[ -z "${BASH_VERSINFO[0]:-}" ]] || \
+       [[ "${BASH_VERSINFO[0]}" -lt $required_major ]] || \
+       { [[ "${BASH_VERSINFO[0]}" -eq $required_major ]] && [[ "${BASH_VERSINFO[1]}" -lt $required_minor ]]; }; then
         echo -e "\033[0;31m❌ Error: This script requires Bash ${required_major}.${required_minor} or later.\033[0m" >&2
         echo -e "\033[1;33mYour current version: ${BASH_VERSION}\033[0m" >&2
         echo "" >&2
