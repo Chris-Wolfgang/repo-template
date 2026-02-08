@@ -194,7 +194,19 @@ If you must replace manually:
 1. **Global Find and Replace** in your editor:
    - Search for: `{{PLACEHOLDER_NAME}}`
    - Replace with: `Your Value`
-   - Files to search: `README.md`, `CONTRIBUTING.md`, `.github/CODEOWNERS`, `REPO-INSTRUCTIONS.md`, and all files in `docfx_project/` (including `docfx.json`, `index.md`, `api/index.md`, `docs/toc.yml`, `docs/introduction.md`, `docs/getting-started.md`)
+   - Files to search:
+     - `README.md` (or `README-TEMPLATE.md`)
+     - `CONTRIBUTING.md`
+     - `.github/CODEOWNERS`
+     - `REPO-INSTRUCTIONS.md`
+     - `LICENSE-SELECTION.md`
+     - `docfx_project/docfx.json`
+     - `docfx_project/index.md`
+     - `docfx_project/api/index.md`
+     - `docfx_project/api/README.md`
+     - `docfx_project/docs/toc.yml`
+     - `docfx_project/docs/introduction.md`
+     - `docfx_project/docs/getting-started.md`
 
 2. **README File Swap:**
    ```bash
@@ -211,7 +223,7 @@ If you must replace manually:
 4. **Validation:**
    ```bash
    # Check for remaining placeholders
-   grep -r "{{.*}}" README.md CONTRIBUTING.md .github/CODEOWNERS Repo-Instructions.md docfx_project/
+   grep -r "{{.*}}" README.md CONTRIBUTING.md .github/CODEOWNERS REPO-INSTRUCTIONS.md LICENSE-SELECTION.md docfx_project/
    ```
 
 ---
