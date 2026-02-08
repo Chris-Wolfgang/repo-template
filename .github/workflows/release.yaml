@@ -154,7 +154,7 @@ jobs:
               Write-Host "Testing framework: $fw" -ForegroundColor Yellow
               
               # Collect coverage only for .NET 5.0+ TFMs; still run tests for all frameworks
-              if ($fw -like 'net5.*' -or $fw -like 'net6.*' -or $fw -like 'net7.*' -or $fw -like 'net8.*' -or $fw -like 'net9.*' -or $fw -like 'net10.*') {
+              if ($fw -match '^net([5-9]|[1-9][0-9]+)\.') {
                 dotnet test $testProj.FullName `
                   --configuration Release `
                   --framework $fw `
