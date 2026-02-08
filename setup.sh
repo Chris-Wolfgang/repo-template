@@ -121,7 +121,7 @@ replace_placeholders() {
     
     if [[ ! -f "$file" ]]; then
         warn "File not found: $file"
-        return 1
+        return 0
     fi
     
     local modified=false
