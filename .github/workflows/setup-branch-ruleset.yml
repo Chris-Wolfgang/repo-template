@@ -55,14 +55,18 @@ jobs:
         run: |
           echo "Creating branch ruleset..."
           
+          # Temporarily disable exit on error to handle gh api failures properly
+          set +e
           RESPONSE=$(gh api \
             --method POST \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             /repos/${{ github.repository }}/rulesets \
             --input .github/ruleset-config.json 2>&1)
+          EXIT_CODE=$?
+          set -e
           
-          if [ $? -eq 0 ]; then
+          if [ $EXIT_CODE -eq 0 ]; then
             echo "✅ Successfully created branch ruleset 'Protect main branch'"
             echo "$RESPONSE"
           else
