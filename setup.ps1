@@ -123,18 +123,18 @@ function Read-Input {
     
     do {
         Write-Host $message -NoNewline -ForegroundColor Yellow
-        $input = Read-Host
+        $userInput = Read-Host
         
-        if ([string]::IsNullOrWhiteSpace($input) -and $Default) {
+        if ([string]::IsNullOrWhiteSpace($userInput) -and $Default) {
             return $Default
         }
         
-        if ([string]::IsNullOrWhiteSpace($input) -and $Required) {
-            Write-Error "This field is required. Please enter a value."
+        if ([string]::IsNullOrWhiteSpace($userInput) -and $Required) {
+            Write-Error "This field is required. Please enter a value." -ErrorAction Continue
+            continue
         }
-        else {
-            return $input
-        }
+        
+        return $userInput
     } while ($true)
 }
 
@@ -293,7 +293,7 @@ function Start-Setup {
                 break
             }
             default {
-                Write-Error "Invalid choice. Please enter 1, 2, or 3."
+                Write-TemplateError "Invalid choice. Please enter 1, 2, or 3."
                 continue
             }
         }
