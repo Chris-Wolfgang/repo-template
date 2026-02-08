@@ -151,8 +151,8 @@ replace_placeholders() {
     local file="$1"
     
     if [[ ! -f "$file" ]]; then
-        error "File not found: $file"
-        exit 1
+        warning "File not found (skipping): $file"
+        return 0
     fi
     
     local modified=false
@@ -164,9 +164,9 @@ replace_placeholders() {
         local placeholder="{{$key}}"
         local value="${REPLACEMENTS[$key]}"
         
-        # Escape special characters for sed
-        local escaped_value=$(printf '%s\n' "$value" | sed 's:[/\&]:\\&:g')
-        local escaped_placeholder=$(printf '%s\n' "$placeholder" | sed 's:[/\&]:\\&:g')
+        # Escape special characters for sed (/, &, and \)
+        local escaped_value=$(printf '%s\n' "$value" | sed 's:[/\&\\]:\\&:g')
+        local escaped_placeholder=$(printf '%s\n' "$placeholder" | sed 's:[/\&\\]:\\&:g')
         
         if grep -q "$placeholder" "$temp_file"; then
             sed -i.bak "s/$escaped_placeholder/$escaped_value/g" "$temp_file"
@@ -424,8 +424,13 @@ main() {
     if [[ -f "$LICENSE_FILE" ]]; then
         # Replace placeholders in license
         cp "$LICENSE_FILE" "LICENSE"
-        sed -i.bak "s/{{YEAR}}/$YEAR/g" "LICENSE"
-        sed -i.bak "s/{{COPYRIGHT_HOLDER}}/$COPYRIGHT_HOLDER/g" "LICENSE"
+        
+        # Escape special characters for sed (/, &, and \)
+        local escaped_year=$(printf '%s\n' "$YEAR" | sed 's:[/\&\\]:\\&:g')
+        local escaped_holder=$(printf '%s\n' "$COPYRIGHT_HOLDER" | sed 's:[/\&\\]:\\&:g')
+        
+        sed -i.bak "s/{{YEAR}}/$escaped_year/g" "LICENSE"
+        sed -i.bak "s/{{COPYRIGHT_HOLDER}}/$escaped_holder/g" "LICENSE"
         rm -f "LICENSE.bak"
         success "Created LICENSE file ($LICENSE_TYPE)"
         

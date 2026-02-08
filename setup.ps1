@@ -130,7 +130,7 @@ function Read-Input {
         }
         
         if ([string]::IsNullOrWhiteSpace($userInput) -and $Required) {
-            Write-Error "This field is required. Please enter a value." -ErrorAction Continue
+            Write-TemplateError "This field is required. Please enter a value."
             continue
         }
         
@@ -404,9 +404,17 @@ function Start-Setup {
         # Read license template
         $licenseContent = Get-Content $licenseFile -Raw
         
-        # Replace placeholders
-        $licenseContent = $licenseContent -replace '\{\{YEAR\}\}', $year
-        $licenseContent = $licenseContent -replace '\{\{COPYRIGHT_HOLDER\}\}', $copyrightHolder
+        # Replace placeholders using safe regex replacement with MatchEvaluator
+        $licenseContent = [regex]::Replace(
+            $licenseContent,
+            [regex]::Escape('{{YEAR}}'),
+            [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $year }
+        )
+        $licenseContent = [regex]::Replace(
+            $licenseContent,
+            [regex]::Escape('{{COPYRIGHT_HOLDER}}'),
+            [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $copyrightHolder }
+        )
         
         # Save as LICENSE
         Set-Content -Path 'LICENSE' -Value $licenseContent -NoNewline
