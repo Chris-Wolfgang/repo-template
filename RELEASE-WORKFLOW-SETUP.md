@@ -5,7 +5,7 @@ This guide explains how to configure the repository after merging the updated `r
 ## Overview
 
 The release workflow implements a comprehensive validation and automatic deployment process that:
-- ✅ Tests all frameworks (net5.0-10.0, net462-481) on Windows
+- ✅ Tests all target frameworks per test project on Windows
 - ✅ Enforces 90% code coverage threshold
 - ✅ Validates NuGet package integrity with smoke tests
 - ✅ Automatically publishes to NuGet.org after validation passes
