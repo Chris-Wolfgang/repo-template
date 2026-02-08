@@ -63,7 +63,7 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 Prevent Merging When Checks Fail
 These settings require that all checks in the pr.yaml file succeed before you can merge a branch into main
 
-> **Note for Single-Developer Repositories:** This template is configured for single-developer use. The automated branch ruleset (`.github/ruleset-config.json`) does not require PR approvals or code owner reviews by default. If you are setting up a multi-developer repository, you should enable the review requirements in steps 7.2 and 7.3 below, and also update `.github/ruleset-config.json` to set `required_approving_review_count` to 1 or higher and `require_code_owner_review` to `true`.
+> **Note for Single-Developer Repositories:** This template is configured for single-developer use. The automated branch ruleset (`.github/ruleset-config.json`) does not require PR approvals or code owner reviews by default. If you are setting up a multi-developer repository, edit the Branch protection rule for `main` to require pull request reviews before merging, set the **Required approving reviews** count to `1` or higher, and (optionally) enable the Code Owners and Copilot review options described in the subsections below. Also update `.github/ruleset-config.json` to set `required_approving_review_count` to `1` or higher and `require_code_owner_review` to `true`.
 
 **Note:** The pr.yaml workflow uses `pull_request_target` to always run from the trusted main branch, even for PRs from feature branches. This prevents malicious workflow modifications in untrusted PR branches while still testing the PR's code.
 
