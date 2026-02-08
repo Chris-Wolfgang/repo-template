@@ -75,9 +75,17 @@ jobs:
             if ($targetFrameworks) {
               # Multiple frameworks (semicolon-separated)
               $frameworks = $targetFrameworks -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+              if ($frameworks.Count -eq 0) {
+                Write-Error "❌ TargetFrameworks property in $($testProj.Name) is empty or malformed"
+                exit 1
+              }
             } elseif ($targetFramework) {
               # Single framework
               $frameworks = @($targetFramework.Trim())
+              if (-not $frameworks[0]) {
+                Write-Error "❌ TargetFramework property in $($testProj.Name) is empty"
+                exit 1
+              }
             } else {
               Write-Error "❌ No TargetFramework or TargetFrameworks found in $($testProj.Name)"
               exit 1
