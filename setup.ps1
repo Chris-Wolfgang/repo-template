@@ -130,11 +130,11 @@ function Read-Input {
         }
         
         if ([string]::IsNullOrWhiteSpace($input) -and $Required) {
-            Write-Error "This field is required. Please enter a value."
+            Write-TemplateError "This field is required. Please enter a value."
+            continue
         }
-        else {
-            return $input
-        }
+        
+        return $input
     } while ($true)
 }
 
@@ -293,7 +293,7 @@ function Start-Setup {
                 break
             }
             default {
-                Write-Error "Invalid choice. Please enter 1, 2, or 3."
+                Write-TemplateError "Invalid choice. Please enter 1, 2, or 3."
                 continue
             }
         }
