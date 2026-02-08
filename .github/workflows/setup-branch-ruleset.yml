@@ -10,6 +10,7 @@ jobs:
   setup-ruleset:
     name: "setup-ruleset"
     runs-on: ubuntu-latest
+    if: github.repository != 'Chris-Wolfgang/repo-template'
     permissions:
       contents: write
       administration: write
