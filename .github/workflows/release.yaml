@@ -162,6 +162,7 @@ jobs:
                 if ($LASTEXITCODE -ne 0) {
                   Write-Error "❌ Tests failed (no explicit TargetFramework) in $($testProj.Name)"
                   exit $LASTEXITCODE
+                }
                 
                 continue
               }
