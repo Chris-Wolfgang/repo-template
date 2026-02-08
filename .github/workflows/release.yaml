@@ -50,9 +50,25 @@ jobs:
             Write-Host "==========================================" -ForegroundColor Cyan
             
             # Parse the project file to extract target frameworks
-            [xml]$projectXml = Get-Content $testProj.FullName
-            $targetFramework = $projectXml.Project.PropertyGroup.TargetFramework
-            $targetFrameworks = $projectXml.Project.PropertyGroup.TargetFrameworks
+            try {
+              [xml]$projectXml = Get-Content $testProj.FullName
+            } catch {
+              Write-Error "❌ Failed to parse project file $($testProj.Name): $_"
+              exit 1
+            }
+            
+            # Search all PropertyGroup elements for TargetFramework(s)
+            $targetFramework = $null
+            $targetFrameworks = $null
+            foreach ($propGroup in $projectXml.Project.PropertyGroup) {
+              if ($propGroup.TargetFrameworks) {
+                $targetFrameworks = $propGroup.TargetFrameworks
+                break
+              } elseif ($propGroup.TargetFramework) {
+                $targetFramework = $propGroup.TargetFramework
+                break
+              }
+            }
             
             # Determine which frameworks this project targets
             $frameworks = @()
