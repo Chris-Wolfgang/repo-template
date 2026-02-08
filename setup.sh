@@ -241,6 +241,8 @@ main() {
     REPO_NAME="$git_repo_name"
     if [[ -z "$REPO_NAME" ]] && [[ "$GITHUB_REPO_URL" =~ /([^/]+)$ ]]; then
         REPO_NAME="${BASH_REMATCH[1]}"
+        # Strip optional .git suffix
+        REPO_NAME="${REPO_NAME%.git}"
     fi
     if [[ -z "$REPO_NAME" ]]; then
         REPO_NAME=$(read_input \
