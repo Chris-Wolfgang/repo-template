@@ -105,9 +105,11 @@ jobs:
               }
               
               if ($msbuildExitCode -ne 0) {
+                # MSBuild query failed, fall back to running tests without explicit --framework
                 Write-Warning "MSBuild query failed for $($testProj.Name). Tests will run without explicit --framework."
                 $frameworks = @('')
               } else {
+                # MSBuild succeeded, parse the output
                 $resolvedFrameworks = @()
                 foreach ($line in $msbuildOutput) {
                   if ([string]::IsNullOrWhiteSpace($line)) {

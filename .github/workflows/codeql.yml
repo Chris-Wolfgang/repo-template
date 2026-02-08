@@ -3,8 +3,20 @@ name: "CodeQL Security Analysis"
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - '**.cs'
+      - '**.csproj'
+      - '**.sln'
+      - '**.slnx'
+      - '.github/workflows/codeql.yml'
   pull_request:
     branches: [ "main" ]
+    paths:
+      - '**.cs'
+      - '**.csproj'
+      - '**.sln'
+      - '**.slnx'
+      - '.github/workflows/codeql.yml'
   schedule:
     - cron: '0 0 * * 0'  # Weekly on Sunday at midnight UTC
 
