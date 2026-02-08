@@ -328,7 +328,7 @@ Your repository now has:
 - **Code of Conduct:** [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - **Release Workflow:** [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md)
 - **Setup Instructions:** [REPO-INSTRUCTIONS.md](REPO-INSTRUCTIONS.md)
-- **API Reference:** `https://<username>.github.io/<repo>/api/` (live documentation)
+<!-- -**API Reference:** `https://<username>.github.io/<repo>/api/` (live documentation)-->
 
 ---
 
