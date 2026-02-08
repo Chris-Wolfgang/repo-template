@@ -120,8 +120,8 @@ replace_placeholders() {
     local -n replacements=$1
     
     if [[ ! -f "$file" ]]; then
-        warn "File not found: $file"
-        return 0
+        error "File not found: $file"
+        exit 1
     fi
     
     local modified=false
@@ -375,7 +375,10 @@ main() {
         "Repo-Instructions.md"
         "docfx_project/docfx.json"
         "docfx_project/index.md"
+        "docfx_project/api/index.md"
         "docfx_project/docs/toc.yml"
+        "docfx_project/docs/introduction.md"
+        "docfx_project/docs/getting-started.md"
     )
     
     for file in "${FILES_TO_UPDATE[@]}"; do

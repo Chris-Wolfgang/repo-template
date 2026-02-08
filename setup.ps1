@@ -386,7 +386,10 @@ function Start-Setup {
         'Repo-Instructions.md',
         'docfx_project/docfx.json',
         'docfx_project/index.md',
-        'docfx_project/docs/toc.yml'
+        'docfx_project/api/index.md',
+        'docfx_project/docs/toc.yml',
+        'docfx_project/docs/introduction.md',
+        'docfx_project/docs/getting-started.md'
     )
     
     foreach ($file in $filesToUpdate) {
