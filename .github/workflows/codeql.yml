@@ -45,13 +45,14 @@ jobs:
         }
 
         # Remove any duplicate entries
-        $csharpFiles = $csharpFiles | Select-Object -Unique
+        $csharpFiles = @($csharpFiles | Select-Object -Unique)
+        $csharpFileCount = $csharpFiles.Count
         
-        if ($csharpFiles.Count -eq 0) {
+        if ($csharpFileCount -eq 0) {
           Write-Host "No C# source code found. This appears to be a template repository. Skipping CodeQL analysis."
           echo "has-csharp=false" >> $env:GITHUB_OUTPUT
         } else {
-          Write-Host "Found $($csharpFiles.Count) C# file(s). Proceeding with CodeQL analysis."
+          Write-Host "Found $csharpFileCount C# file(s). Proceeding with CodeQL analysis."
           echo "has-csharp=true" >> $env:GITHUB_OUTPUT
         }
 
