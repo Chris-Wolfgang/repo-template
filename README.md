@@ -86,7 +86,7 @@ All code is analyzed during builds by these industry-standard tools:
 - **Automatic builds** and deployment to GitHub Pages
 - **Local preview** support with `docfx build --serve`
 - **Markdown + API reference** combined documentation
-- **Live API Reference** at `{{DOCS_URL}}api/`
+- **Live API Reference** at `https://<username>.github.io/<repo>/api/`
 
 ### 🎨 Code Style & Formatting
 
@@ -328,7 +328,7 @@ Your repository now has:
 - **Code of Conduct:** [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - **Release Workflow:** [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md)
 - **Setup Instructions:** [REPO-INSTRUCTIONS.md](REPO-INSTRUCTIONS.md)
-- **API Reference:** `{{DOCS_URL}}api/` (live documentation)
+- **API Reference:** `https://<username>.github.io/<repo>/api/` (live documentation)
 
 ---
 
