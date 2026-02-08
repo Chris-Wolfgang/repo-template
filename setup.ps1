@@ -167,7 +167,7 @@ function Replace-Placeholders {
     }
     
     if ($modified) {
-        Set-Content -Path $FilePath -Value $content -NoNewline
+        Set-Content -Path $FilePath -Value $content
         Write-Success "Updated: $FilePath"
     }
 }
