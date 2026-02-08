@@ -42,14 +42,29 @@ jobs:
       id: check-csharp
       shell: pwsh
       run: |
-        # Check if any C# source files exist
-        $csharpFiles = Get-ChildItem -Path . -Recurse -Include "*.cs","*.csproj" -File | Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' }
+        # Check if any C# source files exist, limiting search to typical .NET directories
+        $searchRoots = @('src', 'tests', 'benchmarks', 'examples', '.')
+        $csharpFiles = @()
+
+        foreach ($root in $searchRoots) {
+          if (Test-Path $root) {
+            $csharpFiles += Get-ChildItem -Path $root -Recurse -Include "*.cs","*.csproj" -File -ErrorAction SilentlyContinue |
+              Where-Object {
+                $_.FullName -notmatch '[\\/]\.git[\\/]'
+                -and $_.FullName -notmatch '[\\/](bin|obj|node_modules)[\\/]'
+              }
+          }
+        }
+
+        # Remove any duplicate entries
+        $csharpFiles = @($csharpFiles | Select-Object -Unique)
+        $csharpFileCount = $csharpFiles.Count
         
-        if ($csharpFiles.Count -eq 0) {
+        if ($csharpFileCount -eq 0) {
           Write-Host "No C# source code found. This appears to be a template repository. Skipping CodeQL analysis."
           echo "has-csharp=false" >> $env:GITHUB_OUTPUT
         } else {
-          Write-Host "Found $($csharpFiles.Count) C# file(s). Proceeding with CodeQL analysis."
+          Write-Host "Found $csharpFileCount C# file(s). Proceeding with CodeQL analysis."
           echo "has-csharp=true" >> $env:GITHUB_OUTPUT
         }
 
