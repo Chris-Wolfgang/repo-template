@@ -211,11 +211,23 @@ pwsh ./setup.ps1
 
 If you must replace manually:
 
-1. **Global Find and Replace** in your editor:
+1. **README File Swap:**
+   ```bash
+   rm README.md
+   mv README-TEMPLATE.md README.md
+   ```
+
+2. **License Setup:**
+   - Choose a license template (e.g., `LICENSE-MIT.txt`)
+   - Replace `{{YEAR}}` and `{{COPYRIGHT_HOLDER}}`
+   - Save as `LICENSE` (no extension)
+   - Delete all `LICENSE-*.txt` files
+
+3. **Global Find and Replace** in your editor:
    - Search for: `{{PLACEHOLDER_NAME}}`
    - Replace with: `Your Value`
    - Files to search:
-     - `README.md` (or `README-TEMPLATE.md`)
+     - `README.md` (now the renamed template)
      - `CONTRIBUTING.md`
      - `.github/CODEOWNERS`
      - `REPO-INSTRUCTIONS.md`
@@ -228,22 +240,16 @@ If you must replace manually:
      - `docfx_project/docs/introduction.md`
      - `docfx_project/docs/getting-started.md`
 
-2. **README File Swap:**
-   ```bash
-   rm README.md
-   mv README-TEMPLATE.md README.md
-   ```
-
-3. **License Setup:**
-   - Choose a license template (e.g., `LICENSE-MIT.txt`)
-   - Replace `{{YEAR}}` and `{{COPYRIGHT_HOLDER}}`
-   - Save as `LICENSE` (no extension)
-   - Delete all `LICENSE-*.txt` files
-
 4. **Validation:**
    ```bash
-   # Check for remaining placeholders
-   grep -r "{{.*}}" README.md CONTRIBUTING.md .github/CODEOWNERS REPO-INSTRUCTIONS.md LICENSE-SELECTION.md docfx_project/
+   # Check for remaining required placeholders
+   # Note: README.md will still contain optional placeholders like {{QUICK_START_EXAMPLE}},
+   # {{FEATURES_TABLE}}, {{FEATURE_EXAMPLES}}, {{TARGET_FRAMEWORKS}}, {{ACKNOWLEDGMENTS}}
+   # which you fill in as you develop your project
+   grep -r "{{.*}}" CONTRIBUTING.md .github/CODEOWNERS REPO-INSTRUCTIONS.md LICENSE-SELECTION.md docfx_project/ || echo "No required placeholders found in core files"
+   
+   # Check README.md separately for required placeholders only
+   grep -E "{{(PROJECT_NAME|PROJECT_DESCRIPTION|PACKAGE_NAME|GITHUB_REPO_URL|REPO_NAME|DOCS_URL|LICENSE_TYPE|NUGET_STATUS)}}" README.md && echo "⚠️  Found required placeholders in README.md - please replace them" || echo "✓ All required placeholders replaced in README.md"
    ```
 
 ---
