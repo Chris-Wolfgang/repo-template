@@ -34,10 +34,13 @@ After merging this PR, complete the following setup step:
 
 **Location:** Settings → Branches → main
 
+> **Note:** By default, the template is configured for single developer repositories. The automated branch protection setup in `.github/ruleset-config.json` sets `required_approving_review_count: 0`. For multi-developer repositories, update the ruleset configuration before first push (see REPO-INSTRUCTIONS.md).
+
 Ensure the following settings are enabled:
 
 - ✅ **Require a pull request before merging**
-  - Required approvals: 1 (minimum)
+  - **Single developer repos:** 0 approvals (default)
+  - **Multi-developer repos:** 1+ approvals (recommended)
 - ✅ **Require status checks to pass before merging**
   - Required checks should include jobs from `pr.yaml`:
     - `test-linux-core`

@@ -390,6 +390,15 @@ Automatically configured on first push to main:
 - ✅ **Prevent branch deletion**
 - ✅ **Repository admins can bypass** these rules
 
+> **Note for Single Developer Repositories:** By default, this template is configured for single developer use with `required_approving_review_count: 0` and `require_code_owner_review: false` in `.github/ruleset-config.json`. This allows you to merge your own PRs without additional approvals while still benefiting from CI/CD checks.
+>
+> **For Multi-Developer Repositories:** Update `.github/ruleset-config.json` before first push to require at least one approval and code owner review:
+> ```json
+> "required_approving_review_count": 1,
+> "dismiss_stale_reviews_on_push": true,
+> "require_code_owner_review": true,
+> ```
+
 #### 🔍 Code Quality Gates
 - **CodeQL:** Blocks merges on High or Critical security findings
 - **Code Quality:** Blocks merges on errors
