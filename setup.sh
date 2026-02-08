@@ -16,15 +16,14 @@ check_bash_version() {
         echo -e "\033[1;33mYour current version: ${BASH_VERSION}\033[0m" >&2
         echo "" >&2
         
-        if [[ "$OSTYPE" == "darwin"* ]]; then
+        if [[ "$(uname -s)" == "Darwin" ]]; then
             echo -e "\033[0;36mℹ️  macOS ships with Bash 3.2 by default.\033[0m" >&2
             echo -e "\033[0;36mTo install a newer version using Homebrew:\033[0m" >&2
             echo "" >&2
             echo -e "  \033[1;32mbrew install bash\033[0m" >&2
             echo "" >&2
             echo -e "\033[0;36mThen run this script with the updated bash:\033[0m" >&2
-            echo -e "  \033[1;32m/opt/homebrew/bin/bash setup.sh\033[0m  # Apple Silicon" >&2
-            echo -e "  \033[1;32m/usr/local/bin/bash setup.sh\033[0m     # Intel" >&2
+            echo -e "  \033[1;32m\$(brew --prefix)/bin/bash setup.sh\033[0m" >&2
         else
             echo -e "\033[0;36mℹ️  Please upgrade Bash to version ${required_major}.${required_minor} or later.\033[0m" >&2
         fi
@@ -143,7 +142,7 @@ read_input() {
 }
 
 # Replace placeholders in a file
-# Uses the global REPLACEMENTS array
+# Uses the global REPLACEMENTS array (to avoid Bash 4.3+ nameref requirement)
 replace_placeholders() {
     local file="$1"
     
