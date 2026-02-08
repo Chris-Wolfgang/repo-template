@@ -97,14 +97,26 @@ jobs:
             foreach ($fw in $frameworks) {
               Write-Host "Testing framework: $fw" -ForegroundColor Yellow
               
-              dotnet test $testProj.FullName `
-                --configuration Release `
-                --framework $fw `
-                --no-build `
-                --no-restore `
-                --collect:"XPlat Code Coverage" `
-                --results-directory "./TestResults" `
-                --logger "console;verbosity=minimal"
+              # Collect coverage only for .NET 5.0+ TFMs; still run tests for all frameworks
+              if ($fw -like 'net5.*' -or $fw -like 'net6.*' -or $fw -like 'net7.*' -or $fw -like 'net8.*') {
+                dotnet test $testProj.FullName `
+                  --configuration Release `
+                  --framework $fw `
+                  --no-build `
+                  --no-restore `
+                  --collect:"XPlat Code Coverage" `
+                  --results-directory "./TestResults" `
+                  --logger "console;verbosity=minimal"
+              }
+              else {
+                dotnet test $testProj.FullName `
+                  --configuration Release `
+                  --framework $fw `
+                  --no-build `
+                  --no-restore `
+                  --results-directory "./TestResults" `
+                  --logger "console;verbosity=minimal"
+              }
               
               if ($LASTEXITCODE -ne 0) {
                 Write-Error "❌ Tests failed for $fw in $($testProj.Name)"
