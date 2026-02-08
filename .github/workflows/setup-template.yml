@@ -143,18 +143,25 @@ jobs:
             sed -i "s|{{TEMPLATE_REPO_NAME}}|repo-template|g" "$file"
           }
           
-          # Replace in all files
-          replace_in_file "README.md"
-          replace_in_file "CONTRIBUTING.md"
-          replace_in_file ".github/CODEOWNERS"
-          replace_in_file "REPO-INSTRUCTIONS.md"
-      
+          # Replace placeholders in all tracked files
+          while IFS= read -r file; do
+            if [ -f "$file" ]; then
+              replace_in_file "$file"
+            fi
+          done < <(git ls-files)
       - name: Setup LICENSE
         run: |
           # Copy license template and replace placeholders
           cp "${{ steps.license_file.outputs.file }}" LICENSE
           sed -i "s|{{YEAR}}|${{ steps.repo_info.outputs.year }}|g" LICENSE
-          sed -i "s|{{COPYRIGHT_HOLDER}}|${{ inputs.copyright_holder }}|g" LICENSE
+          
+          # Escape special characters in copyright holder for use in sed replacement
+          COPYRIGHT_HOLDER='${{ inputs.copyright_holder }}'
+          ESC_COPYRIGHT_HOLDER=${COPYRIGHT_HOLDER//\\/\\\\}
+          ESC_COPYRIGHT_HOLDER=${ESC_COPYRIGHT_HOLDER//&/\\&}
+          ESC_COPYRIGHT_HOLDER=${ESC_COPYRIGHT_HOLDER//|/\\|}
+          
+          sed -i "s|{{COPYRIGHT_HOLDER}}|${ESC_COPYRIGHT_HOLDER}|g" LICENSE
           
           # Remove license templates
           rm -f LICENSE-MIT.txt LICENSE-APACHE-2.0.txt LICENSE-MPL-2.0.txt
