@@ -130,7 +130,7 @@ function Read-Input {
         }
         
         if ([string]::IsNullOrWhiteSpace($input) -and $Required) {
-            Write-TemplateError "This field is required. Please enter a value."
+            Write-Error "This field is required. Please enter a value." -ErrorAction Continue
             continue
         }
         
