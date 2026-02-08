@@ -438,7 +438,7 @@ To modify the branch protection rules, edit `.github/ruleset-config.json` before
 ✅ **7 Code Analyzers** - Comprehensive quality enforcement  
 ✅ **Multi-Platform CI/CD** - Linux, Windows, macOS  
 ✅ **Multi-Framework** - .NET 5.0-10.0 + Framework 4.6.2-4.8.1  
-✅ **80% Coverage Requirement** - Automated enforcement  
+✅ **90% Coverage Requirement** - Automated enforcement  
 ✅ **Security Scanning** - DevSkim + CodeQL  
 ✅ **Automated Documentation** - DocFX + GitHub Pages  
 ✅ **3 License Options** - MIT, Apache 2.0, MPL 2.0  
