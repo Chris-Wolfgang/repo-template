@@ -157,7 +157,7 @@ replace_placeholders() {
     local file="$1"
     
     if [[ ! -f "$file" ]]; then
-        warning "File not found (skipping): $file"
+        warn "File not found (skipping): $file"
         return 0
     fi
     

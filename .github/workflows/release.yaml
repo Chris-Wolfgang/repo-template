@@ -92,9 +92,19 @@ jobs:
               # Try resolving via MSBuild (to account for Directory.Build.props, imports, etc.)
               Write-Host "No TargetFramework or TargetFrameworks found directly in $($testProj.Name); querying MSBuild..." -ForegroundColor Yellow
               
-              $msbuildOutput = dotnet msbuild $testProj.FullName /nologo -getProperty:TargetFrameworks,TargetFramework 2>&1
+              $msbuildOutput = @()
+              $msbuildExitCode = 0
+              foreach ($prop in @("TargetFrameworks", "TargetFramework")) {
+                $result = dotnet msbuild $testProj.FullName /nologo "-getProperty:$prop" 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                  $msbuildExitCode = $LASTEXITCODE
+                }
+                if ($result) {
+                  $msbuildOutput += $result
+                }
+              }
               
-              if ($LASTEXITCODE -ne 0 -or -not $msbuildOutput) {
+              if ($msbuildExitCode -ne 0 -or -not $msbuildOutput) {
                 Write-Warning "Unable to query MSBuild for target frameworks for $($testProj.Name). Tests will run without explicit --framework."
                 $frameworks = @('')
               } else {
