@@ -231,7 +231,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 | `README-TEMPLATE.md` | Project README template (becomes `README.md`) |
 | `TEMPLATE-PLACEHOLDERS.md` | Complete placeholder documentation |
 | `LICENSE-SELECTION.md` | License comparison and selection guide |
-| `Repo-Instructions.md` | Manual setup instructions |
+| `REPO-INSTRUCTIONS.md` | Manual setup instructions |
 | `setup.ps1` | PowerShell setup automation |
 | `setup.sh` | Bash setup automation |
 
@@ -325,7 +325,7 @@ Your repository now has:
 - **Contributing Guide:** [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Code of Conduct:** [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - **Release Workflow:** [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md)
-- **Setup Instructions:** [Repo-Instructions.md](Repo-Instructions.md)
+- **Setup Instructions:** [REPO-INSTRUCTIONS.md](REPO-INSTRUCTIONS.md)
 - **API Reference:** `{{DOCS_URL}}api/` (live documentation)
 
 ---

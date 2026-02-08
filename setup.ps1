@@ -302,7 +302,7 @@ function Start-Setup {
     
     Write-Success "Selected: $licenseType License"
     
-    # Template repository info (for Repo-Instructions.md)
+    # Template repository info (for REPO-INSTRUCTIONS.md)
     $templateRepoOwner = Read-Input `
         -Prompt "Template Repository Owner" `
         -Default "Chris-Wolfgang" `
@@ -383,7 +383,7 @@ function Start-Setup {
         'README.md',
         'CONTRIBUTING.md',
         '.github/CODEOWNERS',
-        'Repo-Instructions.md',
+        'REPO-INSTRUCTIONS.md',
         'docfx_project/docfx.json',
         'docfx_project/index.md',
         'docfx_project/docs/toc.yml'
@@ -454,7 +454,7 @@ function Start-Setup {
     Write-Host "    - TEMPLATE-PLACEHOLDERS.md" -ForegroundColor Gray
     Write-Host "    - LICENSE-SELECTION.md" -ForegroundColor Gray
     Write-Host "    - README-FORMATTING.md" -ForegroundColor Gray
-    Write-Host "    - Repo-Instructions.md" -ForegroundColor Gray
+    Write-Host "    - REPO-INSTRUCTIONS.md" -ForegroundColor Gray
     Write-Host ""
     Write-Host "Remove template files? (y/N): " -NoNewline -ForegroundColor Yellow
     $cleanup = Read-Host
@@ -466,7 +466,7 @@ function Start-Setup {
             'TEMPLATE-PLACEHOLDERS.md',
             'LICENSE-SELECTION.md',
             'README-FORMATTING.md',
-            'Repo-Instructions.md'
+            'REPO-INSTRUCTIONS.md'
         )
         
         foreach ($file in $filesToRemove) {
@@ -502,7 +502,7 @@ function Start-Setup {
     Write-Host "3. Push to GitHub:" -ForegroundColor Yellow
     Write-Host "   git push" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "4. Configure branch protection (see Repo-Instructions.md if kept)" -ForegroundColor Yellow
+    Write-Host "4. Configure branch protection (see REPO-INSTRUCTIONS.md if kept)" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "5. Start developing!" -ForegroundColor Yellow
     Write-Host "   dotnet new sln -n $projectName" -ForegroundColor Gray

@@ -372,7 +372,7 @@ main() {
         "README.md"
         "CONTRIBUTING.md"
         ".github/CODEOWNERS"
-        "Repo-Instructions.md"
+        "REPO-INSTRUCTIONS.md"
     )
     
     for file in "${FILES_TO_UPDATE[@]}"; do
@@ -431,7 +431,7 @@ main() {
     echo "    - TEMPLATE-PLACEHOLDERS.md"
     echo "    - LICENSE-SELECTION.md"
     echo "    - README-FORMATTING.md"
-    echo "    - Repo-Instructions.md"
+    echo "    - REPO-INSTRUCTIONS.md"
     echo ""
     echo -en "${YELLOW}Remove template files? (y/N): ${NC}"
     read -r cleanup
@@ -443,7 +443,7 @@ main() {
             "TEMPLATE-PLACEHOLDERS.md"
             "LICENSE-SELECTION.md"
             "README-FORMATTING.md"
-            "Repo-Instructions.md"
+            "REPO-INSTRUCTIONS.md"
         )
         
         for file in "${FILES_TO_REMOVE[@]}"; do
@@ -478,7 +478,7 @@ main() {
     echo -e "${YELLOW}3. Push to GitHub:${NC}"
     echo -e "   ${NC}git push${NC}"
     echo ""
-    echo -e "${YELLOW}4. Configure branch protection (see Repo-Instructions.md if kept)${NC}"
+    echo -e "${YELLOW}4. Configure branch protection (see REPO-INSTRUCTIONS.md if kept)${NC}"
     echo ""
     echo -e "${YELLOW}5. Start developing!${NC}"
     echo -e "   ${NC}dotnet new sln -n $PROJECT_NAME${NC}"

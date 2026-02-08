@@ -147,7 +147,7 @@ jobs:
           replace_in_file "README.md"
           replace_in_file "CONTRIBUTING.md"
           replace_in_file ".github/CODEOWNERS"
-          replace_in_file "Repo-Instructions.md"
+          replace_in_file "REPO-INSTRUCTIONS.md"
       
       - name: Setup LICENSE
         run: |
@@ -166,7 +166,7 @@ jobs:
           rm -f TEMPLATE-PLACEHOLDERS.md
           rm -f LICENSE-SELECTION.md
           rm -f README-FORMATTING.md
-          rm -f Repo-Instructions.md
+          rm -f REPO-INSTRUCTIONS.md
           rm -f .github/workflows/setup-template.yml
       
       - name: Commit changes

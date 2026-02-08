@@ -96,7 +96,7 @@ These placeholders represent sections that users should fill in later. They can 
 | 14 | `{{GITHUB_USERNAME}}` | workflows/ directory (commented) |
 | 17 | `{{GITHUB_USERNAME}}` | .github/ directory |
 
-### 4. Repo-Instructions.md
+### 4. REPO-INSTRUCTIONS.md
 
 | Line(s) | Placeholder | Context |
 |---------|-------------|---------|
@@ -164,7 +164,7 @@ If you must replace manually:
 1. **Global Find and Replace** in your editor:
    - Search for: `{{PLACEHOLDER_NAME}}`
    - Replace with: `Your Value`
-   - Files to search: `README.md`, `CONTRIBUTING.md`, `.github/CODEOWNERS`, `Repo-Instructions.md`
+   - Files to search: `README.md`, `CONTRIBUTING.md`, `.github/CODEOWNERS`, `REPO-INSTRUCTIONS.md`
 
 2. **README File Swap:**
    ```bash
@@ -181,7 +181,7 @@ If you must replace manually:
 4. **Validation:**
    ```bash
    # Check for remaining placeholders
-   grep -r "{{.*}}" README.md CONTRIBUTING.md .github/CODEOWNERS Repo-Instructions.md
+   grep -r "{{.*}}" README.md CONTRIBUTING.md .github/CODEOWNERS REPO-INSTRUCTIONS.md
    ```
 
 ---
@@ -249,7 +249,7 @@ After replacement, verify:
 
 - **Setup Scripts:** `setup.ps1`, `setup.sh`
 - **License Selection Guide:** [LICENSE-SELECTION.md](LICENSE-SELECTION.md)
-- **Repository Instructions:** [Repo-Instructions.md](Repo-Instructions.md)
+- **Repository Instructions:** [REPO-INSTRUCTIONS.md](REPO-INSTRUCTIONS.md)
 - **Template README:** [README.md](README.md) (describes template)
 - **Project README Template:** [README-TEMPLATE.md](README-TEMPLATE.md)
 
