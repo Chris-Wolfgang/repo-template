@@ -44,12 +44,54 @@ jobs:
             exit 1
           }
           
-          $frameworks = @('net5.0', 'net6.0', 'net7.0', 'net8.0', 'net9.0', 'net10.0', 'net462', 'net47', 'net471', 'net472', 'net48', 'net481')
-          
           foreach ($testProj in $testProjects) {
             Write-Host "==========================================" -ForegroundColor Cyan
             Write-Host "Testing project: $($testProj.Name)" -ForegroundColor Cyan
             Write-Host "==========================================" -ForegroundColor Cyan
+            
+            # Parse the project file to extract target frameworks
+            try {
+              [xml]$projectXml = Get-Content $testProj.FullName
+            } catch {
+              Write-Error "❌ Failed to parse project file $($testProj.Name): $_"
+              exit 1
+            }
+            
+            # Search all PropertyGroup elements for TargetFramework(s)
+            $targetFramework = $null
+            $targetFrameworks = $null
+            foreach ($propGroup in $projectXml.Project.PropertyGroup) {
+              if ($propGroup.TargetFrameworks) {
+                $targetFrameworks = $propGroup.TargetFrameworks
+                break
+              } elseif ($propGroup.TargetFramework) {
+                $targetFramework = $propGroup.TargetFramework
+                break
+              }
+            }
+            
+            # Determine which frameworks this project targets
+            $frameworks = @()
+            if ($targetFrameworks) {
+              # Multiple frameworks (semicolon-separated)
+              $frameworks = $targetFrameworks -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+              if ($frameworks.Count -eq 0) {
+                Write-Error "❌ TargetFrameworks property in $($testProj.Name) is empty or malformed"
+                exit 1
+              }
+            } elseif ($targetFramework) {
+              # Single framework
+              $frameworks = @($targetFramework.Trim())
+              if (-not $frameworks[0]) {
+                Write-Error "❌ TargetFramework property in $($testProj.Name) is empty"
+                exit 1
+              }
+            } else {
+              Write-Error "❌ No TargetFramework or TargetFrameworks found in $($testProj.Name)"
+              exit 1
+            }
+            
+            Write-Host "Detected frameworks: $($frameworks -join ', ')" -ForegroundColor Cyan
             
             foreach ($fw in $frameworks) {
               Write-Host "Testing framework: $fw" -ForegroundColor Yellow
@@ -57,8 +99,6 @@ jobs:
               dotnet test $testProj.FullName `
                 --configuration Release `
                 --framework $fw `
-                --no-build `
-                --no-restore `
                 --no-build `
                 --no-restore `
                 --collect:"XPlat Code Coverage" `
@@ -355,7 +395,7 @@ jobs:
             
             ## ✅ Quality Metrics
             
-            - All tests passed across .NET 5.0-10.0 and .NET Framework 4.6.2-4.8.1
+            - All tests passed across each project's target frameworks
             - 90% code coverage threshold met
             - NuGet package installation validated
             
