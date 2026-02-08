@@ -195,6 +195,8 @@ jobs:
     name: Pack & Validate NuGet
     needs: validate-release
     runs-on: windows-latest
+    outputs:
+      has-packages: ${{ steps.check-packages.outputs.has-packages }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -216,6 +218,7 @@ jobs:
           dotnet build --no-restore --configuration Release
 
       - name: Pack NuGet packages
+        id: check-packages
         shell: pwsh
         run: |
           # Create output directory for NuGet packages
@@ -227,9 +230,12 @@ jobs:
           
           # Handle case when no projects are found (e.g., template repository)
           if ($projects.Count -eq 0) {
-            Write-Warning "No projects found in src/ directory"
+            Write-Warning "No projects found in src/ directory - skipping package creation"
+            Write-Warning "Downstream publish and release jobs will be skipped"
             # Create empty directory for artifact upload
             New-Item -ItemType File -Path (Join-Path $packagesPath '.placeholder') -Force | Out-Null
+            # Set output to indicate no packages were created
+            "has-packages=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
             exit 0
           }
           
@@ -247,6 +253,8 @@ jobs:
           
           # All packages created successfully
           Write-Host "✅ All packages packed successfully" -ForegroundColor Green
+          # Set output to indicate packages were created
+          "has-packages=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Smoke test NuGet package installation
         shell: pwsh
@@ -368,6 +376,7 @@ jobs:
   publish-nuget:
     name: Publish to NuGet.org
     needs: pack-and-validate
+    if: needs.pack-and-validate.outputs.has-packages == 'true'
     runs-on: windows-latest
     steps:
       - name: Setup .NET
@@ -436,7 +445,11 @@ jobs:
   # Create GitHub Release
   create-github-release:
     name: Create GitHub Release
-    needs: publish-nuget
+    needs: [pack-and-validate, publish-nuget]
+    if: |
+      always() && 
+      needs.pack-and-validate.outputs.has-packages == 'true' &&
+      needs.publish-nuget.result == 'success'
     runs-on: windows-latest
     steps:
       - name: Checkout code
