@@ -120,8 +120,8 @@ replace_placeholders() {
     local -n replacements=$1
     
     if [[ ! -f "$file" ]]; then
-        warn "File not found: $file"
-        return 1
+        error "File not found: $file"
+        exit 1
     fi
     
     local modified=false
