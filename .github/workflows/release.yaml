@@ -6,11 +6,12 @@ on:
       - 'v*.*.*'
 
 permissions:
-  contents: read
+  contents: write  # Required for creating GitHub releases
 
 jobs:
-  build-and-test:
-    name: Build and Test
+  # Streamlined validation: All frameworks, Windows only
+  validate-release:
+    name: Validate Release Build
     runs-on: windows-latest
     steps:
       - name: Checkout code
@@ -33,28 +34,125 @@ jobs:
       - name: Build Solution (Release)
         run: dotnet build --no-restore --configuration Release
 
-      - name: Run tests for all test projects
+      - name: Run multi-framework tests with coverage
         shell: pwsh
         run: |
-          Get-ChildItem -Path './tests' -Recurse -Filter '*Test*.csproj' | ForEach-Object {
-            Write-Host "Running tests for $($_.FullName)"
-            dotnet test $_.FullName --no-build --configuration Release
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "Tests failed for $($_.FullName)"
-              exit $LASTEXITCODE
+          $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
+          
+          if ($testProjects.Count -eq 0) {
+            Write-Error "❌ No test projects found - release requires tests to validate quality"
+            exit 1
+          }
+          
+          $frameworks = @('net5.0', 'net6.0', 'net7.0', 'net8.0', 'net9.0', 'net10.0', 'net462', 'net47', 'net471', 'net472', 'net48', 'net481')
+          
+          foreach ($testProj in $testProjects) {
+            Write-Host "==========================================" -ForegroundColor Cyan
+            Write-Host "Testing project: $($testProj.Name)" -ForegroundColor Cyan
+            Write-Host "==========================================" -ForegroundColor Cyan
+            
+            foreach ($fw in $frameworks) {
+              Write-Host "Testing framework: $fw" -ForegroundColor Yellow
+              
+              dotnet test $testProj.FullName `
+                --configuration Release `
+                --framework $fw `
+                --no-build `
+                --no-restore `
+                --no-build `
+                --no-restore `
+                --collect:"XPlat Code Coverage" `
+                --results-directory "./TestResults" `
+                --logger "console;verbosity=minimal"
+              
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "❌ Tests failed for $fw in $($testProj.Name)"
+                exit $LASTEXITCODE
+              }
+            }
+            Write-Host ""
+          }
+          Write-Host "✅ All framework tests passed" -ForegroundColor Green
+
+      - name: Verify coverage threshold
+        shell: pwsh
+        run: |
+          # Check if coverage files exist
+          $coverageFiles = Get-ChildItem -Path "TestResults" -Recurse -Filter "coverage.cobertura.xml" -ErrorAction SilentlyContinue
+          
+          if ($coverageFiles.Count -eq 0) {
+            Write-Error "❌ No coverage files found - coverage data is required to enforce the 90% threshold"
+            exit 1
+          }
+          
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          
+          reportgenerator `
+            -reports:"TestResults/**/coverage.cobertura.xml" `
+            -targetdir:"CoverageReport" `
+            -reporttypes:"TextSummary;Html"
+          
+          Write-Host "==========================================" -ForegroundColor Cyan
+          Write-Host "Coverage Summary:" -ForegroundColor Cyan
+          Write-Host "==========================================" -ForegroundColor Cyan
+          Get-Content CoverageReport/Summary.txt
+          Write-Host ""
+          
+          # Parse coverage and enforce 90% threshold per module (matching pr.yaml)
+          $summaryContent = Get-Content CoverageReport/Summary.txt
+          $threshold = 90
+          $failedModules = @()
+          $coverageFound = $false
+          
+          foreach ($line in $summaryContent) {
+            # Match lines with module names and percentages (skip Summary line)
+            if ($line -match '^([^ ]+)\s+.*\s+(\d+\.?\d*)%$' -and $line -notmatch '^Summary') {
+              $coverageFound = $true
+              $module = $matches[1]
+              $coverage = [decimal]$matches[2]
+              
+              Write-Host "Checking module: '$module' - Coverage: ${coverage}%" -ForegroundColor Cyan
+              
+              if ($coverage -lt $threshold) {
+                Write-Host "  ❌ FAIL: Below ${threshold}% threshold" -ForegroundColor Red
+                $failedModules += "$module (${coverage}%)"
+              } else {
+                Write-Host "  ✅ PASS: Meets ${threshold}% threshold" -ForegroundColor Green
+              }
             }
           }
+          
+          # Ensure we found and parsed coverage data
+          if (-not $coverageFound) {
+            Write-Error "❌ Failed to parse coverage data from Summary.txt - cannot enforce threshold"
+            exit 1
+          }
+          
+          if ($failedModules.Count -gt 0) {
+            Write-Host ""
+            Write-Host "==========================================" -ForegroundColor Red
+            Write-Host "❌ COVERAGE GATE FAILED" -ForegroundColor Red
+            Write-Host "==========================================" -ForegroundColor Red
+            Write-Host "Modules below ${threshold}% coverage: $($failedModules -join ', ')" -ForegroundColor Red
+            exit 1
+          }
+          
+          Write-Host ""
+          Write-Host "==========================================" -ForegroundColor Green
+          Write-Host "✅ All modules meet ${threshold}% coverage threshold" -ForegroundColor Green
+          Write-Host "==========================================" -ForegroundColor Green
 
-      - name: Upload test results
+      - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: '**/TestResults*.trx'
+          name: release-coverage
+          path: CoverageReport/
 
-  publish:
-    name: Pack and Publish NuGet
-    needs: build-and-test
+  # Pack and validate NuGet package
+  pack-and-validate:
+    name: Pack & Validate NuGet
+    needs: validate-release
     runs-on: windows-latest
     steps:
       - name: Checkout code
@@ -64,52 +162,201 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
-            5.0.x
-            6.0.x
-            7.0.x
-            8.0.x
-            9.0.x
             10.0.x
 
-      - name: Restore dependencies
-        run: dotnet restore
+      - name: Restore and build
+        run: |
+          dotnet restore
+          dotnet build --no-restore --configuration Release
 
-      - name: Build Solution (Release)
-        run: dotnet build --no-restore --configuration Release
-
-      - name: Pack NuGet Packages
+      - name: Pack NuGet packages
         shell: pwsh
         run: |
           $packagesPath = Join-Path $PWD 'nuget-packages'
           New-Item -ItemType Directory -Force -Path $packagesPath | Out-Null
 
-          Get-ChildItem -Path 'src' -Recurse -Filter '*.csproj' | ForEach-Object {
-            Write-Host "Packing $($_.FullName)"
-            dotnet pack $_.FullName --no-build --configuration Release --output $packagesPath
+          $projects = Get-ChildItem -Path 'src' -Recurse -Filter '*.csproj'
+          
+          if ($projects.Count -eq 0) {
+            Write-Warning "No projects found in src/ directory"
+            # Create empty directory for artifact upload
+            New-Item -ItemType File -Path (Join-Path $packagesPath '.placeholder') -Force | Out-Null
+            exit 0
+          }
+          
+          foreach ($proj in $projects) {
+            Write-Host "📦 Packing $($proj.Name)" -ForegroundColor Cyan
+            dotnet pack $proj.FullName --no-build --configuration Release --output $packagesPath
+            
             if ($LASTEXITCODE -ne 0) {
-              Write-Error "dotnet pack failed for $($_.FullName)"
+              Write-Error "❌ Pack failed for $($proj.Name)"
               exit $LASTEXITCODE
             }
           }
+          
+          Write-Host "✅ All packages packed successfully" -ForegroundColor Green
 
-      - name: Upload NuGet packages as artifacts
+      - name: Smoke test NuGet package installation
+        shell: pwsh
+        run: |
+          $packages = Get-ChildItem -Path 'nuget-packages' -Filter '*.nupkg' -ErrorAction SilentlyContinue
+          
+          if ($packages.Count -eq 0) {
+            Write-Warning "No .nupkg files found - skipping smoke test"
+            exit 0
+          }
+          
+          # Create temporary test project
+          $testDir = Join-Path $PWD 'package-smoke-test'
+          New-Item -ItemType Directory -Force -Path $testDir | Out-Null
+          
+          Push-Location $testDir
+          try {
+            dotnet new console -n SmokeTest -f net8.0
+            
+            # Try to install the newly created package
+            foreach ($package in $packages) {
+              Write-Host "🧪 Smoke testing package: $($package.Name)" -ForegroundColor Yellow
+              
+              # Extract package ID from filename (remove version and .nupkg)
+              $packageId = $package.BaseName -replace '\.\d+\.\d+\.\d+.*$', ''
+              
+              dotnet add SmokeTest/SmokeTest.csproj package $packageId --source '../nuget-packages' --prerelease
+              
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "❌ Failed to install package $($package.Name)"
+                exit $LASTEXITCODE
+              }
+              
+              Write-Host "✅ Package $($package.Name) installed successfully" -ForegroundColor Green
+            }
+            
+            # Try to build the test project with the package
+            Write-Host "Building smoke test project..." -ForegroundColor Yellow
+            dotnet build SmokeTest/SmokeTest.csproj
+            
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "❌ Smoke test project failed to build with installed packages"
+              exit $LASTEXITCODE
+            }
+            
+            Write-Host "✅ Smoke test passed - packages are installable and buildable" -ForegroundColor Green
+            
+          } finally {
+            Pop-Location
+          }
+
+      - name: Upload NuGet packages
         uses: actions/upload-artifact@v4
-        with: 
+        with:
           name: nuget-packages
-          path: ./nuget-packages/*.nupkg
-          retention-days: 30
+          path: ./nuget-packages/
+          retention-days: 90
+          if-no-files-found: warn
 
-      - name: Publish NuGet Package
+  # Publish to NuGet (only if validation passed)
+  publish-nuget:
+    name: Publish to NuGet.org
+    needs: pack-and-validate
+    runs-on: windows-latest
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: ./packages
+
+      - name: Validate NuGet API key
         shell: pwsh
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          $packagesPath = Join-Path $PWD 'nuget-packages'
-          Get-ChildItem -Path $packagesPath -Filter '*.nupkg' | ForEach-Object {
-            Write-Host "Publishing $($_.FullName)"
-            dotnet nuget push $_.FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          if ([string]::IsNullOrEmpty($env:NUGET_API_KEY)) {
+            Write-Error "❌ NUGET_API_KEY secret not configured!"
+            Write-Host "Please add it in: Repository Settings → Secrets and variables → Actions → New repository secret"
+            exit 1
+          }
+          Write-Host "✅ NUGET_API_KEY is configured" -ForegroundColor Green
+
+      - name: Publish to NuGet
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          $packages = Get-ChildItem -Path './packages' -Filter '*.nupkg' -ErrorAction SilentlyContinue
+          
+          if ($packages.Count -eq 0) {
+            Write-Warning "No .nupkg files found - nothing to publish"
+            exit 0
+          }
+          
+          foreach ($package in $packages) {
+            Write-Host "📤 Publishing $($package.Name) to NuGet.org" -ForegroundColor Cyan
+            
+            dotnet nuget push $package.FullName `
+              --api-key $env:NUGET_API_KEY `
+              --source https://api.nuget.org/v3/index.json `
+              --skip-duplicate
+            
+            # Exit code 0 = success, 409 would be duplicate (handled by --skip-duplicate flag)
             if ($LASTEXITCODE -ne 0) {
-              Write-Error "dotnet nuget push failed for $($_.FullName)"
+              Write-Error "❌ Failed to publish $($package.Name)"
               exit $LASTEXITCODE
             }
+            
+            Write-Host "✅ Successfully published $($package.Name)" -ForegroundColor Green
           }
+          
+          Write-Host ""
+          Write-Host "==========================================" -ForegroundColor Green
+          Write-Host "✅ All packages published to NuGet.org" -ForegroundColor Green
+          Write-Host "==========================================" -ForegroundColor Green
+
+  # Create GitHub Release
+  create-github-release:
+    name: Create GitHub Release
+    needs: publish-nuget
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download NuGet packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: ./release-packages
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v4
+        with:
+          name: release-coverage
+          path: ./coverage-report
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./release-packages/*.nupkg
+            ./coverage-report/Summary.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          body: |
+            ## 📦 NuGet Packages
+            
+            This release has been published to NuGet.org.
+            
+            ## ✅ Quality Metrics
+            
+            - All tests passed across .NET 5.0-10.0 and .NET Framework 4.6.2-4.8.1
+            - 90% code coverage threshold met
+            - NuGet package installation validated
+            
+            See attached `Summary.txt` for detailed coverage report.
