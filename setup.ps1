@@ -215,7 +215,7 @@ function Start-Setup {
     
     # Extract repo name from URL if not already detected
     $repoName = $gitInfo.RepoName
-    if ([string]::IsNullOrWhiteSpace($repoName) -and $githubRepoUrl -match '/([^/]+)$') {
+    if ([string]::IsNullOrWhiteSpace($repoName) -and $githubRepoUrl -match '/([^/]+?)(?:\.git)?$') {
         $repoName = $matches[1]
     }
     if ([string]::IsNullOrWhiteSpace($repoName)) {
