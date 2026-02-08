@@ -383,7 +383,10 @@ function Start-Setup {
         'README.md',
         'CONTRIBUTING.md',
         '.github/CODEOWNERS',
-        'Repo-Instructions.md'
+        'Repo-Instructions.md',
+        'docfx_project/docfx.json',
+        'docfx_project/index.md',
+        'docfx_project/docs/toc.yml'
     )
     
     foreach ($file in $filesToUpdate) {
