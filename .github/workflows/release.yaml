@@ -60,8 +60,6 @@ jobs:
                 --framework $fw `
                 --no-build `
                 --no-restore `
-                --no-build `
-                --no-restore `
                 --collect:"XPlat Code Coverage" `
                 --results-directory "./TestResults" `
                 --logger "console;verbosity=minimal"
