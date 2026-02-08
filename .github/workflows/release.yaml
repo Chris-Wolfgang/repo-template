@@ -159,12 +159,11 @@ jobs:
                   --logger "console;verbosity=minimal"
               }
               elseif (-not $fw) {
-                # No framework specified - run tests for all frameworks the project targets
+                # No framework specified - run tests for all frameworks the project targets (no coverage collection here)
                 dotnet test $testProj.FullName `
                   --configuration Release `
                   --no-build `
                   --no-restore `
-                  --collect:"XPlat Code Coverage" `
                   --results-directory "./TestResults" `
                   --logger "console;verbosity=minimal"
               }
