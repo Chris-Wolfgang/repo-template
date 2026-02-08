@@ -29,12 +29,12 @@ function Write-Info {
     Write-Host "ℹ️  $Message" -ForegroundColor Cyan
 }
 
-function Write-Warning {
+function Write-TemplateWarning {
     param([string]$Message)
     Write-Host "⚠️  $Message" -ForegroundColor Yellow
 }
 
-function Write-Error {
+function Write-TemplateError {
     param([string]$Message)
     Write-Host "❌ $Message" -ForegroundColor Red
 }
