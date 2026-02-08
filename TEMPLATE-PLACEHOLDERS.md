@@ -141,6 +141,36 @@ These placeholders represent sections that users should fill in later. They can 
 |---------|-------------|---------|
 | 3 | `{{PROJECT_NAME}}` | Welcome message |
 
+### 9. docfx_project/docs/toc.yml
+
+| Line(s) | Placeholder | Context |
+|---------|-------------|---------|
+| 8 | `{{GITHUB_REPO_URL}}` | Project website link |
+
+### 10. docfx_project/docs/introduction.md
+
+| Line(s) | Placeholder | Context |
+|---------|-------------|---------|
+| 3 | `{{PROJECT_NAME}}` | Welcome message |
+| 7 | `{{PROJECT_DESCRIPTION}}` | Overview section |
+| 21 | `{{PROJECT_NAME}}` | Getting help section |
+| 25 | `{{GITHUB_REPO_URL}}` | GitHub repository link |
+| 26 | `{{GITHUB_REPO_URL}}` | GitHub issues link |
+
+### 11. docfx_project/docs/getting-started.md
+
+| Line(s) | Placeholder | Context |
+|---------|-------------|---------|
+| 3 | `{{PROJECT_NAME}}` | Guide title |
+| 17 | `{{PACKAGE_NAME}}` | NuGet installation command |
+| 23 | `{{PACKAGE_NAME}}` | Package Manager Console command |
+| 34 | `{{PROJECT_NAME}}` | Using statement in code example |
+| 42 | `{{PROJECT_NAME}}` | Next steps section |
+| 43 | `{{GITHUB_REPO_URL}}` | GitHub repository link |
+| 51 | `{{GITHUB_REPO_URL}}` | Additional resources |
+| 52 | `{{GITHUB_REPO_URL}}` | Contributing guidelines link |
+| 53 | `{{GITHUB_REPO_URL}}` | Issue reporting link |
+
 ---
 
 ## Replacement Process
