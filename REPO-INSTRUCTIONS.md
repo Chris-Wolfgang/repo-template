@@ -53,9 +53,16 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 >
 > **For multi-developer repositories:** Edit `.github/ruleset-config.json` **before** your first push to main and update the `pull_request` rule parameters as needed:
 > ```json
-> "required_approving_review_count": 1,
-> "dismiss_stale_reviews_on_push": true,
-> "require_code_owner_review": true,
+> {
+>   "type": "pull_request",
+>   "parameters": {
+>     "required_approving_review_count": 1,
+>     "dismiss_stale_reviews_on_push": true,
+>     "require_code_owner_review": true,
+>     "require_last_push_approval": false,
+>     "required_review_thread_resolution": true
+>   }
+> }
 > ```
 
 If you need to manually configure branch protection instead:

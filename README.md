@@ -395,9 +395,14 @@ Automatically configured on first push to main:
 > **For Multi-Developer Repositories:** Update `.github/ruleset-config.json` before first push to require at least one approval and code owner review:
 > ```json
 > {
->   "required_approving_review_count": 1,
->   "dismiss_stale_reviews_on_push": true,
->   "require_code_owner_review": true
+>   "type": "pull_request",
+>   "parameters": {
+>     "required_approving_review_count": 1,
+>     "dismiss_stale_reviews_on_push": true,
+>     "require_code_owner_review": true,
+>     "require_last_push_approval": false,
+>     "required_review_thread_resolution": true
+>   }
 > }
 > ```
 
