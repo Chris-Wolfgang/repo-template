@@ -247,22 +247,80 @@ jobs:
             exit 0
           }
           
+          # Helper to read package ID and version from the .nuspec inside a .nupkg
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          function Get-PackageMetadata {
+            param (
+              [Parameter(Mandatory = $true)]
+              [string] $NupkgPath
+            )
+
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($NupkgPath)
+            try {
+              $nuspecEntry = $zip.Entries | Where-Object { $_.FullName -like '*.nuspec' } | Select-Object -First 1
+              if (-not $nuspecEntry) {
+                throw "No .nuspec file found in package '$NupkgPath'."
+              }
+
+              $stream = $nuspecEntry.Open()
+              try {
+                $reader = New-Object System.IO.StreamReader($stream)
+                $nuspecXml = [xml]$reader.ReadToEnd()
+                $id = $nuspecXml.package.metadata.id
+                $version = $nuspecXml.package.metadata.version
+
+                if ([string]::IsNullOrWhiteSpace($id) -or [string]::IsNullOrWhiteSpace($version)) {
+                  throw "Failed to read id/version from nuspec in '$NupkgPath'."
+                }
+
+                [PSCustomObject]@{
+                  Id      = $id
+                  Version = $version
+                }
+              }
+              finally {
+                $stream.Dispose()
+              }
+            }
+            finally {
+              $zip.Dispose()
+            }
+          }
+          
           # Create temporary test project
           $testDir = Join-Path $PWD 'package-smoke-test'
           New-Item -ItemType Directory -Force -Path $testDir | Out-Null
+
+          # Restrict NuGet restores in this directory to the local package source only
+          $nugetConfigPath = Join-Path $testDir 'NuGet.config'
+          @"
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="local" value="../nuget-packages" />
+  </packageSources>
+  <packageSourceMapping>
+    <packageSource key="local">
+      <package pattern="*" />
+    </packageSource>
+  </packageSourceMapping>
+</configuration>
+"@ | Set-Content -Path $nugetConfigPath -Encoding UTF8
           
           Push-Location $testDir
           try {
             dotnet new console -n SmokeTest -f net8.0
             
-            # Try to install the newly created package
+            # Try to install the newly created package(s)
             foreach ($package in $packages) {
               Write-Host "🧪 Smoke testing package: $($package.Name)" -ForegroundColor Yellow
               
-              # Extract package ID from filename (remove version and .nupkg)
-              $packageId = $package.BaseName -replace '\.\d+\.\d+\.\d+.*$', ''
+              $metadata = Get-PackageMetadata -NupkgPath $package.FullName
+              $packageId = $metadata.Id
+              $packageVersion = $metadata.Version
               
-              dotnet add SmokeTest/SmokeTest.csproj package $packageId --source '../nuget-packages' --prerelease
+              dotnet add SmokeTest/SmokeTest.csproj package $packageId --version $packageVersion --source '../nuget-packages'
               
               if ($LASTEXITCODE -ne 0) {
                 Write-Error "❌ Failed to install package $($package.Name)"
