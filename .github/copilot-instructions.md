@@ -86,8 +86,8 @@ root/
 ### Key Configuration Files
 - **`.editorconfig`**: Code style rules (C# file-scoped namespaces, var preferences, analyzer severity)
 - **`.gitignore`**: Comprehensive .NET gitignore (Visual Studio, build artifacts, packages)
-- **`SETUP.md`**: Detailed repository setup instructions (delete after setup)
-- **`CONTRIBUTING.md`**: Empty - populate with contribution guidelines
+- **`REPO-INSTRUCTIONS.md` - Template setup instructions (delete after setup)
+- **`CONTRIBUTING.md`**: Contribution guidelines
 - **`CODE_OF_CONDUCT.md`**: Standard Contributor Covenant v2.0
 
 ### GitHub Integration
@@ -105,10 +105,8 @@ The workflow runs on pull requests to `main` branch and includes:
 3. **Artifacts**: Coverage reports and DevSkim results uploaded
 4. **Branch Protection**: Configured to require this workflow to pass before merging
 
-**Security Note**: Workflow includes safeguard `if: github.repository != 'Chris-Wolfgang/repo-template'` to prevent running on the template itself.
-
 ### Branch Protection Configuration
-When using this template, configure these settings in GitHub (detailed in `SETUP.md`):
+The repository has branch protection rules configured:
 - Require status checks to pass before merging
 - Require branches to be up to date
 - Require pull request reviews (including Copilot reviews)
@@ -120,7 +118,7 @@ When using this template, configure these settings in GitHub (detailed in `SETUP
 ### Root Directory Files
 - `README.md` - Basic template description (update for your project)
 - `LICENSE` - Mozilla Public License 2.0
-- `SETUP.md` - Template setup instructions (delete after setup)
+- `REPO-INSTRUCTIONS.md` - Template setup instructions (delete after setup)
 - `.editorconfig` - Code style configuration
 - `.gitignore` - .NET-specific gitignore
 

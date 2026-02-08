@@ -1,4 +1,38 @@
 # Setting Up Your Repository
+
+## Automated Setup (Recommended)
+
+**NEW:** This template now includes automated setup scripts that handle all configuration for you!
+
+### Quick Setup
+
+```bash
+# PowerShell (Windows/macOS/Linux)
+pwsh ./setup.ps1
+
+# Or Bash (macOS/Linux)
+chmod +x setup.sh
+./setup.sh
+```
+
+The automated scripts will:
+1. ✅ Prompt for all required information (with examples and defaults)
+2. ✅ Auto-detect git repository information where possible
+3. ✅ Replace all placeholders in template files
+4. ✅ Delete the template README.md
+5. ✅ Rename README-TEMPLATE.md to README.md
+6. ✅ Set up your chosen LICENSE (MIT, Apache 2.0, or MPL 2.0)
+7. ✅ Remove unused license templates
+8. ✅ Validate all replacements
+9. ✅ Optionally clean up template-specific files
+
+**For detailed placeholder documentation, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS.md)**  
+**For license selection guidance, see [LICENSE-SELECTION.md](LICENSE-SELECTION.md)**
+
+---
+
+## Manual Setup Instructions
+
 After you create your repo from the template you will still need to configure some settings. 
 Below is a list of what needs to be done. Once you have completed the checklist below you can delete this file
 
@@ -93,3 +127,52 @@ root
     └── MyApp.Benchmarks
         └── MyApp.Benchmarks.csproj
 ```
+
+
+## Configure Release Workflow (Optional)
+
+If you plan to publish NuGet packages using the automated release workflow, you need to configure the following:
+
+### Add NuGet API Key Secret
+
+1. Go to your repository's Settings → Secrets and variables → Actions
+2. Click **"New repository secret"**
+3. **Name:** `NUGET_API_KEY`
+4. **Value:** Your NuGet.org API key
+   - Get your key from [NuGet.org Account → API Keys](https://www.nuget.org/account/apikeys)
+   - Recommended scopes: **Push new packages and package versions**
+   - Set expiration date (recommended: 1 year)
+5. Click **"Add secret"**
+
+**Note:** The release workflow automatically publishes packages to NuGet.org when you push a version tag (e.g., `v1.0.0`). See [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md) for detailed information about the release workflow, testing, and troubleshooting.
+
+
+## Update Template Files
+
+After creating your repository from the template, update the following files with your project-specific information:
+
+### Update README.md
+
+1. Open `README.md` in the root folder
+2. Replace the template content with your project's description
+3. Add installation instructions, usage examples, and other relevant information
+
+### Update CONTRIBUTING.md
+
+1. Open `CONTRIBUTING.md`
+2. Replace `<Application Name>` with your actual project name (appears in 2 locations near the top)
+3. Review and adjust contribution guidelines as needed for your project
+
+### Update CODEOWNERS
+
+1. Open `.github/CODEOWNERS`
+2. Replace `{{GITHUB_USERNAME}}` with your GitHub username or team names
+3. Uncomment and customize the example rules if you want different owners for specific directories
+
+**Note:** The CODEOWNERS file determines who is automatically requested for review when someone opens a pull request.
+
+### Update Documentation (Optional)
+
+If you're using DocFX for documentation:
+1. Update references in `docfx_project/docs/toc.yml` to point to your repository
+2. Customize the documentation content in `docfx_project/`
