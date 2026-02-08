@@ -142,7 +142,7 @@ read_input() {
 }
 
 # Replace placeholders in a file
-# Uses the global REPLACEMENTS array (to avoid Bash 4.3+ nameref requirement)
+# Expects REPLACEMENTS to be defined in the caller's scope (e.g., main) to avoid Bash 4.3+ nameref requirement
 replace_placeholders() {
     local file="$1"
     
