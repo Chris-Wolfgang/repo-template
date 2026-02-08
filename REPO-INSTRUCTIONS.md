@@ -49,6 +49,24 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 
 ## Add Branch Protection Rules
 
+> **Note:** Branch protection is now automatically configured by the `setup-branch-ruleset.yml` workflow on first push to main. The configuration in `.github/ruleset-config.json` is pre-configured for **single developer repositories** with no approval requirements.
+>
+> **For multi-developer repositories:** Edit `.github/ruleset-config.json` **before** your first push to main and update the `pull_request` rule parameters as needed:
+> ```json
+> {
+>   "type": "pull_request",
+>   "parameters": {
+>     "required_approving_review_count": 1,
+>     "dismiss_stale_reviews_on_push": true,
+>     "require_code_owner_review": true,
+>     "require_last_push_approval": false,
+>     "required_review_thread_resolution": true
+>   }
+> }
+> ```
+
+If you need to manually configure branch protection instead:
+
 1. Go to your repository’s Settings → Branches.
 2. Under “Branch protection rules,” click `Add branch ruleset`
 3. `Ruleset Name` enter `main`
@@ -64,8 +82,9 @@ Prevent Merging When Checks Fail
 These settings require that all checks in the pr.yaml file succeed before you can merge a branch into main
 
 > **Note for Single-Developer Repositories:** This template is configured for single-developer use. The automated branch ruleset (`.github/ruleset-config.json`) does not require PR approvals or code owner reviews by default. If you are setting up a multi-developer repository, edit the Branch protection rule for `main` to require pull request reviews before merging, set the **Required approving reviews** count to `1` or higher, and (optionally) enable the Code Owners and Copilot review options described in the subsections below. Also update `.github/ruleset-config.json` to set `required_approving_review_count` to `1` or higher and `require_code_owner_review` to `true`.
-
 **Note:** The pr.yaml workflow uses `pull_request_target` to always run from the trusted main branch, even for PRs from feature branches. This prevents malicious workflow modifications in untrusted PR branches while still testing the PR's code.
+
+> **Branch protection is now automated!** The `setup-branch-ruleset.yml` workflow automatically configures all required settings on first push to main using `.github/ruleset-config.json`. Manual configuration below is only needed if you disable the automated setup.
 
 1. Go to your repository’s Settings → Branches.
 2. Under “Branch protection rules,” edit the rule for main.
@@ -81,8 +100,9 @@ These settings require that all checks in the pr.yaml file succeed before you ca
 6. Check `Restrict deletions`
 7. Check `Require a pull request before merging`
 	1. Check `Dismiss stale pull request approvals when new commits are pushed`
-	2. Check `Require review from Code Owners` (recommended for multi-developer repos)
-	3. Check `Require pull request review from Copilot`
+ 	2. **For single developer repos:** Leave `Require review from Code Owners` unchecked
+	3. **For multi-developer repos:** Check `Require review from Code Owners` and set required approvals to 1 or more
+	4. Check `Require pull request review from Copilot` (optional)
 8. Check `Block force pushes`
 9. Check `Require code scanning`
 
