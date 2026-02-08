@@ -192,7 +192,7 @@ git push origin v1.0.0
                             │
                             ▼ (only if packing succeeds)
 ┌─────────────────────────────────────────────────────────────┐
-│  Job 3: publish-nuget (Ubuntu)                              │
+│  Job 3: publish-nuget (Windows)                             │
 │  • Download packages                                        │
 │  • Validate NUGET_API_KEY                                   │
 │  • Publish to NuGet.org automatically                       │
@@ -200,7 +200,7 @@ git push origin v1.0.0
                             │
                             ▼ (only if publishing succeeds)
 ┌─────────────────────────────────────────────────────────────┐
-│  Job 4: create-github-release (Ubuntu)                      │
+│  Job 4: create-github-release (Windows)                     │
 │  • Download packages & coverage                             │
 │  • Create GitHub release                                    │
 │  • Attach artifacts                                         │
