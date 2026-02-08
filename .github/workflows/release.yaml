@@ -448,6 +448,7 @@ jobs:
     needs: [pack-and-validate, publish-nuget]
     if: |
       always() && 
+      needs.pack-and-validate.result == 'success' &&
       needs.pack-and-validate.outputs.has-packages == 'true' &&
       needs.publish-nuget.result == 'success'
     runs-on: windows-latest
