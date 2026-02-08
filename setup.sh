@@ -262,7 +262,16 @@ main() {
     fi
     
     # Generate docs URL from repo URL
-    local default_docs_url=$(echo "$GITHUB_REPO_URL" | sed -E 's|https://github.com/([^/]+)/([^/]+).*|https://\1.github.io/\2/|')
+    # Normalize SSH URLs to HTTPS and strip .git suffix
+    local normalized_url="$GITHUB_REPO_URL"
+    # Convert SSH format (git@github.com:org/repo) to HTTPS
+    if [[ "$normalized_url" =~ ^git@github\.com:(.+)$ ]]; then
+        normalized_url="https://github.com/${BASH_REMATCH[1]}"
+    fi
+    # Strip .git suffix if present
+    normalized_url="${normalized_url%.git}"
+    
+    local default_docs_url=$(echo "$normalized_url" | sed -E 's|https://github.com/([^/]+)/([^/]+).*|https://\1.github.io/\2/|')
     DOCS_URL=$(read_input \
         "Documentation URL (GitHub Pages)" \
         "$default_docs_url" \
