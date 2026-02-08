@@ -34,7 +34,9 @@ check_bash_version() {
     fi
 }
 
-check_bash_version
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    check_bash_version
+fi
 
 # Color codes
 readonly RED='\033[0;31m'
