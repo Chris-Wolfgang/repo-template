@@ -142,7 +142,7 @@ The repository has branch protection rules configured:
 This information has been validated against the template structure and GitHub workflows. **Only search for additional information if these instructions are incomplete or found to be incorrect.**
 
 ### When Working with This Template
-1. **Creating New Projects**: Follow the structure outlined in `REPO-INSTRUCTIONS`
+1. **Creating New Projects**: Follow the structure outlined in `REPO-INSTRUCTIONS.md`
 2. **Adding Dependencies**: Use `dotnet add package` commands
 3. **Code Style**: Follow `.editorconfig` rules (file-scoped namespaces, explicit typing)
 4. **Testing**: Ensure test projects follow `*Test*.csproj` naming convention
