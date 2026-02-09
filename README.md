@@ -235,7 +235,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 | `setup.ps1` | PowerShell setup automation |
 | `setup.sh` | Bash setup automation |
 
-* Read me file for repo-template repository. When you run the setup (setup.ps1 or setup.sh) this file will be replaced by the README-TEMPLATE.md with a customized starter README.md file for your repository
+**Note** The README.md file for repo-template repository we be replaced by the README-TEMPLATE.md when you run the setup (setup.ps1 or setup.sh) The README-TEMPLATE.md file will be a customized starter README.md file for your repository
 
 ### License Templates
 
