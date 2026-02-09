@@ -118,16 +118,16 @@ root/
 ├── docfx_project/          # DocFX documentation
 ├── docs/                   # Generated documentation
 ├── .editorconfig           # Code style rules
-├── .gitignore             # Comprehensive .NET gitignore
-├── .globalconfig          # Global analyzer config
-├── BannedSymbols.txt      # Banned API list
+├── .gitignore              # Comprehensive .NET gitignore
+├── .globalconfig           # Global analyzer config
+├── BannedSymbols.txt       # Banned API list
 ├── Directory.Build.props   # Shared MSBuild properties
-├── Solution.slnx          # Solution file
-├── LICENSE                # Project license
-├── README.md              # Project README (from README-TEMPLATE.md)
-├── CONTRIBUTING.md        # Contribution guidelines
-├── CODE_OF_CONDUCT.md     # Contributor Covenant
-└── format.ps1             # Code formatting script
+├── Solution.slnx           # Solution file
+├── LICENSE                 # Project license
+├── README.md               # Project README (from README-TEMPLATE.md)
+├── CONTRIBUTING.md         # Contribution guidelines
+├── CODE_OF_CONDUCT.md      # Contributor Covenant
+└── format.ps1              # Code formatting script
 ```
 
 ### 🏷️ License Options
