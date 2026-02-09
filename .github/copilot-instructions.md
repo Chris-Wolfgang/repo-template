@@ -86,8 +86,8 @@ root/
 ### Key Configuration Files
 - **`.editorconfig`**: Code style rules (C# file-scoped namespaces, var preferences, analyzer severity)
 - **`.gitignore`**: Comprehensive .NET gitignore (Visual Studio, build artifacts, packages)
-- **`SETUP.md`**: Detailed repository setup instructions (delete after setup)
-- **`CONTRIBUTING.md`**: Empty - populate with contribution guidelines
+- **`REPO-INSTRUCTIONS.md`**: Template setup instructions (delete after setup)
+- **`CONTRIBUTING.md`**: Contribution guidelines
 - **`CODE_OF_CONDUCT.md`**: Standard Contributor Covenant v2.0
 
 ### GitHub Integration
@@ -105,22 +105,32 @@ The workflow runs on pull requests to `main` branch and includes:
 3. **Artifacts**: Coverage reports and DevSkim results uploaded
 4. **Branch Protection**: Configured to require this workflow to pass before merging
 
-**Security Note**: Workflow includes safeguard `if: github.repository != 'Chris-Wolfgang/repo-template'` to prevent running on the template itself.
-
 ### Branch Protection Configuration
-When using this template, configure these settings in GitHub (detailed in `SETUP.md`):
+The repository has branch protection rules configured via `.github/ruleset-config.json`:
+
+**Single-Developer Configuration (Default):**
+- `required_approving_review_count`: 0 (no approval required)
+- `require_code_owner_review`: false
+- This allows solo developers to merge their own PRs while still enforcing CI/CD checks
+
+**For Multi-Developer Repositories:**
+Update `.github/ruleset-config.json` to require approvals:
+- Set `required_approving_review_count` to 1 or higher
+- Set `require_code_owner_review` to true
+
+**All Configurations Include:**
 - Require status checks to pass before merging
 - Require branches to be up to date
-- Require pull request reviews (including Copilot reviews)
+- Require conversation resolution before merging
 - Restrict deletions and block force pushes
-- Require code scanning
+- Require code scanning (CodeQL High+ severity)
 
 ## Key Files and Locations
 
 ### Root Directory Files
 - `README.md` - Basic template description (update for your project)
-- `LICENSE` - Mozilla Public License 2.0
-- `SETUP.md` - Template setup instructions (delete after setup)
+- `LICENSE` - MIT License
+- `REPO-INSTRUCTIONS.md` - Template setup instructions (delete after setup)
 - `.editorconfig` - Code style configuration
 - `.gitignore` - .NET-specific gitignore
 
@@ -144,7 +154,7 @@ When using this template, configure these settings in GitHub (detailed in `SETUP
 This information has been validated against the template structure and GitHub workflows. **Only search for additional information if these instructions are incomplete or found to be incorrect.**
 
 ### When Working with This Template
-1. **Creating New Projects**: Follow the structure outlined in `SETUP.md`
+1. **Creating New Projects**: Follow the structure outlined in `REPO-INSTRUCTIONS.md`
 2. **Adding Dependencies**: Use `dotnet add package` commands
 3. **Code Style**: Follow `.editorconfig` rules (file-scoped namespaces, explicit typing)
 4. **Testing**: Ensure test projects follow `*Test*.csproj` naming convention

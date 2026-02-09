@@ -1,6 +1,6 @@
-# Contributing to <Application Name>
+# Contributing to {{PROJECT_NAME}}
 
-Thank you for your interest in contributing to **<Application Name>**! We welcome contributions to help improve this project.
+Thank you for your interest in contributing to **{{PROJECT_NAME}}**! We welcome contributions to help improve this project.
 
 ## How Can You Contribute?
 

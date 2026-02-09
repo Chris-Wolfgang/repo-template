@@ -1,4 +1,38 @@
 # Setting Up Your Repository
+
+## Automated Setup (Recommended)
+
+**NEW:** This template now includes automated setup scripts that handle all configuration for you!
+
+### Quick Setup
+
+```bash
+# PowerShell (Windows/macOS/Linux)
+pwsh ./setup.ps1
+
+# Or Bash (macOS/Linux)
+chmod +x setup.sh
+./setup.sh
+```
+
+The automated scripts will:
+1. ✅ Prompt for all required information (with examples and defaults)
+2. ✅ Auto-detect git repository information where possible
+3. ✅ Replace placeholders in core template files (see TEMPLATE-PLACEHOLDERS.md for details and any manual steps, including DocFX docs)
+4. ✅ Delete the template README.md
+5. ✅ Rename README-TEMPLATE.md to README.md
+6. ✅ Set up your chosen LICENSE (MIT, Apache 2.0, or MPL 2.0)
+7. ✅ Remove unused license templates
+8. ✅ Validate all replacements
+9. ✅ Optionally clean up template-specific files
+
+**For detailed placeholder documentation, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS.md)**  
+**For license selection guidance, see [LICENSE-SELECTION.md](LICENSE-SELECTION.md)**
+
+---
+
+## Manual Setup Instructions
+
 After you create your repo from the template you will still need to configure some settings. 
 Below is a list of what needs to be done. Once you have completed the checklist below you can delete this file
 
@@ -15,6 +49,24 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 
 ## Add Branch Protection Rules
 
+> **Note:** Branch protection is now automatically configured by the `setup-branch-ruleset.yml` workflow on first push to main. The configuration in `.github/ruleset-config.json` is pre-configured for **single developer repositories** with no approval requirements.
+>
+> **For multi-developer repositories:** Edit `.github/ruleset-config.json` **before** your first push to main and update the `pull_request` rule parameters as needed:
+> ```json
+> {
+>   "type": "pull_request",
+>   "parameters": {
+>     "required_approving_review_count": 1,
+>     "dismiss_stale_reviews_on_push": true,
+>     "require_code_owner_review": true,
+>     "require_last_push_approval": false,
+>     "required_review_thread_resolution": true
+>   }
+> }
+> ```
+
+If you need to manually configure branch protection instead:
+
 1. Go to your repository’s Settings → Branches.
 2. Under “Branch protection rules,” click `Add branch ruleset`
 3. `Ruleset Name` enter `main`
@@ -29,8 +81,10 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 Prevent Merging When Checks Fail
 These settings require that all checks in the pr.yaml file succeed before you can merge a branch into main
 
-
+> **Note for Single-Developer Repositories:** This template is configured for single-developer use. The automated branch ruleset (`.github/ruleset-config.json`) does not require PR approvals or code owner reviews by default. If you are setting up a multi-developer repository, edit the Branch protection rule for `main` to require pull request reviews before merging, set the **Required approving reviews** count to `1` or higher, and (optionally) enable the Code Owners and Copilot review options described in the subsections below. Also update `.github/ruleset-config.json` to set `required_approving_review_count` to `1` or higher and `require_code_owner_review` to `true`.
 **Note:** The pr.yaml workflow uses `pull_request_target` to always run from the trusted main branch, even for PRs from feature branches. This prevents malicious workflow modifications in untrusted PR branches while still testing the PR's code.
+
+> **Branch protection is now automated!** The `setup-branch-ruleset.yml` workflow automatically configures all required settings on first push to main using `.github/ruleset-config.json`. Manual configuration below is only needed if you disable the automated setup.
 
 1. Go to your repository’s Settings → Branches.
 2. Under “Branch protection rules,” edit the rule for main.
@@ -46,8 +100,7 @@ These settings require that all checks in the pr.yaml file succeed before you ca
 6. Check `Restrict deletions`
 7. Check `Require a pull request before merging`
 	1. Check `Dismiss stale pull request approvals when new commits are pushed`
- 	2. Check `Require review from Code Owners`
-	3. Check `Require pull request review from Copilot`
+	3. **For multi-developer repos:** Check `Require review from Code Owners` and set required approvals to 1 or more
 8. Check `Block force pushes`
 9. Check `Require code scanning`
 
@@ -93,3 +146,52 @@ root
     └── MyApp.Benchmarks
         └── MyApp.Benchmarks.csproj
 ```
+
+
+## Configure Release Workflow (Optional)
+
+If you plan to publish NuGet packages using the automated release workflow, you need to configure the following:
+
+### Add NuGet API Key Secret
+
+1. Go to your repository's Settings → Secrets and variables → Actions
+2. Click **"New repository secret"**
+3. **Name:** `NUGET_API_KEY`
+4. **Value:** Your NuGet.org API key
+   - Get your key from [NuGet.org Account → API Keys](https://www.nuget.org/account/apikeys)
+   - Recommended scopes: **Push new packages and package versions**
+   - Set expiration date (recommended: 1 year)
+5. Click **"Add secret"**
+
+**Note:** The release workflow automatically publishes packages to NuGet.org when you push a version tag (e.g., `v1.0.0`). See [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md) for detailed information about the release workflow, testing, and troubleshooting.
+
+
+## Update Template Files
+
+After creating your repository from the template, update the following files with your project-specific information:
+
+### Update README.md
+
+1. Open `README.md` in the root folder
+2. Replace the template content with your project's description
+3. Add installation instructions, usage examples, and other relevant information
+
+### Update CONTRIBUTING.md
+
+1. Open `CONTRIBUTING.md`
+2. Ensure any project name placeholders (for example, `{{PROJECT_NAME}}`) have been replaced with your actual project name (the automated setup scripts should normally do this for you)
+3. Review and adjust contribution guidelines as needed for your project
+
+### Update CODEOWNERS
+
+1. Open `.github/CODEOWNERS`
+2. Replace `{{GITHUB_USERNAME}}` with your GitHub username or team names
+3. Uncomment and customize the example rules if you want different owners for specific directories
+
+**Note:** The CODEOWNERS file determines who is automatically requested for review when someone opens a pull request.
+
+### Update Documentation (Optional)
+
+If you're using DocFX for documentation:
+1. Review and customize the generated table of contents in `docfx_project/docs/toc.yml` as needed (the setup scripts already point this to your repository)
+2. Customize the rest of the documentation content in `docfx_project/`

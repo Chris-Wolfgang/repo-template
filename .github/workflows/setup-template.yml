@@ -1,0 +1,258 @@
+name: Setup Template
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: 'Project Name (e.g., Wolfgang.Extensions.IAsyncEnumerable)'
+        required: true
+        type: string
+      project_description:
+        description: 'Project Description'
+        required: true
+        type: string
+      package_name:
+        description: 'NuGet Package Name (leave empty to use project name)'
+        required: false
+        type: string
+      github_username:
+        description: 'GitHub Username (with @)'
+        required: true
+        type: string
+      license_type:
+        description: 'License Type'
+        required: true
+        type: choice
+        options:
+          - MIT
+          - Apache-2.0
+          - MPL-2.0
+        default: MIT
+      copyright_holder:
+        description: 'Copyright Holder Name'
+        required: true
+        type: string
+      nuget_status:
+        description: 'NuGet Package Status'
+        required: false
+        type: string
+        default: 'Coming soon to NuGet.org'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Get repository information
+        id: repo_info
+        run: |
+          REPO_URL="https://github.com/${{ github.repository }}"
+          REPO_NAME="${{ github.event.repository.name }}"
+          DOCS_URL="https://${{ github.repository_owner }}.github.io/${REPO_NAME}/"
+          YEAR=$(date +%Y)
+          
+          echo "repo_url=$REPO_URL" >> $GITHUB_OUTPUT
+          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "docs_url=$DOCS_URL" >> $GITHUB_OUTPUT
+          echo "year=$YEAR" >> $GITHUB_OUTPUT
+      
+      - name: Set package name
+        id: package_name
+        run: |
+          if [ -z "${{ inputs.package_name }}" ]; then
+            echo "name=${{ inputs.project_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "name=${{ inputs.package_name }}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Determine license file
+        id: license_file
+        run: |
+          case "${{ inputs.license_type }}" in
+            "MIT")
+              echo "file=LICENSE-MIT.txt" >> $GITHUB_OUTPUT
+              ;;
+            "Apache-2.0")
+              echo "file=LICENSE-APACHE-2.0.txt" >> $GITHUB_OUTPUT
+              ;;
+            "MPL-2.0")
+              echo "file=LICENSE-MPL-2.0.txt" >> $GITHUB_OUTPUT
+              ;;
+          esac
+      
+      - name: Create setup branch
+        run: |
+          BRANCH_NAME="template-setup-$(date +%s)"
+          git checkout -b "$BRANCH_NAME"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+      
+      - name: Swap README files
+        run: |
+          rm -f README.md
+          mv README-TEMPLATE.md README.md
+      
+      - name: Replace placeholders
+        run: |
+          # Function to replace placeholders
+          replace_in_file() {
+            local file=$1
+
+            # Escape replacement values for sed (escape &, |, and backslashes)
+            local project_name project_description package_name
+            local repo_url repo_name github_username docs_url
+            local license_type year copyright_holder nuget_status
+
+            project_name=$(printf '%s\n' "${{ inputs.project_name }}" | sed -e 's/[&|\\]/\\&/g')
+            project_description=$(printf '%s\n' "${{ inputs.project_description }}" | sed -e 's/[&|\\]/\\&/g')
+            package_name=$(printf '%s\n' "${{ steps.package_name.outputs.name }}" | sed -e 's/[&|\\]/\\&/g')
+            repo_url=$(printf '%s\n' "${{ steps.repo_info.outputs.repo_url }}" | sed -e 's/[&|\\]/\\&/g')
+            repo_name=$(printf '%s\n' "${{ steps.repo_info.outputs.repo_name }}" | sed -e 's/[&|\\]/\\&/g')
+            github_username=$(printf '%s\n' "${{ inputs.github_username }}" | sed -e 's/[&|\\]/\\&/g')
+            docs_url=$(printf '%s\n' "${{ steps.repo_info.outputs.docs_url }}" | sed -e 's/[&|\\]/\\&/g')
+            license_type=$(printf '%s\n' "${{ inputs.license_type }}" | sed -e 's/[&|\\]/\\&/g')
+            year=$(printf '%s\n' "${{ steps.repo_info.outputs.year }}" | sed -e 's/[&|\\]/\\&/g')
+            copyright_holder=$(printf '%s\n' "${{ inputs.copyright_holder }}" | sed -e 's/[&|\\]/\\&/g')
+            nuget_status=$(printf '%s\n' "${{ inputs.nuget_status }}" | sed -e 's/[&|\\]/\\&/g')
+            
+            # Extract template repository info from GitHub context
+            # Use github.event.repository.template_repository if available, otherwise default to Chris-Wolfgang/repo-template
+            template_repo_owner=$(printf '%s\n' "${{ github.event.repository.template_repository.owner.login || 'Chris-Wolfgang' }}" | sed -e 's/[&|\\]/\\&/g')
+            template_repo_name=$(printf '%s\n' "${{ github.event.repository.template_repository.name || 'repo-template' }}" | sed -e 's/[&|\\]/\\&/g')
+
+            sed -i "s|{{PROJECT_NAME}}|$project_name|g" "$file"
+            sed -i "s|{{PROJECT_DESCRIPTION}}|$project_description|g" "$file"
+            sed -i "s|{{PACKAGE_NAME}}|$package_name|g" "$file"
+            sed -i "s|{{GITHUB_REPO_URL}}|$repo_url|g" "$file"
+            sed -i "s|{{REPO_NAME}}|$repo_name|g" "$file"
+            sed -i "s|{{GITHUB_USERNAME}}|$github_username|g" "$file"
+            sed -i "s|{{DOCS_URL}}|$docs_url|g" "$file"
+            sed -i "s|{{LICENSE_TYPE}}|$license_type|g" "$file"
+            sed -i "s|{{YEAR}}|$year|g" "$file"
+            sed -i "s|{{COPYRIGHT_HOLDER}}|$copyright_holder|g" "$file"
+            sed -i "s|{{NUGET_STATUS}}|$nuget_status|g" "$file"
+            sed -i "s|{{TEMPLATE_REPO_OWNER}}|$template_repo_owner|g" "$file"
+            sed -i "s|{{TEMPLATE_REPO_NAME}}|$template_repo_name|g" "$file"
+          }
+          
+          # Replace placeholders in all tracked files, excluding template documentation
+          while IFS= read -r file; do
+            if [ -f "$file" ]; then
+              case "$file" in
+                TEMPLATE-PLACEHOLDERS.md|LICENSE-SELECTION.md)
+                  # Skip template documentation files that intentionally contain {{...}} examples
+                  continue
+                  ;;
+              esac
+              replace_in_file "$file"
+            fi
+          done < <(git ls-files)
+      - name: Setup LICENSE
+        run: |
+          # Copy license template and replace placeholders
+          cp "${{ steps.license_file.outputs.file }}" LICENSE
+          sed -i "s|{{YEAR}}|${{ steps.repo_info.outputs.year }}|g" LICENSE
+          
+          # Escape special characters in copyright holder for use in sed replacement
+          COPYRIGHT_HOLDER='${{ inputs.copyright_holder }}'
+          ESC_COPYRIGHT_HOLDER=${COPYRIGHT_HOLDER//\\/\\\\}
+          ESC_COPYRIGHT_HOLDER=${ESC_COPYRIGHT_HOLDER//&/\\&}
+          ESC_COPYRIGHT_HOLDER=${ESC_COPYRIGHT_HOLDER//|/\\|}
+          
+          sed -i "s|{{COPYRIGHT_HOLDER}}|${ESC_COPYRIGHT_HOLDER}|g" LICENSE
+          
+          # Remove license templates
+          rm -f LICENSE-MIT.txt LICENSE-APACHE-2.0.txt LICENSE-MPL-2.0.txt
+      
+      - name: Remove template file
+        run: |
+          # Remove the setup workflow itself
+          rm -f .github/workflows/setup-template.yml
+          
+          # Remove template documentation that's no longer needed
+          rm -f REPO-INSTRUCTIONS.md
+          rm -f README-FORMATTING.md
+      
+      - name: Commit changes
+        run: |
+          git add .
+          git commit -m "Configure repository from template
+          
+          - Project: ${{ inputs.project_name }}
+          - License: ${{ inputs.license_type }}
+          - Automated via GitHub Actions"
+      
+      - name: Push branch
+        run: |
+          git push origin "$BRANCH_NAME"
+      
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr create \
+            --title "Configure repository from template" \
+            --body "## Template Configuration
+          
+          This PR configures the repository from the template with the following settings:
+          
+          **Project Information:**
+          - **Project Name:** ${{ inputs.project_name }}
+          - **Description:** ${{ inputs.project_description }}
+          - **Package Name:** ${{ steps.package_name.outputs.name }}
+          - **License:** ${{ inputs.license_type }}
+          - **Copyright:** © ${{ steps.repo_info.outputs.year }} ${{ inputs.copyright_holder }}
+          
+          **Repository:**
+          - **URL:** ${{ steps.repo_info.outputs.repo_url }}
+          - **Docs URL:** ${{ steps.repo_info.outputs.docs_url }}
+          - **Owner:** ${{ inputs.github_username }}
+          
+          **Changes Made:**
+          - ✅ README.md swapped from template version
+          - ✅ All placeholders replaced in tracked files
+          - ✅ LICENSE file created (${{ inputs.license_type }})
+          - ✅ License template files removed
+          - ✅ Setup workflow removed
+          - ✅ Template documentation removed
+          
+          **Next Steps:**
+          1. Review the changes in this PR
+          2. Merge this PR if everything looks correct
+          3. Configure branch protection rules
+          4. Start developing your project!
+          
+          ---
+          
+          🤖 This PR was created automatically by the **Setup Template** workflow." \
+            --head "$BRANCH_NAME" \
+            --base main
+      
+      - name: Output summary
+        run: |
+          echo "## ✅ Template Setup Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "A pull request has been created with all template configuration changes." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuration:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Project: ${{ inputs.project_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- License: ${{ inputs.license_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Package: ${{ steps.package_name.outputs.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review and merge the pull request" >> $GITHUB_STEP_SUMMARY
+          echo "2. Configure branch protection" >> $GITHUB_STEP_SUMMARY
+          echo "3. Start developing!" >> $GITHUB_STEP_SUMMARY

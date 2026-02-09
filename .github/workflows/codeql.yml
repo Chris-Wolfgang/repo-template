@@ -1,16 +1,28 @@
-name: "CodeQL"
+name: "CodeQL Security Analysis"
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
+    paths:
+      - '**.cs'
+      - '**.csproj'
+      - '**.sln'
+      - '**.slnx'
+      - '.github/workflows/codeql.yml'
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
+    paths:
+      - '**.cs'
+      - '**.csproj'
+      - '**.sln'
+      - '**.slnx'
+      - '.github/workflows/codeql.yml'
   schedule:
-    - cron: '30 1 * * 0'  # Weekly scan on Sundays
+    - cron: '0 0 * * 0'  # Weekly on Sunday at midnight UTC
 
 jobs:
   analyze:
-    name: CodeQL analysis (csharp)
+    name: "Security Scan (CodeQL)"
     runs-on: windows-latest
     permissions:
       actions: read
@@ -26,18 +38,50 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Check for C# source code
+      id: check-csharp
+      shell: pwsh
+      run: |
+        # Check if any C# source files exist, limiting search to typical .NET directories
+        $searchRoots = @('src', 'tests', 'benchmarks', 'examples', '.')
+        $csharpFiles = @()
+
+        foreach ($root in $searchRoots) {
+          if (Test-Path $root) {
+            $csharpFiles += Get-ChildItem -Path $root -Recurse -Include "*.cs","*.csproj" -File -ErrorAction SilentlyContinue |
+              Where-Object {
+                $_.FullName -notmatch '[\\/]\.git[\\/]'
+                -and $_.FullName -notmatch '[\\/](bin|obj|node_modules)[\\/]'
+              }
+          }
+        }
+
+        # Remove any duplicate entries
+        $csharpFiles = @($csharpFiles | Select-Object -Unique)
+        $csharpFileCount = $csharpFiles.Count
+        
+        if ($csharpFileCount -eq 0) {
+          Write-Host "No C# source code found. This appears to be a template repository. Skipping CodeQL analysis."
+          echo "has-csharp=false" >> $env:GITHUB_OUTPUT
+        } else {
+          Write-Host "Found $csharpFileCount C# file(s). Proceeding with CodeQL analysis."
+          echo "has-csharp=true" >> $env:GITHUB_OUTPUT
+        }
+
     - name: Initialize CodeQL
+      if: steps.check-csharp.outputs.has-csharp == 'true'
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
 
     - name: Setup .NET
+      if: steps.check-csharp.outputs.has-csharp == 'true'
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: |
-          10.0.x
+        dotnet-version: '10.0.x'
 
     - name: Build for CodeQL Analysis
+      if: steps.check-csharp.outputs.has-csharp == 'true'
       shell: pwsh
       run: |
         Write-Host "Building solution for CodeQL analysis..."
@@ -74,6 +118,7 @@ jobs:
         Write-Host "✅ Build completed for CodeQL analysis"
 
     - name: Perform CodeQL Analysis
+      if: steps.check-csharp.outputs.has-csharp == 'true'
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"

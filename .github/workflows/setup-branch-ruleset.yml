@@ -1,0 +1,91 @@
+name: "Setup Branch Ruleset (One-Time)"
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  setup-ruleset:
+    name: "setup-ruleset"
+    runs-on: ubuntu-latest
+    if: github.repository != 'Chris-Wolfgang/repo-template'
+    permissions:
+      contents: write
+      administration: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if ruleset already exists
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Checking for existing ruleset..."
+          
+          # Query rulesets and filter by name using structured JSON querying
+          if ! RULESET_NAME=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/${{ github.repository }}/rulesets \
+            --jq '.[] | select(.name=="Protect main branch") | .name' 2>&1); then
+            echo "❌ Failed to fetch existing rulesets"
+            echo "$RULESET_NAME"
+            exit 1
+          fi
+          
+          if [ -n "$RULESET_NAME" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Ruleset 'Protect main branch' already exists"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  Ruleset 'Protect main branch' does not exist yet"
+          fi
+
+      - name: Create Branch Ruleset
+        id: create_ruleset
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Creating branch ruleset..."
+          
+          # Temporarily disable exit on error to handle gh api failures properly
+          set +e
+          RESPONSE=$(gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/${{ github.repository }}/rulesets \
+            --input .github/ruleset-config.json 2>&1)
+          EXIT_CODE=$?
+          set -e
+          
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "✅ Successfully created branch ruleset 'Protect main branch'"
+            echo "$RESPONSE"
+          else
+            echo "❌ Failed to create ruleset"
+            echo "$RESPONSE"
+            exit 1
+          fi
+
+      - name: Finalize setup (requires manual cleanup)
+        if: steps.check.outputs.exists == 'true' || (steps.check.outputs.exists == 'false' && steps.create_ruleset.outcome == 'success')
+        run: |
+          echo "✅ Branch ruleset setup is complete."
+          echo
+          echo "This workflow was intended as a one-time setup helper."
+          echo "However, deleting it automatically via 'git push' from GitHub Actions"
+          echo "is unreliable once branch protection and rulesets are enabled on 'main'."
+          echo
+          echo "To clean up, please manually delete this file from the default branch:"
+          echo "  .github/workflows/setup-branch-ruleset.yml"
+          echo
+          echo "After deleting the file and pushing the change, this setup workflow"
+          echo "will no longer run."

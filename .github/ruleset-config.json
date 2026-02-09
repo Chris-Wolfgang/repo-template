@@ -1,0 +1,76 @@
+{
+  "name": "Protect main branch",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": [
+        "refs/heads/main"
+      ],
+      "exclude": []
+    }
+  },
+  "bypass_actors": [
+    {
+      "actor_id": 1,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "always"
+    }
+  ],
+  "rules": [
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": true
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "required_status_checks": [
+          {
+            "context": "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate"
+          },
+          {
+            "context": "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)"
+          },
+          {
+            "context": "Stage 3: macOS Tests (.NET 6.0-10.0)"
+          },
+          {
+            "context": "Security Scan (DevSkim)"
+          },
+          {
+            "context": "Security Scan (CodeQL)"
+          }
+        ]
+      }
+    },
+    {
+      "type": "code_scanning",
+      "parameters": {
+        "code_scanning_tools": [
+          {
+            "tool": "CodeQL",
+            "security_alerts_threshold": "high_or_higher",
+            "alerts_threshold": "errors"
+          }
+        ]
+      }
+    },
+    {
+      "type": "non_fast_forward"
+    },
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "update"
+    }
+  ]
+}
