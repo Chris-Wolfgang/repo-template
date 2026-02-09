@@ -452,6 +452,4 @@ Built with:
 
 ---
 
-
-
 **Ready to create production-grade .NET projects?** Click "Use this template" above! 🚀
