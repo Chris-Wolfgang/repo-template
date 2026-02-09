@@ -77,13 +77,13 @@ jobs:
           fi
 
       - name: Configure Git
-        if: steps.check.outputs.exists == 'false' && steps.create_ruleset.outcome == 'success'
+        if: steps.check.outputs.exists == 'true' || steps.create_ruleset.outcome == 'success'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Create cleanup branch
-        if: steps.check.outputs.exists == 'false' && steps.create_ruleset.outcome == 'success'
+        if: steps.check.outputs.exists == 'true' || steps.create_ruleset.outcome == 'success'
         run: |
           TIMESTAMP=$(date +%s)
           BRANCH_NAME="cleanup/remove-ruleset-setup-${TIMESTAMP}"
@@ -91,13 +91,13 @@ jobs:
           echo "CLEANUP_BRANCH=$BRANCH_NAME" >> "$GITHUB_ENV"
 
       - name: Remove setup files
-        if: steps.check.outputs.exists == 'false' && steps.create_ruleset.outcome == 'success'
+        if: steps.check.outputs.exists == 'true' || steps.create_ruleset.outcome == 'success'
         run: |
           git rm .github/ruleset-config.json
           git rm .github/workflows/setup-branch-ruleset.yml
 
       - name: Commit cleanup changes
-        if: steps.check.outputs.exists == 'false' && steps.create_ruleset.outcome == 'success'
+        if: steps.check.outputs.exists == 'true' || steps.create_ruleset.outcome == 'success'
         run: |
           git commit -m "chore: remove branch ruleset setup files
 
@@ -107,16 +107,70 @@ jobs:
           These files are no longer needed after the ruleset has been successfully created."
 
       - name: Push cleanup branch
-        if: steps.check.outputs.exists == 'false' && steps.create_ruleset.outcome == 'success'
+        if: steps.check.outputs.exists == 'true' || steps.create_ruleset.outcome == 'success'
         run: |
           git push origin "$CLEANUP_BRANCH"
 
       - name: Create cleanup pull request
-        if: steps.check.outputs.exists == 'false' && steps.create_ruleset.outcome == 'success'
+        if: steps.check.outputs.exists == 'true' || steps.create_ruleset.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_BODY=$(cat <<'EOF'
+          if [ "${{ steps.check.outputs.exists }}" == "true" ]; then
+            PR_BODY=$(cat <<'EOF'
+          ## 🎉 Branch Ruleset Already Configured!
+
+          This pull request cleans up the one-time setup files that are no longer needed.
+
+          ### ✅ What Was Found
+
+          The branch protection ruleset **"Protect main branch"** already exists in this repository with the following rules configured:
+
+          - ✅ **Pull requests required** before merging
+          - ✅ **Required status checks** (must pass before merging):
+            - Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate
+            - Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)
+            - Stage 3: macOS Tests (.NET 6.0-10.0)
+            - Security Scan (DevSkim)
+            - Security Scan (CodeQL)
+          - ✅ **Branches must be up to date** before merging
+          - ✅ **Conversation resolution required** before merging
+          - ✅ **Stale reviews dismissed** when new commits are pushed
+          - ✅ **CodeQL security scanning** (blocks on High+ severity findings)
+          - ✅ **Force pushes blocked** on main branch
+          - ✅ **Branch deletion prevented** for main
+          - ✅ **Repository admins can bypass** these rules
+
+          ### 🗑️ Files Being Removed
+
+          This PR removes the following setup files:
+          - `.github/ruleset-config.json` - Ruleset configuration template
+          - `.github/workflows/setup-branch-ruleset.yml` - One-time setup workflow
+
+          ### 🤔 Why Remove These Files?
+
+          Since the branch protection ruleset already exists in your repository settings, these setup files are no longer needed. The ruleset will persist even after these files are deleted. Removing them helps keep your repository clean and prevents the setup workflow from running unnecessarily in the future.
+
+          ### ✅ How to Verify the Ruleset Still Exists
+
+          After merging this PR, you can verify the ruleset is still active by:
+          1. Going to **Settings → Rules → Rulesets** in your repository
+          2. You should see "Protect main branch" in the list
+          3. Click on it to view all the configured rules
+
+          ### 📝 Next Steps
+
+          1. **Review this PR** to confirm the files being removed
+          2. **Merge this PR** to complete the cleanup
+          3. The branch protection will remain active and enforce all configured rules
+
+          ---
+
+          **Note:** This PR was automatically created by the branch ruleset setup workflow to clean up files that are no longer needed.
+          EOF
+            )
+          else
+            PR_BODY=$(cat <<'EOF'
           ## 🎉 Branch Ruleset Successfully Created!
 
           This pull request cleans up the one-time setup files that are no longer needed.
@@ -167,7 +221,8 @@ jobs:
 
           **Note:** This PR was automatically created by the branch ruleset setup workflow. The workflow cannot automatically merge this PR because it respects the branch protection rules it just created—this ensures you review the changes before the setup files are permanently removed.
           EOF
-          )
+            )
+          fi
 
           gh pr create \
             --title "chore: Clean up branch ruleset setup files" \
@@ -176,9 +231,40 @@ jobs:
             --head "$CLEANUP_BRANCH"
 
       - name: Output summary
-        if: steps.check.outputs.exists == 'false' && steps.create_ruleset.outcome == 'success'
+        if: steps.check.outputs.exists == 'true' || steps.create_ruleset.outcome == 'success'
         run: |
-          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          if [ "${{ steps.check.outputs.exists }}" == "true" ]; then
+            cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          # ℹ️ Branch Ruleset Already Exists
+
+          The branch protection ruleset **"Protect main branch"** already exists in this repository.
+
+          ## 🛡️ Protections Configured
+
+          - ✅ Pull requests required before merging
+          - ✅ 5 required status checks (CI/CD stages + security scans)
+          - ✅ Branches must be up to date before merging
+          - ✅ Conversation resolution required
+          - ✅ CodeQL security scanning (High+ severity blocks merges)
+          - ✅ Force pushes blocked
+          - ✅ Branch deletion prevented
+          - ✅ Admin bypass enabled
+
+          ## 🔗 View Ruleset
+
+          You can view and modify the ruleset in your repository settings:
+          **Settings → Rules → Rulesets → "Protect main branch"**
+
+          ## 📋 Next Steps
+
+          1. **Review the cleanup PR** that was automatically created
+          2. **Merge the PR** to remove the setup files (`.github/ruleset-config.json` and this workflow file)
+          3. The branch protection will remain active after the files are removed
+
+          The ruleset is already active and will continue to enforce all configured rules on the main branch! 🎉
+          EOF
+          else
+            cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
           # ✅ Branch Ruleset Setup Complete!
 
           The branch protection ruleset **"Protect main branch"** has been successfully created.
@@ -207,22 +293,4 @@ jobs:
 
           The ruleset is now active and will enforce all configured rules on the main branch! 🎉
           EOF
-
-      - name: Finalize setup (ruleset already exists)
-        if: steps.check.outputs.exists == 'true'
-        run: |
-          echo "ℹ️  Branch ruleset 'Protect main branch' already exists."
-          echo
-          echo "Since the ruleset is already configured, you can manually clean up"
-          echo "the setup files or re-run this workflow after deleting the existing"
-          echo "ruleset if you need to update the configuration."
-          echo
-          echo "To manually clean up, delete these files from the default branch:"
-          echo "  - .github/ruleset-config.json"
-          echo "  - .github/workflows/setup-branch-ruleset.yml"
-          echo
-          echo "To re-run setup:"
-          echo "  1. Go to Settings → Rules → Rulesets"
-          echo "  2. Delete the 'Protect main branch' ruleset"
-          echo "  3. Update .github/ruleset-config.json if needed"
-          echo "  4. Push to main or manually trigger this workflow"
+          fi
