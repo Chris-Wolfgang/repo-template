@@ -141,7 +141,7 @@ Choose from three popular open-source licenses or add your own during setup:
 | **MPL 2.0** | File-level copyleft | Weak copyleft, file-based |
 
 See [LICENSE-SELECTION.md](LICENSE-SELECTION.md) for detailed comparison and guidance.
-> **NOTE** You will be prompted for a license when you run the setup (setup.ps1 or setup.sh)
+> **Note:** You will be prompted for a license when you run the setup (setup.ps1 or setup.sh)
 
 ---
 
