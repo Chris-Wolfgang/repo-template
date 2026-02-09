@@ -307,8 +307,8 @@ dotnet new xunit -o tests/MyLib.Tests.Unit
 
 # Add to solution
 dotnet sln add src/MyLib/MyLib.csproj
-dotnet sln add tests/MyLib.Tests/MyLib.Tests.Integration.csproj
-dotnet sln add tests/MyLib.Tests/MyLib.Tests.Unit.csproj
+dotnet sln add tests/MyLib.Tests.Integration/MyLib.Tests.Integration.csproj
+dotnet sln add tests/MyLib.Tests.Unit/MyLib.Tests.Unit.csproj
 ```
 
 ### 4. Start Developing!
