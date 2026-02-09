@@ -9,6 +9,8 @@ on:
       - '**.sln'
       - '**.slnx'
       - '.github/workflows/codeql.yml'
+      - '.github/ruleset-config.json'
+      - '.github/workflows/setup-branch-ruleset.yml'
   pull_request:
     branches: [ "main" ]
     paths:
@@ -17,6 +19,8 @@ on:
       - '**.sln'
       - '**.slnx'
       - '.github/workflows/codeql.yml'
+      - '.github/ruleset-config.json'
+      - '.github/workflows/setup-branch-ruleset.yml'
   schedule:
     - cron: '0 0 * * 0'  # Weekly on Sunday at midnight UTC
 
