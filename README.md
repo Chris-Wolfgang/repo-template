@@ -178,9 +178,9 @@ The scripts will:
 
 | Prompt | Example | Auto-detected? |
 |--------|---------|----------------|
-| Project Name | `Wolfgang.Extensions.IAsyncEnumerable` | No |
+| Project Name | `Wolfgang.MyProject` | No |
 | Description | `High-performance extension methods...` | No |
-| Package Name | `Wolfgang.Extensions.IAsyncEnumerable` | No |
+| Package Name | `Wolfgang.MyProject` | No |
 | Repository URL | `https://github.com/Chris-Wolfgang/MyProject` | Yes (from git) |
 | Repository Name | `MyProject` | Yes (from URL) |
 | GitHub Username | `@Chris-Wolfgang` | Yes (from git) |
