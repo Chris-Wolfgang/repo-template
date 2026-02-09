@@ -124,7 +124,7 @@ jobs:
 
           ### ✅ What Was Found
 
-          The branch protection ruleset **"Protect main branch"** already exists in this repository with the following rules configured:
+          The branch protection ruleset **"Protect main branch"** already exists in this repository. It should have the following rules configured:
 
           - ✅ **Pull requests required** before merging
           - ✅ **Required status checks** (must pass before merging):
