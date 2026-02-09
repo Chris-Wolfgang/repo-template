@@ -141,6 +141,7 @@ Choose from three popular open-source licenses or add your own during setup:
 | **MPL 2.0** | File-level copyleft | Weak copyleft, file-based |
 
 See [LICENSE-SELECTION.md](LICENSE-SELECTION.md) for detailed comparison and guidance.
+> **NOTE** You will be prompted for a license when you run the setup (setup.ps1 or setup.sh)
 
 ---
 
@@ -178,9 +179,9 @@ The scripts will:
 
 | Prompt | Example | Auto-detected? |
 |--------|---------|----------------|
-| Project Name | `Wolfgang.MyProject` | No |
+| Project Name | `Wolfgang.MyProject.MyLib` | No |
 | Description | `High-performance extension methods...` | No |
-| Package Name | `Wolfgang.MyProject` | No |
+| Package Name | `Wolfgang.MyProject.MyLib` | No |
 | Repository URL | `https://github.com/Chris-Wolfgang/MyProject` | Yes (from git) |
 | Repository Name | `MyProject` | Yes (from URL) |
 | GitHub Username | `@Chris-Wolfgang` | Yes (from git) |
@@ -235,7 +236,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 | `setup.ps1` | PowerShell setup automation |
 | `setup.sh` | Bash setup automation |
 
-**Note** The README.md file for repo-template repository we be replaced by the README-TEMPLATE.md when you run the setup (setup.ps1 or setup.sh) The README-TEMPLATE.md file will be a customized starter README.md file for your repository
+> **Note** The README.md file for repo-template repository we be replaced by the README-TEMPLATE.md when you run the setup (setup.ps1 or setup.sh) The README-TEMPLATE.md file will be a customized starter README.md file for your repository
 
 ### License Templates
 
@@ -274,8 +275,6 @@ Once you've run the setup script and committed the changes:
 
 ### 1. Configure Branch Protection
 
-> **Note:** This template is configured for single-developer repositories. The automated branch rulesets (`.github/ruleset-config.json`) do not require PR approvals or code owner reviews by default. For multi-developer repositories, it is recommended to update the ruleset to require approving reviews by setting `required_approving_review_count` to 1 or higher and optionally `require_code_owner_review` to `true`.
-
 For manual configuration using the GitHub rulesets UI, go to **Settings → Rules → Rulesets** and configure the rule that applies to your default branch with:
 - ✅ Require status checks before merging
 - ✅ Require branches to be up to date
@@ -303,11 +302,13 @@ dotnet new sln -n MySolution
 
 # Create projects
 dotnet new classlib -o src/MyLib
-dotnet new xunit -o tests/MyLib.Tests
+dotnet new xunit -o tests/MyLib.Tests.Integration
+dotnet new xunit -o tests/MyLib.Tests.Unit
 
 # Add to solution
 dotnet sln add src/MyLib/MyLib.csproj
-dotnet sln add tests/MyLib.Tests/MyLib.Tests.csproj
+dotnet sln add tests/MyLib.Tests/MyLib.Tests.Integration.csproj
+dotnet sln add tests/MyLib.Tests/MyLib.Tests.Unit.csproj
 ```
 
 ### 4. Start Developing!
@@ -331,39 +332,6 @@ Your repository now has:
 - **Release Workflow:** [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md)
 - **Setup Instructions:** [REPO-INSTRUCTIONS.md](REPO-INSTRUCTIONS.md)
 <!-- -**API Reference:** `https://<username>.github.io/<repo>/api/` (live documentation)-->
-
----
-
-## 🤝 Contributing to the Template
-
-Found a bug or want to improve the template itself? Contributions are welcome!
-
-1. Fork this template repository
-2. Make your improvements
-3. Submit a pull request
-4. Describe your changes
-
----
-
-## 📄 Template License
-
-This template is licensed under the **MIT License**.
-
-Projects created from this template can use any license - the setup script offers MIT, Apache 2.0, or MPL 2.0.
-
----
-
-## 🙏 Credits
-
-Created by [Chris Wolfgang](https://github.com/Chris-Wolfgang) and Copilot
-
-Built with:
-- .NET 8.0+ SDK
-- DocFX for documentation
-- Multiple Roslyn analyzers
-- GitHub Actions for CI/CD
-- ReportGenerator for coverage
-- DevSkim for security
 
 ---
 
@@ -448,5 +416,40 @@ To modify the branch protection rules, edit `.github/ruleset-config.json` before
 ✅ **Professional Structure** - Industry best practices  
 
 ---
+
+## 🤝 Contributing to the Template
+
+Found a bug or want to improve the template itself? Contributions are welcome!
+
+1. Fork this template repository
+2. Make your improvements
+3. Submit a pull request
+4. Describe your changes
+
+---
+
+## 📄 Template License
+
+This template is licensed under the **MIT License**.
+
+Projects created from this template can use any license - the setup script offers MIT, Apache 2.0, or MPL 2.0.
+
+---
+
+## 🙏 Credits
+
+Created by [Chris Wolfgang](https://github.com/Chris-Wolfgang) and Copilot
+
+Built with:
+- .NET 8.0+ SDK
+- DocFX for documentation
+- Multiple Roslyn analyzers
+- GitHub Actions for CI/CD
+- ReportGenerator for coverage
+- DevSkim for security
+
+---
+
+
 
 **Ready to create production-grade .NET projects?** Click "Use this template" above! 🚀
