@@ -228,8 +228,8 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 
 | File | Purpose |
 |------|---------|
-| `README.md`[^1] | **THIS FILE** - Gets replaced by the README-TEMPLATE.md file during setup |
-| `README-TEMPLATE.md`[^1] | Project README template (becomes `README.md`) |
+| `README.md`[^1] | **THIS FILE** - Deleted during setup, replaced by renamed README-TEMPLATE.md |
+| `README-TEMPLATE.md`[^1] | Project README template (renamed to `README.md` during setup) |
 | `TEMPLATE-PLACEHOLDERS.md` | Complete placeholder documentation |
 | `LICENSE-SELECTION.md` | License comparison and selection guide |
 | `REPO-INSTRUCTIONS.md` | Manual setup instructions |
@@ -238,7 +238,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 
 [^1]: Modified during setup process
 
-> **Note:** The README.md file for the `repo-template` repository (this file) will be replaced by the README-TEMPLATE.md which will be renamed to README.md when you run the setup (setup.ps1 or setup.sh). The new README.md file will be a customized starter README.md file for your repository, replacing certain placeholders with the values you define.
+> **Note:** During setup (setup.ps1 or setup.sh), the template README.md (this file) is deleted and README-TEMPLATE.md is renamed to README.md. The new README.md file will be a customized starter README for your repository, with placeholders replaced by the values you define.
 
 ### License Templates
 
