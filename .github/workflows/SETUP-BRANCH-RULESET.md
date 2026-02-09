@@ -609,10 +609,15 @@ Branches:
 ## Potential Issues & Considerations
 
 ### Required Status Checks May Not Exist Yet
-- **Issue:** The 5 status checks require PR workflow to have run at least once
-- **Impact:** PRs may be unmergeable until after first successful PR workflow run
-- **Workaround:** Admin bypass allows merging despite missing checks
-- **Solution:** Push an initial commit to trigger PR workflow before creating feature branches
+- **Issue:** The ruleset requires multiple status checks, including the main PR workflow and `Security Scan (CodeQL)`.
+- **Context:** The 5 status checks require the PR workflow to have run at least once to be generated.
+- **CodeQL Paths Filter:** The CodeQL workflow in this template has been configured to include `.github/ruleset-config.json` and `.github/workflows/setup-branch-ruleset.yml` in its paths filter, ensuring it runs for the cleanup PR.
+- **Impact:** PRs may appear unmergeable if required checks haven't been generated yet (particularly for first-time setup).
+- **Workaround:** Admin bypass allows merging despite missing checks when checks haven't been created yet.
+- **Solution:** 
+  - The cleanup PR will have the CodeQL check present because the paths filter includes the setup/cleanup files.
+  - For other PRs, push an initial commit that touches code files to trigger all PR workflows before creating feature branches.
+  - If you modify the CodeQL `paths:` filter to be more restrictive, ensure it still includes files that will be changed in PRs requiring the CodeQL check.
 
 ### Zero Required Approvals Trade-off
 - **For single developers:**
