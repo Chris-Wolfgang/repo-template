@@ -141,7 +141,7 @@ Choose from three popular open-source licenses or add your own during setup:
 | **MPL 2.0** | File-level copyleft | Weak copyleft, file-based |
 
 See [LICENSE-SELECTION.md](LICENSE-SELECTION.md) for detailed comparison and guidance.
-> **NOTE** You will be prompted for a license when you run the setup (setup.ps1 or setup.sh)
+> **Note:** You will be prompted for a license when you run the setup (setup.ps1 or setup.sh)
 
 ---
 
@@ -228,15 +228,17 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 
 | File | Purpose |
 |------|---------|
-| `README.md`* | **THIS FILE** - Gets replaced by the README-TEMPLATE.md file during setup |
-| `README-TEMPLATE.md`* | Project README template (becomes `README.md`) |
+| `README.md`[^1] | **THIS FILE** - Gets replaced by the README-TEMPLATE.md file during setup |
+| `README-TEMPLATE.md`[^1] | Project README template (becomes `README.md`) |
 | `TEMPLATE-PLACEHOLDERS.md` | Complete placeholder documentation |
 | `LICENSE-SELECTION.md` | License comparison and selection guide |
 | `REPO-INSTRUCTIONS.md` | Manual setup instructions |
 | `setup.ps1` | PowerShell setup automation |
 | `setup.sh` | Bash setup automation |
 
-> **\* NOTE:** The `README.md` file for the `repo-template` repository (this file) will be replaced by the `README-TEMPLATE.md` file when you run the setup (`setup.ps1` or `setup.sh`). The `README-TEMPLATE.md` file will be renamed to `README.md` and will be a customized starter `README.md` file for your repository.
+[^1]: Modified during setup process
+
+> **Note:** The README.md file for the `repo-template` repository (this file) will be replaced by the README-TEMPLATE.md which will be renamed to README.md when you run the setup (setup.ps1 or setup.sh). The new README.md file will be a customized starter README.md file for your repository, replacing certain placeholders with the values you define.
 
 ### License Templates
 
@@ -307,8 +309,8 @@ dotnet new xunit -o tests/MyLib.Tests.Unit
 
 # Add to solution
 dotnet sln add src/MyLib/MyLib.csproj
-dotnet sln add tests/MyLib.Tests/MyLib.Tests.Integration.csproj
-dotnet sln add tests/MyLib.Tests/MyLib.Tests.Unit.csproj
+dotnet sln add tests/MyLib.Tests.Integration/MyLib.Tests.Integration.csproj
+dotnet sln add tests/MyLib.Tests.Unit/MyLib.Tests.Unit.csproj
 ```
 
 ### 4. Start Developing!
@@ -449,7 +451,5 @@ Built with:
 - DevSkim for security
 
 ---
-
-
 
 **Ready to create production-grade .NET projects?** Click "Use this template" above! 🚀
