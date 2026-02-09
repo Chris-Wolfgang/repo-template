@@ -22,63 +22,63 @@ The `setup-branch-ruleset.yml` workflow is a **one-time automation** that config
 ## Workflow Execution Flow
 
 ```
-START
-  │
-  ├─► Template Check
-  │   ├─► Is template repo? ──[YES]──► SKIP (Exit)
-  │   └─► Not template ──────[NO]───► Continue
-  │
-  ├─► Checkout Repository
-  │
-  ├─► Check If Ruleset Exists
-  │   ├─► API Call: GET /repos/{owner}/{repo}/rulesets
-  │   ├─► Filter by name: "Protect main branch"
-  │   └─► Set output: exists=true/false
-  │
-  ├─► Decision: Ruleset Exists?
-  │   │
-  │   ├─► [YES] ──► Proceed to Automated Cleanup Process
-  │   │             (Skip ruleset creation, reuse existing)
-  │   │
-  │   └─► [NO] ──► Create Ruleset
-  │                 │
-  │                 ├─► API Call: POST /repos/{owner}/{repo}/rulesets
-  │                 │    (using .github/ruleset-config.json)
-  │                 │
-  │                 ├─► Success? ──[NO]──► FAIL (Exit with error)
-  │                 │
-  │                 └─► [YES] ──► Automated Cleanup Process
-  │                               │
-  │                               ├─► Configure Git Identity
-  │                               │   (github-actions[bot])
-  │                               │
-  │                               ├─► Create Cleanup Branch
-  │                               │   (cleanup/remove-ruleset-setup-{timestamp})
-  │                               │
-  │                               ├─► Remove Setup Files
-  │                               │   ├─► git rm .github/ruleset-config.json
-  │                               │   └─► git rm .github/workflows/setup-branch-ruleset.yml
-  │                               │
-  │                               ├─► Commit Changes
-  │                               │   (with descriptive message)
-  │                               │
-  │                               ├─► Push Cleanup Branch
-  │                               │   (to remote)
-  │                               │
-  │                               ├─► Create Pull Request
-  │                               │   ├─► Title: "chore: Clean up branch ruleset setup files"
-  │                               │   ├─► Body: Comprehensive explanation
-  │                               │   ├─► Base: main
-  │                               │   └─► Head: cleanup/remove-ruleset-setup-{timestamp}
-  │                               │
-  │                               ├─► Output Workflow Summary
-  │                               │   (GitHub Actions summary with links)
-  │                               │
-  │                               └─► WAIT FOR MANUAL MERGE
-  │                                   │
-  │                                   └─► (Repository owner reviews and merges PR)
-  │                                       │
-  │                                       └─► END (Setup files removed, ruleset persists)
+START                                                                                         │
+  │                                                                                           │
+  ├─► Template Check                                                                          │
+  │   ├─► Is template repo? ──[YES]──► SKIP (Exit)                                            │
+  │   └─► Not template ──────[NO]───► Continue                                                │
+  │                                                                                           │
+  ├─► Checkout Repository                                                                     │
+  │                                                                                           │
+  ├─► Check If Ruleset Exists                                                                 │
+  │   ├─► API Call: GET /repos/{owner}/{repo}/rulesets                                        │
+  │   ├─► Filter by name: "Protect main branch"                                               │
+  │   └─► Set output: exists=true/false                                                       │
+  │                                                                                           │
+  ├─► Decision: Ruleset Exists?                                                               │
+  │   │                                                                                       │
+  │   ├─► [YES] ──► Proceed to Automated Cleanup Process                                      │
+  │   │             (Skip ruleset creation, reuse existing)                                   │
+  │   │                                                                                       │
+  │   └─► [NO] ──► Create Ruleset                                                             │
+  │                 │                                                                         │
+  │                 ├─► API Call: POST /repos/{owner}/{repo}/rulesets                         │
+  │                 │    (using .github/ruleset-config.json)                                  │
+  │                 │                                                                         │
+  │                 ├─► Success? ──[NO]──► FAIL (Exit with error)                             │
+  │                 │                                                                         │
+  │                 └─► [YES] ──► Automated Cleanup Process                                   │
+  │                               │                                                           │
+  │                               ├─► Configure Git Identity                                  │
+  │                               │   (github-actions[bot])                                   │
+  │                               │                                                           │
+  │                               ├─► Create Cleanup Branch                                   │
+  │                               │   (cleanup/remove-ruleset-setup-{timestamp})              │
+  │                               │                                                           │
+  │                               ├─► Remove Setup Files                                      │
+  │                               │   ├─► git rm .github/ruleset-config.json                  │
+  │                               │   └─► git rm .github/workflows/setup-branch-ruleset.yml   │
+  │                               │                                                           │
+  │                               ├─► Commit Changes                                          │
+  │                               │   (with descriptive message)                              │
+  │                               │                                                           │
+  │                               ├─► Push Cleanup Branch                                     │
+  │                               │   (to remote)                                             │
+  │                               │                                                           │
+  │                               ├─► Create Pull Request                                     │
+  │                               │   ├─► Title: "chore: Clean up branch ruleset setup files" │
+  │                               │   ├─► Body: Comprehensive explanation                     │
+  │                               │   ├─► Base: main                                          │
+  │                               │   └─► Head: cleanup/remove-ruleset-setup-{timestamp}      │
+  │                               │                                                           │
+  │                               ├─► Output Workflow Summary                                 │
+  │                               │   (GitHub Actions summary with links)                     │
+  │                               │                                                           │
+  │                               └─► WAIT FOR MANUAL MERGE                                   │
+  │                                   │                                                       │
+  │                                   └─► (Repository owner reviews and merges PR)            │
+  │                                       │                                                   │
+  │                                       └─► END (Setup files removed, ruleset persists)     │
 ```
 
 ---
