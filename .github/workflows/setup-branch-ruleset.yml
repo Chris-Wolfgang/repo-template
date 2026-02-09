@@ -90,8 +90,8 @@ jobs:
       - name: Remove setup files
         if: steps.check.outputs.exists == 'true' || steps.create_ruleset.outcome == 'success'
         run: |
-          git rm .github/ruleset-config.json
-          git rm .github/workflows/setup-branch-ruleset.yml
+          git rm --ignore-unmatch .github/ruleset-config.json
+          git rm --ignore-unmatch .github/workflows/setup-branch-ruleset.yml
 
       - name: Commit cleanup changes
         if: steps.check.outputs.exists == 'true' || steps.create_ruleset.outcome == 'success'
@@ -121,22 +121,22 @@ jobs:
 
           ### ✅ What Was Found
 
-          The branch protection ruleset **"Protect main branch"** already exists in this repository. It should have the following rules configured:
-
-          - ✅ **Pull requests required** before merging
-          - ✅ **Required status checks** (must pass before merging):
-            - Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate
-            - Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)
-            - Stage 3: macOS Tests (.NET 6.0-10.0)
-            - Security Scan (DevSkim)
-            - Security Scan (CodeQL)
-          - ✅ **Branches must be up to date** before merging
-          - ✅ **Conversation resolution required** before merging
-          - ✅ **Stale reviews dismissed** when new commits are pushed
-          - ✅ **CodeQL security scanning** (blocks on High+ severity findings)
-          - ✅ **Force pushes blocked** on main branch
-          - ✅ **Branch deletion prevented** for main
-          - ✅ **Repository admins can bypass** these rules
+          The branch protection ruleset **"Protect main branch"** already exists in this repository. 
+          
+          **Expected Configuration** (please verify in Settings → Rules → Rulesets):
+          
+          The template's default ruleset includes:
+          - Pull requests required before merging
+          - 5 required status checks (CI/CD stages + security scans)
+          - Branches must be up to date before merging
+          - Conversation resolution required
+          - Stale reviews dismissed when new commits are pushed
+          - CodeQL security scanning (blocks on High+ severity findings)
+          - Force pushes blocked on main branch
+          - Branch deletion prevented for main
+          - Repository admins can bypass these rules
+          
+          **Note:** If you manually modified the ruleset, your current configuration may differ from the template defaults listed above.
 
           ### 🗑️ Files Being Removed
 

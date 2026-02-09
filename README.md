@@ -4,8 +4,8 @@ A comprehensive, production-ready .NET repository template with enterprise-grade
 
 ## 🚀 Quick Start
 
-1. **Create repository from template** - Create your repository and select `Use Template` and select this repo.
-2. **Setup branch protection** - Click on the `Actions` tab at the top of your repo and and run `.github/workflows/setup-branch-ruleset.yml` This will update the branch protections for your new repo. See `??`. When completed this workflow will create a pull request to cleanup after itself. Merge this PR into your main branch
+1. **Create repository from template** - Click "Use this template" on GitHub
+2. **Set up branch protection** - Go to the `Actions` tab in your new repository and run the `Setup Branch Ruleset (One-Time)` workflow. This configures branch protection rules for your repo (see [SETUP-BRANCH-RULESET.md](.github/workflows/SETUP-BRANCH-RULESET.md) for details). When complete, the workflow creates a pull request to remove its setup files. Merge this PR into your `main` branch.
 3. **Clone your new repository**
 4. **Run automated setup:**
    ```bash
@@ -361,7 +361,7 @@ This template includes automated security scanning and branch protection that co
 - **DevSkim Security Scan** - Detects security anti-patterns in code
 
 #### 🔐 Branch Protection (Main Branch)
-Automatically configured on first push to main:
+Configured by manually running the setup workflow:
 
 > **Single-Developer Configuration:** This template is configured for single-developer use, so the default ruleset does **not** require pull request approvals or code owner reviews (0 required approvals). For multi-developer or release-workflow scenarios (as described in `RELEASE-WORKFLOW-SETUP.md`), update `.github/ruleset-config.json` to set `required_approving_review_count` to 1+ and `require_code_owner_review` to `true` to match the recommended “Required approvals: 1 (minimum)” guidance.
 
@@ -381,7 +381,7 @@ Automatically configured on first push to main:
 
 > **Note for Single Developer Repositories:** By default, this template is configured for single developer use with `"required_approving_review_count": 0` and `"require_code_owner_review": false` in `.github/ruleset-config.json`. This allows you to merge your own PRs without additional approvals while still benefiting from CI/CD checks.
 >
-> **For Multi-Developer Repositories:** Update `.github/ruleset-config.json` before first push to require at least one approval and code owner review:
+> **For Multi-Developer Repositories:** Update `.github/ruleset-config.json` before running the setup workflow to require at least one approval and code owner review:
 > ```json
 > {
 >   "type": "pull_request",

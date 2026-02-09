@@ -37,11 +37,8 @@ START
   │
   ├─► Decision: Ruleset Exists?
   │   │
-  │   ├─► [YES] ──► Finalize (Already Exists)
-  │   │             │
-  │   │             ├─► Output: Ruleset already configured
-  │   │             ├─► Provide manual cleanup instructions
-  │   │             └─► END
+  │   ├─► [YES] ──► Proceed to Automated Cleanup Process
+  │   │             (Skip ruleset creation, reuse existing)
   │   │
   │   └─► [NO] ──► Create Ruleset
   │                 │
@@ -118,7 +115,7 @@ START
 
 All steps in this phase are conditional on:
 ```yaml
-if: steps.check.outputs.exists == 'false' && steps.create_ruleset.outcome == 'success'
+if: steps.check.outputs.exists == 'true' || steps.create_ruleset.outcome == 'success'
 ```
 
 #### 3.1 Configure Git Identity
@@ -184,9 +181,10 @@ if: steps.check.outputs.exists == 'false' && steps.create_ruleset.outcome == 'su
 
 #### 4.2 Already Exists Path
 1. Ruleset already exists
-2. Skip creation and cleanup
-3. Display instructions for manual cleanup or re-running
-4. Workflow completes
+2. Skip ruleset creation (reuse existing ruleset configuration)
+3. Create cleanup branch and pull request to remove setup files
+4. Display instructions to review and merge the cleanup PR
+5. Workflow completes
 
 #### 4.3 Failure Paths
 - **API Failure:** Exit with error and display API response
