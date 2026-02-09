@@ -2,6 +2,37 @@
 
 A comprehensive, production-ready .NET repository template with enterprise-grade CI/CD, comprehensive code quality enforcement, automated documentation generation, and multi-license support.
 
+## 📋 Prerequisites
+
+Before using this template, ensure you have **PowerShell 7+** installed if you plan to use the automated setup script.
+
+### PowerShell 7+ Installation
+
+The setup script uses `pwsh` (PowerShell Core 7+), not the older `powershell` (Windows PowerShell 5.1).
+
+#### Windows
+Install using any of these methods:
+- **Microsoft Store**: Search for "PowerShell" and install
+- **winget**: `winget install Microsoft.PowerShell`
+- **Direct download**: [PowerShell Releases](https://github.com/PowerShell/PowerShell/releases)
+
+#### macOS
+```bash
+brew install --cask powershell
+```
+
+#### Linux
+Follow the [official installation guide](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-linux) for your distribution.
+
+### Verify Installation
+After installation, restart your terminal and verify:
+```bash
+pwsh --version
+```
+
+### Alternative: Use Bash (macOS/Linux only)
+If you prefer not to install PowerShell, you can use the Bash setup script instead (see Quick Start).
+
 ## 🚀 Quick Start
 
 1. **Create repository from template** - Click "Use this template" on GitHub
