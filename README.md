@@ -75,6 +75,17 @@ All code is analyzed during builds by these industry-standard tools:
 - **Live documentation** at `https://<username>.github.io/<repo>/`
 
 #### Additional Workflows
+- **Branch Ruleset Setup** (`.github/workflows/setup-branch-ruleset.yml`)
+  - **One-time setup** workflow for repositories created from template
+  - **Automatic branch protection** for main branch
+  - **Automated cleanup** via pull request
+  - **Comprehensive protection rules**:
+    - Pull requests required
+    - 5 required status checks (CI/CD stages + security)
+    - CodeQL security scanning
+    - Force push prevention
+    - Branch deletion prevention
+  - See [SETUP-BRANCH-RULESET.md](.github/workflows/SETUP-BRANCH-RULESET.md) for detailed documentation
 - **CodeQL** security analysis
 - **Dependabot** automated dependency updates - Automatically creates PRs to keep NuGet packages up-to-date with security patches and new versions
 - **Label automation** for Dependabot PRs
