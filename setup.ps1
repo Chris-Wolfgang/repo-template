@@ -236,8 +236,22 @@ function Start-Setup {
         $githubUsername = "@$githubUsername"
     }
     
-    # Generate docs URL from repo URL
-    $docsUrl = $githubRepoUrl -replace 'https://github\.com/([^/]+)/([^/]+).*', 'https://$1.github.io/$2/'
+    # Normalize GitHub URL and generate docs URL
+    # Handle SSH URLs (git@github.com:org/repo.git) and HTTPS URLs
+    # Remove trailing .git and normalize to https://github.com/<owner>/<repo>
+    $normalizedUrl = $githubRepoUrl
+    
+    # Convert SSH URL to HTTPS format
+    if ($normalizedUrl -match '^git@github\.com:(.+)$') {
+        $normalizedUrl = "https://github.com/$($matches[1])"
+    }
+    
+    # Remove trailing .git
+    $normalizedUrl = $normalizedUrl -replace '\.git$', ''
+    
+    # Extract owner and repo from normalized HTTPS URL
+    $docsUrl = $normalizedUrl -replace 'https://github\.com/([^/]+)/([^/]+).*', 'https://$1.github.io/$2/'
+    
     $docsUrl = Read-Input `
         -Prompt "Documentation URL (GitHub Pages)" `
         -Default $docsUrl `
