@@ -227,13 +227,15 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 
 | File | Purpose |
 |------|---------|
-| `README.md` | **THIS FILE** - Template description (deleted by setup script) |
-| `README-TEMPLATE.md` | Project README template (becomes `README.md`) |
+| `README.md`* | **THIS FILE** - Gets replaced by the README-TEMPLATE.md file during setup |
+| `README-TEMPLATE.md`* | Project README template (becomes `README.md`) |
 | `TEMPLATE-PLACEHOLDERS.md` | Complete placeholder documentation |
 | `LICENSE-SELECTION.md` | License comparison and selection guide |
 | `REPO-INSTRUCTIONS.md` | Manual setup instructions |
 | `setup.ps1` | PowerShell setup automation |
 | `setup.sh` | Bash setup automation |
+
+* Read me file for repo-template repository. When you run the setup (setup.ps1 or setup.sh) this file will be replaced by the README-TEMPLATE.md with a customized starter README.md file for your repository
 
 ### License Templates
 
