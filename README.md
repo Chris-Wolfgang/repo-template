@@ -10,6 +10,7 @@ A comprehensive, production-ready .NET repository template with enterprise-grade
 4. **Run automated setup:**
    ```bash
    # PowerShell (Windows/macOS/Linux)
+   # Note: If you don't have `pwsh` installed, you can install it using `winget install Microsoft.PowerShell`
    pwsh ./setup.ps1
    
    # Or Bash (macOS/Linux)
@@ -165,6 +166,8 @@ See [LICENSE-SELECTION.md](LICENSE-SELECTION.md) for detailed comparison and gui
 The template includes automated setup scripts that handle all configuration:
 
 #### PowerShell (Cross-platform - Windows/macOS/Linux)
+
+> **Note:** If you don't have `pwsh` installed, you can install it using `winget install Microsoft.PowerShell`
 
 ```powershell
 pwsh ./setup.ps1
