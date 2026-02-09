@@ -1,9 +1,6 @@
 name: "Setup Branch Ruleset (One-Time)"
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:

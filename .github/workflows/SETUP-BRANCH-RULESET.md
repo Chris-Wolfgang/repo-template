@@ -6,9 +6,9 @@
 The `setup-branch-ruleset.yml` workflow is a **one-time automation** that configures comprehensive branch protection for the `main` branch in repositories created from this template. It eliminates the need for manual ruleset configuration through the GitHub UI.
 
 ### When It Runs
-- **Automatically:** On the first push to the `main` branch in a new repository
-- **Manually:** Via workflow dispatch from the Actions tab
+- **Manually only:** Via workflow dispatch from the Actions tab
 - **Scope:** Only runs in repositories created from the template (skips the template repository itself)
+- **Trigger:** Repository owner must manually trigger this workflow after creating a repository from the template
 
 ### What It Does
 1. Checks if the "Protect main branch" ruleset already exists
@@ -644,12 +644,12 @@ Branches:
 - ⚠️ Consider enabling code owner review for important projects
 
 ### For Team Projects
-**Before First Push:**
+**Before Running Workflow:**
 1. Edit `.github/ruleset-config.json`
 2. Set `required_approving_review_count` to 1 or higher
 3. Set `require_code_owner_review` to `true`
 4. Update `.github/CODEOWNERS` with team members
-5. Push to main to trigger workflow
+5. Manually trigger the workflow from the Actions tab
 
 **After Setup:**
 - Review and merge the cleanup PR as a team
@@ -658,9 +658,9 @@ Branches:
 
 ### For Simpler Projects
 If the comprehensive protection is too restrictive:
-1. Delete `.github/workflows/setup-branch-ruleset.yml` before first push
+1. Delete `.github/workflows/setup-branch-ruleset.yml` without running it
 2. Configure branch protection manually with fewer checks
-3. Or modify `ruleset-config.json` to remove specific rules
+3. Or modify `ruleset-config.json` to remove specific rules before running the workflow
 
 ---
 

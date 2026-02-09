@@ -77,7 +77,8 @@ All code is analyzed during builds by these industry-standard tools:
 #### Additional Workflows
 - **Branch Ruleset Setup** (`.github/workflows/setup-branch-ruleset.yml`)
   - **One-time setup** workflow for repositories created from template
-  - **Automatic branch protection** for main branch
+  - **Manual trigger required** - Run from Actions tab after creating your repository
+  - **Automatic branch protection** configuration for main branch
   - **Automated cleanup** via pull request
   - **Comprehensive protection rules**:
     - Pull requests required
@@ -400,19 +401,20 @@ Automatically configured on first push to main:
 ### How It Works
 
 1. **Create repository** from this template
-2. **Make your first commit** and push to main
-3. **Automatic setup runs** - Branch protection configures itself
-4. **Clean up setup workflow** - After it succeeds, delete `.github/workflows/setup-branch-ruleset.yml`
+2. **Go to the Actions tab** in your new repository
+3. **Run the "Setup Branch Ruleset (One-Time)" workflow** manually
+4. **Review and merge the cleanup PR** that the workflow creates
+5. Branch protection is configured and setup files are removed
 
-No manual ruleset configuration needed—only a one-time deletion of the setup workflow file. 🎉
+The workflow must be manually triggered to configure branch protection. It will not run automatically on push.
 
 ### For Template Users
 
-If you're using this template, the branch protection will automatically apply to **your** repository with **you** as the admin who can bypass rules. The configuration is portable and works for every repo created from this template.
+If you're using this template, the branch protection will apply to **your** repository after you manually trigger the setup workflow. The configuration is portable and works for every repo created from this template, with **you** as the admin who can bypass rules.
 
 ### Customization
 
-To modify the branch protection rules, edit `.github/ruleset-config.json` before the first push, or update the ruleset manually in Settings → Rules → Rulesets after setup.
+To modify the branch protection rules, edit `.github/ruleset-config.json` before running the setup workflow, or update the ruleset manually in Settings → Rules → Rulesets after setup.
 
 ---
 
