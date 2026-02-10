@@ -422,7 +422,7 @@ Branches:
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    CHECKING STATE                           │
-│  Action: Query GitHub API for existing ruleset             │
+│  Action: Query GitHub API for existing ruleset              │
 └─────────────────────────┬───────────────────────────────────┘
                           │
               ┌───────────┴───────────┐
@@ -447,7 +447,7 @@ Branches:
                     │   ERROR STATE    │  │   CLEANUP STATE             │
                     │  Exit with error │  │  Files: ✅ workflow.yml,    │
                     └──────────────────┘  │         ruleset-config.json │
-                                          │  Ruleset: ✅ Created         │
+                                          │  Ruleset: ✅ Created        │
                                           │  Action: Creating cleanup   │
                                           └──────────┬──────────────────┘
                                                      │
@@ -458,10 +458,10 @@ Branches:
                                                      ▼
                                           ┌─────────────────────────────┐
                                           │  AWAITING REVIEW STATE      │
-                                          │  PR: ✅ Created              │
+                                          │  PR: ✅ Created             │
                                           │  Branch: cleanup/remove-*   │
                                           │  Files on main: Unchanged   │
-                                          │  Ruleset: ✅ Active          │
+                                          │  Ruleset: ✅ Active         │
                                           └──────────┬──────────────────┘
                                                      │
                                               Owner reviews PR
@@ -469,8 +469,8 @@ Branches:
                                                      ▼
                                           ┌─────────────────────────────┐
                                           │    FINAL STATE              │
-                                          │  Files: ❌ Deleted           │
-                                          │  Ruleset: ✅ Active          │
+                                          │  Files: ❌ Deleted          │
+                                          │  Ruleset: ✅ Active         │
                                           │  Status: Complete           │
                                           └─────────────────────────────┘
 ```
