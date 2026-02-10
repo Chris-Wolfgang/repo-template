@@ -6,8 +6,8 @@ A comprehensive, production-ready .NET repository template with enterprise-grade
 
 1. **Create repository from template** - Click "Use this template" on GitHub
 2. **Set up branch protection** - Go to the `Actions` tab in your new repository and run the `Setup Branch Ruleset (One-Time)` workflow. This configures branch protection rules for your repo (see [SETUP-BRANCH-RULESET.md](.github/workflows/SETUP-BRANCH-RULESET.md) for details). When complete, the workflow creates a pull request to remove its setup files. Merge this PR into your `main` branch.
-3. **Create Setup Branch** - Create a new branch named `Setup`
-4. **Clone your new repository** - Clone your `Setup` branch localy
+3. **Create Setup Branch** - Create a new branch named `Setup` This branch will be used to continue setting up the repo. Because you just configured branch protections in the previous steps you will not be able to commit directly to main. Once you are done with the next several steps you will merge this branch to main via a pull request.
+4. **Clone your new repository** - Clone your `Setup` branch to your local computer
 5. **Run automated setup:** 
    ```bash
    # PowerShell (Windows/macOS/Linux)
