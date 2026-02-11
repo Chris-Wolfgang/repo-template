@@ -10,7 +10,6 @@ jobs:
     if: github.repository != 'Chris-Wolfgang/repo-template'
     permissions:
       contents: write
-      administration: write
       pull-requests: write
 
     steps:
