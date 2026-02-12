@@ -25,7 +25,7 @@ check_bash_version() {
             echo -e "  \033[1;32mbrew install bash\033[0m" >&2
             echo "" >&2
             echo -e "\033[0;36mThen run this script with the updated bash:\033[0m" >&2
-            echo -e "  \033[1;32m\$(brew --prefix)/bin/bash setup.sh\033[0m" >&2
+            echo -e "  \033[1;32m\$(brew --prefix)/bin/bash scripts/setup.sh\033[0m" >&2
         else
             echo -e "\033[0;36mℹ️  Please upgrade Bash to version ${required_major}.${required_minor} or later.\033[0m" >&2
         fi
@@ -500,8 +500,8 @@ main() {
     
     if [[ "$cleanup" =~ ^[Yy]$ ]]; then
         FILES_TO_REMOVE=(
-            "setup.ps1"
-            "setup.sh"
+            "scripts/setup.ps1"
+            "scripts/setup.sh"
             "TEMPLATE-PLACEHOLDERS.md"
             "LICENSE-SELECTION.md"
             "README-FORMATTING.md"

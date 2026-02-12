@@ -488,8 +488,8 @@ function Start-Setup {
     
     if ($cleanup -eq 'y' -or $cleanup -eq 'Y') {
         $filesToRemove = @(
-            'setup.ps1',
-            'setup.sh',
+            'scripts/setup.ps1',
+            'scripts/setup.sh',
             'TEMPLATE-PLACEHOLDERS.md',
             'LICENSE-SELECTION.md',
             'README-FORMATTING.md',
