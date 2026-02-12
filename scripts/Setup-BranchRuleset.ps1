@@ -169,26 +169,25 @@ $rulesetConfig = @{
             type = "required_status_checks"
             parameters = @{
                 strict_required_status_checks_policy = $true
-                # IMPORTANT: Workflows providing these required checks (specifically .github/workflows/pr.yaml)
-                # must NOT have path filters (paths/paths-ignore). If a workflow is path-filtered
-                # and doesn't run for a PR, GitHub will treat the required check as missing and
-                # block the merge. All required status checks must run on every PR.
+                # IMPORTANT: Workflows providing these required checks (specifically .github/workflows/pr.yaml
+                # and .github/workflows/codeql.yml) must NOT have path filters (paths/paths-ignore).
+                # If a workflow is path-filtered and doesn't run for a PR, GitHub will treat the
+                # required check as missing and block the merge. All required status checks must run on every PR.
                 required_status_checks = @(
                     @{ context = "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate" },
                     @{ context = "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" },
                     @{ context = "Stage 3: macOS Tests (.NET 6.0-10.0)" },
-                    @{ context = "Security Scan (DevSkim)" }
+                    @{ context = "Security Scan (DevSkim)" },
+                    @{ context = "Security Scan (CodeQL)" }
                 )
             }
         },
         @{
             type = "code_scanning"
             parameters = @{
-                # NOTE: CodeQL uses the 'code_scanning' ruleset type instead of 'required_status_checks'
-                # because it has built-in intelligence to handle cases where scans don't run
-                # (e.g., template repos with no code, or PRs that don't affect code).
-                # The workflow (.github/workflows/codeql.yml) has no path filters to ensure it
-                # attempts to run on all PRs, but skips analysis gracefully when there's no C# code.
+                # NOTE: CodeQL is configured in both 'required_status_checks' (to require the workflow
+                # job to complete) and 'code_scanning' (to block on security findings). The workflow
+                # (.github/workflows/codeql.yml) has no path filters to ensure it runs on all PRs.
                 code_scanning_tools = @(
                     @{
                         tool = "CodeQL"
