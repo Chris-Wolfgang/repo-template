@@ -28,8 +28,8 @@ Before using this template, ensure you have the following installed:
    chmod +x setup.sh
    ./setup.sh
    ```
-5. **Commit and push** - Push your changes to the repository
-6. **Set up branch protection** - Configure branch protection rules:
+4. **Commit and push** - Push your changes to the repository
+5. **Set up branch protection** - Configure branch protection rules:
    ```powershell
    # Authenticate with GitHub CLI first (if not already done)
    gh auth login
@@ -41,7 +41,7 @@ Before using this template, ensure you have the following installed:
    The script will ask if you want:
    - **Single Developer**: No PR approvals required (you can merge your own PRs)
    - **Multi-Developer**: Requires 1+ approval and code owner review
-7. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
+6. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
 
 The setup script automatically:
 - ✅ Replaces all placeholders with your project information
