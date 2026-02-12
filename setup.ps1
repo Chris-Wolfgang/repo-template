@@ -50,7 +50,7 @@ function Show-Banner {
 
 ╔════════════════════════════════════════════════════════════════╗
 ║                                                                ║
-║        .NET Repository Template - Automated Setup             ║
+║        .NET Repository Template - Automated Setup              ║
 ║                                                                ║
 ╚════════════════════════════════════════════════════════════════╝
 
