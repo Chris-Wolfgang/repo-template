@@ -74,7 +74,7 @@ These settings require that all checks in the pr.yaml file succeed before you ca
 > **Note for Single-Developer Repositories:** This template is configured for single-developer use. The branch protection script (`scripts/Setup-BranchRuleset.ps1`) includes interactive prompts that allow you to choose between single-developer or multi-developer settings during execution. Simply run the script and select option [1] for single-developer mode (no PR approvals required) or option [2] for multi-developer mode (requires 1+ approval and code owner review).
 **Note:** The pr.yaml workflow uses `pull_request_target` to always run from the trusted main branch, even for PRs from feature branches. This prevents malicious workflow modifications in untrusted PR branches while still testing the PR's code.
 
-> **Branch protection is now configured via local script!** Run `.\scripts\Setup-BranchRuleset.ps1` to automatically configure all required settings. Manual configuration below is only needed if you prefer not to use the automated script.
+> **Branch protection is now configured via local script!** Run `pwsh ./scripts/Setup-BranchRuleset.ps1` to automatically configure all required settings. Manual configuration below is only needed if you prefer not to use the automated script.
 
 1. Go to your repository’s Settings → Branches.
 2. Under “Branch protection rules,” edit the rule for main.
