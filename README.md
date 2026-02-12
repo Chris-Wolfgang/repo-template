@@ -317,6 +317,16 @@ gh auth login
 
 The script will prompt you to choose between single-developer or multi-developer settings and automatically configure all required protections.
 
+**Alternatively, for manual configuration**, go to **Settings → Rules → Rulesets** and configure the rule that applies to your default branch with:
+- ✅ Require status checks before merging
+- ✅ Require branches to be up to date
+- ✅ Require pull request reviews (recommended for multi-developer repos)
+- ✅ Require code owner review (recommended for multi-developer repos)
+- ✅ Require Copilot review
+- ✅ Restrict deletions
+- ✅ Block force pushes
+- ✅ Require code scanning
+
 ### 2. Set Up Release Workflow (Optional)
 
 If publishing to NuGet:
