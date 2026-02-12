@@ -169,6 +169,10 @@ $rulesetConfig = @{
             type = "required_status_checks"
             parameters = @{
                 strict_required_status_checks_policy = $true
+                # IMPORTANT: The workflows for these required checks (.github/workflows/pr.yaml)
+                # must NOT have path filters (paths/paths-ignore). If a workflow is path-filtered
+                # and doesn't run for a PR, GitHub will treat the required check as missing and
+                # block the merge. All required status checks must run on every PR.
                 required_status_checks = @(
                     @{ context = "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate" },
                     @{ context = "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" },
@@ -180,6 +184,11 @@ $rulesetConfig = @{
         @{
             type = "code_scanning"
             parameters = @{
+                # NOTE: CodeQL uses the 'code_scanning' ruleset type instead of 'required_status_checks'
+                # because it has built-in intelligence to handle cases where scans don't run
+                # (e.g., template repos with no code, or PRs that don't affect code).
+                # The workflow (.github/workflows/codeql.yml) has no path filters to ensure it
+                # attempts to run on all PRs, but skips analysis gracefully when there's no C# code.
                 code_scanning_tools = @(
                     @{
                         tool = "CodeQL"
