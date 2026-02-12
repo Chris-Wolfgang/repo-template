@@ -376,9 +376,7 @@ This template includes automated security scanning and a local setup script for 
 - **DevSkim Security Scan** - Detects security anti-patterns in code
 
 #### 🔐 Branch Protection (Main Branch)
-Configured by manually running the setup workflow:
-
-> **Single-Developer Configuration:** This template is configured for single-developer use, so the default ruleset does **not** require pull request approvals or code owner reviews (0 required approvals). For multi-developer or release-workflow scenarios (as described in `RELEASE-WORKFLOW-SETUP.md`), update `.github/ruleset-config.json` to set `required_approving_review_count` to 1+ and `require_code_owner_review` to `true` to match the recommended “Required approvals: 1 (minimum)” guidance.
+Configured by running the local PowerShell setup script (see "How It Works" below):
 
 - ✅ **Require pull requests** before merging
 - ✅ **Require all status checks to pass:**
