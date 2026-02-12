@@ -88,12 +88,14 @@ Write-Host "📌 Protected branch: $BranchName`n" -ForegroundColor Cyan
 # Check if ruleset already exists
 Write-Host "🔍 Checking for existing rulesets..." -ForegroundColor Yellow
 try {
-    $existingRulesets = gh api `
+    $matchingRulesets = gh api `
         -H "Accept: application/vnd.github+json" `
         -H "X-GitHub-Api-Version: 2022-11-28" `
-        "/repos/$Repository/rulesets" | ConvertFrom-Json
+        "/repos/$Repository/rulesets" `
+        --paginate `
+        --jq '.[] | select(.name == "Protect main branch")' | ConvertFrom-Json
     
-    $existingRuleset = $existingRulesets | Where-Object { $_.name -eq "Protect main branch" }
+    $existingRuleset = $matchingRulesets | Select-Object -First 1
     
     if ($existingRuleset) {
         Write-Host "✅ Ruleset 'Protect main branch' already exists!" -ForegroundColor Green
@@ -253,7 +255,8 @@ try {
             Write-Host "   1. You don't have admin access to this repository, OR" -ForegroundColor Yellow
             Write-Host "   2. Your GitHub authentication doesn't have the required scopes" -ForegroundColor Yellow
             Write-Host "`n🔧 Try re-authenticating with:" -ForegroundColor Cyan
-            Write-Host "   gh auth login --scopes repo,admin:repo_hook,write:packages" -ForegroundColor Gray
+            Write-Host "   gh auth login" -ForegroundColor Gray
+            Write-Host "   For more information about required scopes, see: https://cli.github.com/manual/gh_auth_login" -ForegroundColor Gray
         }
         
         exit 1
