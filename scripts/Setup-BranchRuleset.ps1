@@ -169,7 +169,7 @@ $rulesetConfig = @{
             type = "required_status_checks"
             parameters = @{
                 strict_required_status_checks_policy = $true
-                # IMPORTANT: The workflows for these required checks (.github/workflows/pr.yaml)
+                # IMPORTANT: Workflows providing these required checks (specifically .github/workflows/pr.yaml)
                 # must NOT have path filters (paths/paths-ignore). If a workflow is path-filtered
                 # and doesn't run for a PR, GitHub will treat the required check as missing and
                 # block the merge. All required status checks must run on every PR.
