@@ -253,7 +253,8 @@ try {
             Write-Host "   1. You don't have admin access to this repository, OR" -ForegroundColor Yellow
             Write-Host "   2. Your GitHub authentication doesn't have the required scopes" -ForegroundColor Yellow
             Write-Host "`n🔧 Try re-authenticating with:" -ForegroundColor Cyan
-            Write-Host "   gh auth login --scopes repo,admin:repo_hook,write:packages" -ForegroundColor Gray
+            Write-Host "   gh auth login" -ForegroundColor Gray
+            Write-Host "   For more information about required scopes, see: https://cli.github.com/manual/gh_auth_login" -ForegroundColor Gray
         }
         
         exit 1
