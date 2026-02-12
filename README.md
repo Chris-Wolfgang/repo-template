@@ -2,24 +2,47 @@
 
 A comprehensive, production-ready .NET repository template with enterprise-grade CI/CD, comprehensive code quality enforcement, automated documentation generation, and multi-license support.
 
+## 📋 Prerequisites
+
+Before using this template, ensure you have the following installed:
+
+- **PowerShell Core 7.0+** - Cross-platform PowerShell
+  - Windows: `winget install Microsoft.PowerShell`
+  - macOS: `brew install powershell`
+  - Linux: [Install instructions](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell)
+- **GitHub CLI (gh)** - For branch protection setup
+  - Windows: `winget install GitHub.cli`
+  - macOS: `brew install gh`
+  - Linux: [Install instructions](https://cli.github.com/)
+
 ## 🚀 Quick Start
 
 1. **Create repository from template** - Click "Use this template" on GitHub
-2. **Set up branch protection** - Go to the `Actions` tab in your new repository and run the `Setup Branch Ruleset (One-Time)` workflow. This configures branch protection rules for your repo (see [SETUP-BRANCH-RULESET.md](.github/workflows/SETUP-BRANCH-RULESET.md) for details). When complete, the workflow creates a pull request to remove its setup files. Merge this PR into your `main` branch.
-3. **Create Setup Branch** - Create a new branch named `Setup` This branch will be used to continue setting up the repo. Because you just configured branch protections in the previous steps you will not be able to commit directly to main. Once you are done with the next several steps you will merge this branch to main via a pull request.
-4. **Clone your new repository** - Clone your `Setup` branch to your local computer
-5. **Run automated setup:** 
+2. **Clone your new repository** - Clone to your local computer
+3. **Run automated setup** - Replace all placeholders with your project information:
    ```bash
    # PowerShell (Windows/macOS/Linux)
-   # Note: If you don't have `pwsh` installed, you can install it using `winget install Microsoft.PowerShell`
    pwsh ./setup.ps1
    
    # Or Bash (macOS/Linux)
    chmod +x setup.sh
    ./setup.sh
    ```
-6. **Follow the prompts** - The script will guide you through customization
-7. **Commit and push** - Your repository is ready!
+4. **Follow the prompts** - The script will guide you through customization
+5. **Commit and push** - Push your changes to the repository
+6. **Set up branch protection** - Configure branch protection rules:
+   ```powershell
+   # Authenticate with GitHub CLI first (if not already done)
+   gh auth login
+   
+   # Run the branch protection setup script (will prompt for single/multi-developer settings)
+   .\scripts\Setup-BranchRuleset.ps1
+   ```
+   
+   The script will ask if you want:
+   - **Single Developer**: No PR approvals required (you can merge your own PRs)
+   - **Multi-Developer**: Requires 1+ approval and code owner review
+7. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
 
 The setup script automatically:
 - ✅ Replaces all placeholders with your project information
@@ -78,18 +101,6 @@ All code is analyzed during builds by these industry-standard tools:
 - **Live documentation** at `https://<username>.github.io/<repo>/`
 
 #### Additional Workflows
-- **Branch Ruleset Setup** (`.github/workflows/setup-branch-ruleset.yml`)
-  - **One-time setup** workflow for repositories created from template
-  - **Manual trigger required** - Run from Actions tab after creating your repository
-  - **Automatic branch protection** configuration for main branch
-  - **Automated cleanup** via pull request
-  - **Comprehensive protection rules**:
-    - Pull requests required
-    - 5 required status checks (CI/CD stages + security)
-    - CodeQL security scanning
-    - Force push prevention
-    - Branch deletion prevention
-  - See [SETUP-BRANCH-RULESET.md](.github/workflows/SETUP-BRANCH-RULESET.md) for detailed documentation
 - **CodeQL** security analysis
 - **Dependabot** automated dependency updates - Automatically creates PRs to keep NuGet packages up-to-date with security patches and new versions
 - **Label automation** for Dependabot PRs
@@ -356,7 +367,7 @@ Your repository now has:
 
 ## 🔒 Automated Security & Branch Protection
 
-This template includes automated security scanning and branch protection that configures itself on first use.
+This template includes automated security scanning and a local setup script for configuring branch protection.
 
 ### What's Included
 
@@ -383,21 +394,9 @@ Configured by manually running the setup workflow:
 - ✅ **Prevent branch deletion**
 - ✅ **Repository admins can bypass** these rules
 
-> **Note for Single Developer Repositories:** By default, this template is configured for single developer use with `"required_approving_review_count": 0` and `"require_code_owner_review": false` in `.github/ruleset-config.json`. This allows you to merge your own PRs without additional approvals while still benefiting from CI/CD checks.
->
-> **For Multi-Developer Repositories:** Update `.github/ruleset-config.json` before running the setup workflow to require at least one approval and code owner review:
-> ```json
-> {
->   "type": "pull_request",
->   "parameters": {
->     "required_approving_review_count": 1,
->     "dismiss_stale_reviews_on_push": true,
->     "require_code_owner_review": true,
->     "require_last_push_approval": false,
->     "required_review_thread_resolution": true
->   }
-> }
-> ```
+**Repository Type Options:**
+- **Single Developer:** No PR approvals required (you can merge your own PRs)
+- **Multi-Developer:** Requires 1+ approval and code owner review
 
 #### 🔍 Code Quality Gates
 - **CodeQL:** Blocks merges on High or Critical security findings
@@ -405,21 +404,30 @@ Configured by manually running the setup workflow:
 
 ### How It Works
 
-1. **Create repository** from this template
-2. **Go to the Actions tab** in your new repository
-3. **Run the "Setup Branch Ruleset (One-Time)" workflow** manually
-4. **Review and merge the cleanup PR** that the workflow creates
-5. Branch protection is configured and setup files are removed
+After creating a repository from this template:
 
-The workflow must be manually triggered to configure branch protection. It will not run automatically on push.
+1. **Install GitHub CLI (gh)** - Download from [https://cli.github.com/](https://cli.github.com/)
+2. **Authenticate with GitHub** - Run `gh auth login`
+3. **Run the setup script** from your repository root:
+   ```powershell
+   .\scripts\Setup-BranchRuleset.ps1
+   ```
+4. The script will:
+   - ✅ Prompt you to choose single-developer or multi-developer settings
+   - ✅ Automatically detect the current repository
+   - ✅ Check if branch protection already exists
+   - ✅ Create comprehensive branch protection for the main branch
+   - ✅ Configure required status checks, PR requirements, and security scanning
+
+You only need to run this script once per repository.
 
 ### For Template Users
 
-If you're using this template, the branch protection will apply to **your** repository after you manually trigger the setup workflow. The configuration is portable and works for every repo created from this template, with **you** as the admin who can bypass rules.
+The branch protection will apply to **your** repository after you run the local setup script. The configuration works for every repo created from this template, with **you** as the admin who can bypass rules.
 
 ### Customization
 
-To modify the branch protection rules, edit `.github/ruleset-config.json` before running the setup workflow, or update the ruleset manually in Settings → Rules → Rulesets after setup.
+The script provides interactive prompts to choose between single-developer or multi-developer settings during execution. You can update the ruleset manually in Settings → Rules → Rulesets after setup if you need additional customization beyond the standard single/multi-developer options.
 
 ---
 

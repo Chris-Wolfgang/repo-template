@@ -422,6 +422,7 @@ main() {
         "CONTRIBUTING.md"
         ".github/CODEOWNERS"
         "REPO-INSTRUCTIONS.md"
+        "scripts/Setup-BranchRuleset.ps1"
         "docfx_project/docfx.json"
         "docfx_project/index.md"
         "docfx_project/api/index.md"

@@ -103,7 +103,15 @@ These placeholders represent sections that users should fill in later. They can 
 | ~13 | `{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}` | Template selection instruction |
 | ~135 | `{{GITHUB_USERNAME}}` | CODEOWNERS update instruction |
 
-### 5. License Files (Selected During Setup)
+### 5. scripts/Setup-BranchRuleset.ps1
+
+| Line(s) | Placeholder | Context |
+|---------|-------------|---------|
+| 37 | `{{GITHUB_USERNAME}}/{{REPO_NAME}}` | Default repository parameter |
+
+**Note:** This file is automatically updated during setup to contain your repository information. After setup, the script will automatically use the correct repository without needing to auto-detect or pass parameters.
+
+### 6. License Files (Selected During Setup)
 
 **LICENSE-MIT.txt:**
 - Line 3: `{{YEAR}}` and `{{COPYRIGHT_HOLDER}}`
