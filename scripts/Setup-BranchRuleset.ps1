@@ -51,7 +51,7 @@ try {
 
 # Check if authenticated
 try {
-    $authStatus = gh auth status 2>&1
+    $null = gh auth status 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Error "❌ Not authenticated with GitHub CLI."
         Write-Host "Run: gh auth login" -ForegroundColor Yellow
@@ -243,11 +243,10 @@ try {
         Write-Host "      - Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" -ForegroundColor DarkGray
         Write-Host "      - Stage 3: macOS Tests (.NET 6.0-10.0)" -ForegroundColor DarkGray
         Write-Host "      - Security Scan (DevSkim)" -ForegroundColor DarkGray
-        Write-Host "      - Security Scan (CodeQL)" -ForegroundColor DarkGray
         Write-Host "   ✅ Branches must be up to date before merging" -ForegroundColor Gray
         Write-Host "   ✅ Conversation resolution required before merging" -ForegroundColor Gray
         Write-Host "   ✅ Stale reviews dismissed when new commits are pushed" -ForegroundColor Gray
-        Write-Host "   ✅ CodeQL security scanning (blocks on High+ severity findings)" -ForegroundColor Gray
+        Write-Host "   ✅ CodeQL code scanning enforcement (blocks on High+ severity findings)" -ForegroundColor Gray
         Write-Host "   ✅ Force pushes blocked on $BranchName branch" -ForegroundColor Gray
         Write-Host "   ✅ Branch deletion prevented for $BranchName" -ForegroundColor Gray
         Write-Host "   ✅ Repository admins can bypass these rules" -ForegroundColor Gray
