@@ -449,26 +449,70 @@ function Start-Setup {
     # Step 4: Validation
     Write-Info "Step 4/4: Validating changes..."
     
-    $remainingPlaceholders = @()
+    # Placeholder descriptions
+    $placeholderDescriptions = @{
+        'PROJECT_NAME' = 'Full project/library name'
+        'PROJECT_DESCRIPTION' = 'One-line project description'
+        'PACKAGE_NAME' = 'NuGet package name'
+        'GITHUB_REPO_URL' = 'Full GitHub repository URL'
+        'REPO_NAME' = 'Repository name only'
+        'GITHUB_USERNAME' = 'GitHub username with @'
+        'DOCS_URL' = 'Documentation URL (GitHub Pages)'
+        'LICENSE_TYPE' = 'License identifier (MIT, Apache-2.0, or MPL-2.0)'
+        'YEAR' = 'Copyright year'
+        'COPYRIGHT_HOLDER' = 'Copyright owner name'
+        'NUGET_STATUS' = 'NuGet availability message'
+        'TEMPLATE_REPO_OWNER' = 'Template repository owner'
+        'TEMPLATE_REPO_NAME' = 'Template repository name'
+        'QUICK_START_EXAMPLE' = 'Code example showing basic usage (optional content)'
+        'FEATURES_TABLE' = 'Markdown table listing features (optional content)'
+        'FEATURE_EXAMPLES' = 'Code examples demonstrating features (optional content)'
+        'TARGET_FRAMEWORKS' = 'List of supported .NET frameworks (optional content)'
+        'ACKNOWLEDGMENTS' = 'Credits for libraries/tools used (optional content)'
+    }
+    
+    # Collect placeholders grouped by placeholder name
+    $placeholdersByName = @{}
     foreach ($file in $filesToUpdate) {
         if (Test-Path $file) {
             $content = Get-Content $file -Raw
-            $matches = [regex]::Matches($content, '\{\{[A-Z_]+\}\}')
-            if ($matches.Count -gt 0) {
-                $remainingPlaceholders += "$file : $($matches.Value -join ', ')"
+            $matches = [regex]::Matches($content, '\{\{([A-Z_]+)\}\}')
+            foreach ($match in $matches) {
+                $placeholderName = $match.Groups[1].Value
+                if (-not $placeholdersByName.ContainsKey($placeholderName)) {
+                    $placeholdersByName[$placeholderName] = @()
+                }
+                if ($placeholdersByName[$placeholderName] -notcontains $file) {
+                    $placeholdersByName[$placeholderName] += $file
+                }
             }
         }
     }
     
-    if ($remainingPlaceholders.Count -eq 0) {
+    if ($placeholdersByName.Count -eq 0) {
         Write-Success "All required placeholders replaced successfully!"
     }
     else {
         Write-Warning "Some placeholders were not replaced:"
-        foreach ($placeholder in $remainingPlaceholders) {
-            Write-Host "  - $placeholder" -ForegroundColor Yellow
+        Write-Host ""
+        
+        foreach ($placeholderName in ($placeholdersByName.Keys | Sort-Object)) {
+            $description = if ($placeholderDescriptions.ContainsKey($placeholderName)) {
+                $placeholderDescriptions[$placeholderName]
+            } else {
+                'Unknown placeholder'
+            }
+            
+            Write-Host "  {{$placeholderName}}" -ForegroundColor Yellow
+            Write-Host "    Description: $description" -ForegroundColor Gray
+            Write-Host "    Found in:" -ForegroundColor Gray
+            foreach ($file in $placeholdersByName[$placeholderName]) {
+                Write-Host "      - $file" -ForegroundColor Gray
+            }
+            Write-Host ""
         }
-        Write-Info "These may be optional content placeholders for you to fill in later."
+        
+        Write-Info "Optional content placeholders (QUICK_START_EXAMPLE, FEATURES_TABLE, etc.) should be filled in as you develop your project."
     }
     
     # Optional cleanup
