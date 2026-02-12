@@ -19,7 +19,7 @@ Before using this template, ensure you have the following installed:
 
 1. **Create repository from template** - Click "Use this template" on GitHub
 2. **Clone your new repository** - Clone to your local computer
-3. **Run automated setup** - Replace all placeholders with your project information:
+3. **Run automated setup and follo the prompts** - This will prompt you for some values and others it will pull from your project. This will then replace all placeholders with your project information:
    ```bash
    # PowerShell (Windows/macOS/Linux)
    pwsh ./setup.ps1
@@ -28,7 +28,6 @@ Before using this template, ensure you have the following installed:
    chmod +x setup.sh
    ./setup.sh
    ```
-4. **Follow the prompts** - The script will guide you through customization
 5. **Commit and push** - Push your changes to the repository
 6. **Set up branch protection** - Configure branch protection rules:
    ```powershell
