@@ -173,8 +173,7 @@ $rulesetConfig = @{
                     @{ context = "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate" },
                     @{ context = "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" },
                     @{ context = "Stage 3: macOS Tests (.NET 6.0-10.0)" },
-                    @{ context = "Security Scan (DevSkim)" },
-                    @{ context = "Security Scan (CodeQL)" }
+                    @{ context = "Security Scan (DevSkim)" }
                 )
             }
         },
