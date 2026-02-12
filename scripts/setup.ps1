@@ -476,8 +476,8 @@ function Start-Setup {
     Write-Host ""
     Write-Host "Remove template-specific files? (y/N)" -ForegroundColor Yellow
     Write-Host "  Files to remove:" -ForegroundColor Gray
-    Write-Host "    - setup.ps1 (this script)" -ForegroundColor Gray
-    Write-Host "    - setup.sh" -ForegroundColor Gray
+    Write-Host "    - scripts/setup.ps1 (this script)" -ForegroundColor Gray
+    Write-Host "    - scripts/setup.sh" -ForegroundColor Gray
     Write-Host "    - TEMPLATE-PLACEHOLDERS.md" -ForegroundColor Gray
     Write-Host "    - LICENSE-SELECTION.md" -ForegroundColor Gray
     Write-Host "    - README-FORMATTING.md" -ForegroundColor Gray
