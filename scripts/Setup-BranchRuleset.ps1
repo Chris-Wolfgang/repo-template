@@ -169,12 +169,12 @@ $rulesetConfig = @{
             type = "required_status_checks"
             parameters = @{
                 strict_required_status_checks_policy = $true
-                # IMPORTANT: Workflows providing these required status checks (.github/workflows/pr.yaml)
-                # must NOT have path filters (paths/paths-ignore). If a workflow is path-filtered
-                # and doesn't run for a PR, GitHub will treat the required check as missing and
-                # block the merge. All required status checks listed below must run on every PR.
+                # IMPORTANT: Workflows providing these required status checks must NOT have path filters
+                # (paths/paths-ignore). If a workflow is path-filtered and doesn't run for a PR,
+                # GitHub will treat the required check as missing and block the merge.
+                # All checks below are provided by .github/workflows/pr.yaml and must run on every PR.
                 # This also applies to the CodeQL workflow (codeql.yml) which provides the code_scanning
-                # rule below - see that section for details on how CodeQL handles template repos.
+                # rule below - see that section for details on how CodeQL handles graceful skipping.
                 required_status_checks = @(
                     @{ context = "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate" },
                     @{ context = "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" },
@@ -187,11 +187,11 @@ $rulesetConfig = @{
             type = "code_scanning"
             parameters = @{
                 # IMPORTANT: CodeQL uses the 'code_scanning' ruleset type (not 'required_status_checks')
-                # because it has built-in intelligence to handle cases where scans don't run
-                # (e.g., template repos with no code, or PRs that only change documentation).
+                # because it has built-in intelligence to handle cases where analysis doesn't occur.
                 # The workflow (.github/workflows/codeql.yml) must NOT have path filters to ensure
-                # GitHub can properly evaluate this rule. The workflow itself handles skipping analysis
-                # gracefully when there's no C# code to scan, preventing false merge blocks.
+                # GitHub can properly evaluate this rule. The workflow runs on all PRs but gracefully
+                # skips analysis when there's no C# code to scan (e.g., template repos, doc-only PRs),
+                # preventing false merge blocks while still enforcing security scanning when needed.
                 code_scanning_tools = @(
                     @{
                         tool = "CodeQL"
