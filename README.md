@@ -36,7 +36,7 @@ Before using this template, ensure you have the following installed:
    gh auth login
    
    # Run the branch protection setup script (will prompt for single/multi-developer settings)
-   .\scripts\Setup-BranchRuleset.ps1
+   ./scripts/Setup-BranchRuleset.ps1
    ```
    
    The script will ask if you want:
