@@ -49,21 +49,11 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 
 ## Add Branch Protection Rules
 
-> **Note:** Branch protection is now automatically configured by the `setup-branch-ruleset.yml` workflow on first push to main. The configuration in `.github/ruleset-config.json` is pre-configured for **single developer repositories** with no approval requirements.
->
-> **For multi-developer repositories:** Edit `.github/ruleset-config.json` **before** your first push to main and update the `pull_request` rule parameters as needed:
-> ```json
-> {
->   "type": "pull_request",
->   "parameters": {
->     "required_approving_review_count": 1,
->     "dismiss_stale_reviews_on_push": true,
->     "require_code_owner_review": true,
->     "require_last_push_approval": false,
->     "required_review_thread_resolution": true
->   }
-> }
+> **Note:** Branch protection is now configured using a local PowerShell script. After setting up your repository, run the script to configure branch protection:
+> ```powershell
+> pwsh ./scripts/Setup-BranchRuleset.ps1
 > ```
+> The script includes interactive prompts that allow you to choose between **single developer** or **multi-developer** repository settings during execution. Simply run the script and select option [1] for single-developer mode (no approvals required) or option [2] for multi-developer mode (requires 1+ approval and code owner review).
 
 If you need to manually configure branch protection instead:
 
@@ -81,10 +71,10 @@ If you need to manually configure branch protection instead:
 Prevent Merging When Checks Fail
 These settings require that all checks in the pr.yaml file succeed before you can merge a branch into main
 
-> **Note for Single-Developer Repositories:** This template is configured for single-developer use. The automated branch ruleset (`.github/ruleset-config.json`) does not require PR approvals or code owner reviews by default. If you are setting up a multi-developer repository, edit the Branch protection rule for `main` to require pull request reviews before merging, set the **Required approving reviews** count to `1` or higher, and (optionally) enable the Code Owners and Copilot review options described in the subsections below. Also update `.github/ruleset-config.json` to set `required_approving_review_count` to `1` or higher and `require_code_owner_review` to `true`.
+> **Note for Single-Developer Repositories:** This template is configured for single-developer use. The branch protection script (`scripts/Setup-BranchRuleset.ps1`) includes interactive prompts that allow you to choose between single-developer or multi-developer settings during execution. Simply run the script and select option [1] for single-developer mode (no PR approvals required) or option [2] for multi-developer mode (requires 1+ approval and code owner review).
 **Note:** The pr.yaml workflow uses `pull_request_target` to always run from the trusted main branch, even for PRs from feature branches. This prevents malicious workflow modifications in untrusted PR branches while still testing the PR's code.
 
-> **Branch protection is now automated!** The `setup-branch-ruleset.yml` workflow automatically configures all required settings on first push to main using `.github/ruleset-config.json`. Manual configuration below is only needed if you disable the automated setup.
+> **Branch protection is now configured via local script!** Run `pwsh ./scripts/Setup-BranchRuleset.ps1` to automatically configure all required settings. Manual configuration below is only needed if you prefer not to use the automated script.
 
 1. Go to your repository’s Settings → Branches.
 2. Under “Branch protection rules,” edit the rule for main.
