@@ -305,7 +305,19 @@ Once you've run the setup script and committed the changes:
 
 ### 1. Configure Branch Protection
 
-For manual configuration using the GitHub rulesets UI, go to **Settings → Rules → Rulesets** and configure the rule that applies to your default branch with:
+Run the PowerShell script to set up branch protection (see **Automated Security & Branch Protection** section below for details):
+
+```powershell
+# Authenticate with GitHub CLI first (if not already done)
+gh auth login
+
+# Run the branch protection setup script
+./scripts/Setup-BranchRuleset.ps1
+```
+
+The script will prompt you to choose between single-developer or multi-developer settings and automatically configure all required protections.
+
+**Alternatively, for manual configuration**, go to **Settings → Rules → Rulesets** and configure the rule that applies to your default branch with:
 - ✅ Require status checks before merging
 - ✅ Require branches to be up to date
 - ✅ Require pull request reviews (recommended for multi-developer repos)
