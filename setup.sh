@@ -481,6 +481,7 @@ main() {
             echo "  - $placeholder"
         done
         info "These may be optional content placeholders for you to fill in later."
+        info "See TEMPLATE-PLACEHOLDERS.md for details on each placeholder."
     fi
     
     # Optional cleanup

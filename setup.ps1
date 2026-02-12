@@ -469,6 +469,7 @@ function Start-Setup {
             Write-Host "  - $placeholder" -ForegroundColor Yellow
         }
         Write-Info "These may be optional content placeholders for you to fill in later."
+        Write-Info "See TEMPLATE-PLACEHOLDERS.md for details on each placeholder."
     }
     
     # Optional cleanup
