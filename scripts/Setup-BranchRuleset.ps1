@@ -88,12 +88,14 @@ Write-Host "📌 Protected branch: $BranchName`n" -ForegroundColor Cyan
 # Check if ruleset already exists
 Write-Host "🔍 Checking for existing rulesets..." -ForegroundColor Yellow
 try {
-    $existingRulesets = gh api `
+    $matchingRulesets = gh api `
         -H "Accept: application/vnd.github+json" `
         -H "X-GitHub-Api-Version: 2022-11-28" `
-        "/repos/$Repository/rulesets" | ConvertFrom-Json
+        "/repos/$Repository/rulesets" `
+        --paginate `
+        --jq '.[] | select(.name == "Protect main branch")' | ConvertFrom-Json
     
-    $existingRuleset = $existingRulesets | Where-Object { $_.name -eq "Protect main branch" }
+    $existingRuleset = $matchingRulesets | Select-Object -First 1
     
     if ($existingRuleset) {
         Write-Host "✅ Ruleset 'Protect main branch' already exists!" -ForegroundColor Green
