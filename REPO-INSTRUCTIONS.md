@@ -51,7 +51,7 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 
 > **Note:** Branch protection is now configured using a local PowerShell script. After setting up your repository, run the script to configure branch protection:
 > ```powershell
-> ./scripts/Setup-BranchRuleset.ps1
+> pwsh ./scripts/Setup-BranchRuleset.ps1
 > ```
 > The script includes interactive prompts that allow you to choose between **single developer** or **multi-developer** repository settings during execution. Simply run the script and select option [1] for single-developer mode (no approvals required) or option [2] for multi-developer mode (requires 1+ approval and code owner review).
 
