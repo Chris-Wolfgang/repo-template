@@ -106,17 +106,15 @@ The workflow runs on pull requests to `main` branch and includes:
 4. **Branch Protection**: Configured to require this workflow to pass before merging
 
 ### Branch Protection Configuration
-The repository has branch protection rules configured via `.github/ruleset-config.json`:
+Branch protection rules are configured by running the local PowerShell script `scripts/Setup-BranchRuleset.ps1`. The script prompts you to choose repository settings during setup.
 
 **Single-Developer Configuration (Default):**
-- `required_approving_review_count`: 0 (no approval required)
-- `require_code_owner_review`: false
-- This allows solo developers to merge their own PRs while still enforcing CI/CD checks
+- No PR approvals required (you can merge your own PRs)
+- Allows solo developers to merge their own PRs while still enforcing CI/CD checks
 
-**For Multi-Developer Repositories:**
-Update `.github/ruleset-config.json` to require approvals:
-- Set `required_approving_review_count` to 1 or higher
-- Set `require_code_owner_review` to true
+**Multi-Developer Configuration:**
+- Requires 1+ approval before merging
+- Requires code owner review
 
 **All Configurations Include:**
 - Require status checks to pass before merging
@@ -124,6 +122,12 @@ Update `.github/ruleset-config.json` to require approvals:
 - Require conversation resolution before merging
 - Restrict deletions and block force pushes
 - Require code scanning (CodeQL High+ severity)
+
+**Setup Instructions:**
+1. Install GitHub CLI (gh) from https://cli.github.com/
+2. Authenticate: `gh auth login`
+3. Run the setup script: `./scripts/Setup-BranchRuleset.ps1`
+4. Choose single-developer or multi-developer settings when prompted
 
 ## Key Files and Locations
 
