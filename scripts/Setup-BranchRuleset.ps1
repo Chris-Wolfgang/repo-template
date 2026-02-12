@@ -51,7 +51,7 @@ try {
 
 # Check if authenticated
 try {
-    $authStatus = gh auth status 2>&1
+    $null = gh auth status 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Error "❌ Not authenticated with GitHub CLI."
         Write-Host "Run: gh auth login" -ForegroundColor Yellow
