@@ -123,11 +123,14 @@ Branch protection rules are configured by running the local PowerShell script `s
 - Restrict deletions and block force pushes
 - Require code scanning (CodeQL High+ severity)
 
-**Setup Instructions:**
+**Branch Protection Setup Instructions:**
 1. Install GitHub CLI (gh) from https://cli.github.com/
 2. Authenticate: `gh auth login`
-3. Run the setup script: `./scripts/Setup-BranchRuleset.ps1`
-4. Choose single-developer or multi-developer settings when prompted
+3. From PowerShell 7+ (for example, using `pwsh`), run the branch protection setup script:
+   ```powershell
+   pwsh -File ./scripts/Setup-BranchRuleset.ps1
+   ```
+4. When prompted by the script, choose single-developer or multi-developer settings
 
 ## Key Files and Locations
 
