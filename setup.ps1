@@ -449,70 +449,90 @@ function Start-Setup {
     # Step 4: Validation
     Write-Info "Step 4/4: Validating changes..."
     
-    # Placeholder descriptions
-    $placeholderDescriptions = @{
-        'PROJECT_NAME' = 'Full project/library name'
-        'PROJECT_DESCRIPTION' = 'One-line project description'
-        'PACKAGE_NAME' = 'NuGet package name'
-        'GITHUB_REPO_URL' = 'Full GitHub repository URL'
-        'REPO_NAME' = 'Repository name only'
-        'GITHUB_USERNAME' = 'GitHub username with @'
-        'DOCS_URL' = 'Documentation URL (GitHub Pages)'
-        'LICENSE_TYPE' = 'License identifier (MIT, Apache-2.0, or MPL-2.0)'
-        'YEAR' = 'Copyright year'
-        'COPYRIGHT_HOLDER' = 'Copyright owner name'
-        'NUGET_STATUS' = 'NuGet availability message'
-        'TEMPLATE_REPO_OWNER' = 'Template repository owner'
-        'TEMPLATE_REPO_NAME' = 'Template repository name'
-        'QUICK_START_EXAMPLE' = 'Code example showing basic usage (optional content)'
-        'FEATURES_TABLE' = 'Markdown table listing features (optional content)'
-        'FEATURE_EXAMPLES' = 'Code examples demonstrating features (optional content)'
-        'TARGET_FRAMEWORKS' = 'List of supported .NET frameworks (optional content)'
-        'ACKNOWLEDGMENTS' = 'Credits for libraries/tools used (optional content)'
+    # Core placeholders that should have been replaced by the script
+    $corePlaceholders = @(
+        'PROJECT_NAME', 'PROJECT_DESCRIPTION', 'PACKAGE_NAME',
+        'GITHUB_REPO_URL', 'REPO_NAME', 'GITHUB_USERNAME',
+        'DOCS_URL', 'LICENSE_TYPE', 'YEAR', 'COPYRIGHT_HOLDER',
+        'NUGET_STATUS', 'TEMPLATE_REPO_OWNER', 'TEMPLATE_REPO_NAME'
+    )
+    
+    # Optional placeholders that users fill in manually as they develop
+    $optionalPlaceholderDescriptions = @{
+        'QUICK_START_EXAMPLE' = 'Code example showing basic usage'
+        'FEATURES_TABLE' = 'Markdown table listing features'
+        'FEATURE_EXAMPLES' = 'Code examples demonstrating features'
+        'TARGET_FRAMEWORKS' = 'List of supported .NET frameworks'
+        'ACKNOWLEDGMENTS' = 'Credits for libraries/tools used'
     }
     
     # Collect placeholders grouped by placeholder name
-    $placeholdersByName = @{}
+    $corePlaceholdersByName = @{}
+    $optionalPlaceholdersByName = @{}
+    
     foreach ($file in $filesToUpdate) {
         if (Test-Path $file) {
             $content = Get-Content $file -Raw
             $matches = [regex]::Matches($content, '\{\{([A-Z_]+)\}\}')
             foreach ($match in $matches) {
                 $placeholderName = $match.Groups[1].Value
-                if (-not $placeholdersByName.ContainsKey($placeholderName)) {
-                    $placeholdersByName[$placeholderName] = @()
+                
+                # Categorize placeholder
+                if ($corePlaceholders -contains $placeholderName) {
+                    if (-not $corePlaceholdersByName.ContainsKey($placeholderName)) {
+                        $corePlaceholdersByName[$placeholderName] = @()
+                    }
+                    if ($corePlaceholdersByName[$placeholderName] -notcontains $file) {
+                        $corePlaceholdersByName[$placeholderName] += $file
+                    }
                 }
-                if ($placeholdersByName[$placeholderName] -notcontains $file) {
-                    $placeholdersByName[$placeholderName] += $file
+                elseif ($optionalPlaceholderDescriptions.ContainsKey($placeholderName)) {
+                    if (-not $optionalPlaceholdersByName.ContainsKey($placeholderName)) {
+                        $optionalPlaceholdersByName[$placeholderName] = @()
+                    }
+                    if ($optionalPlaceholdersByName[$placeholderName] -notcontains $file) {
+                        $optionalPlaceholdersByName[$placeholderName] += $file
+                    }
                 }
             }
         }
     }
     
-    if ($placeholdersByName.Count -eq 0) {
-        Write-Success "All required placeholders replaced successfully!"
-    }
-    else {
-        Write-Warning "Some placeholders were not replaced:"
+    # Report core placeholders that weren't replaced (this is an error)
+    if ($corePlaceholdersByName.Count -gt 0) {
+        Write-TemplateError "Error: The following required placeholders were not replaced:"
         Write-Host ""
-        
-        foreach ($placeholderName in ($placeholdersByName.Keys | Sort-Object)) {
-            $description = if ($placeholderDescriptions.ContainsKey($placeholderName)) {
-                $placeholderDescriptions[$placeholderName]
-            } else {
-                'Unknown placeholder'
-            }
-            
-            Write-Host "  {{$placeholderName}}" -ForegroundColor Yellow
-            Write-Host "    Description: $description" -ForegroundColor Gray
+        foreach ($placeholderName in ($corePlaceholdersByName.Keys | Sort-Object)) {
+            Write-Host "  {{$placeholderName}}" -ForegroundColor Red
             Write-Host "    Found in:" -ForegroundColor Gray
-            foreach ($file in $placeholdersByName[$placeholderName]) {
+            foreach ($file in $corePlaceholdersByName[$placeholderName]) {
                 Write-Host "      - $file" -ForegroundColor Gray
             }
             Write-Host ""
         }
+        Write-Warning "This indicates the script did not replace all required placeholders. Please review the files and replace these manually."
+    }
+    else {
+        Write-Success "All required placeholders replaced successfully!"
+    }
+    
+    # Report optional placeholders that need manual updates
+    if ($optionalPlaceholdersByName.Count -gt 0) {
+        Write-Host ""
+        Write-Info "Optional content placeholders to fill in as you develop your project:"
+        Write-Host ""
         
-        Write-Info "Optional content placeholders (QUICK_START_EXAMPLE, FEATURES_TABLE, etc.) should be filled in as you develop your project."
+        foreach ($placeholderName in ($optionalPlaceholdersByName.Keys | Sort-Object)) {
+            $description = $optionalPlaceholderDescriptions[$placeholderName]
+            
+            Write-Host "  {{$placeholderName}}" -ForegroundColor Yellow
+            Write-Host "    Description: $description" -ForegroundColor Gray
+            Write-Host "    Found in:" -ForegroundColor Gray
+            foreach ($file in $optionalPlaceholdersByName[$placeholderName]) {
+                Write-Host "      - $file" -ForegroundColor Gray
+            }
+            Write-Host ""
+        }
     }
     
     # Optional cleanup

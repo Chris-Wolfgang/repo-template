@@ -463,74 +463,105 @@ main() {
     # Step 4: Validation
     info "Step 4/4: Validating changes..."
     
-    # Declare associative arrays for placeholder descriptions and files
-    declare -A placeholder_descriptions=(
-        ["PROJECT_NAME"]="Full project/library name"
-        ["PROJECT_DESCRIPTION"]="One-line project description"
-        ["PACKAGE_NAME"]="NuGet package name"
-        ["GITHUB_REPO_URL"]="Full GitHub repository URL"
-        ["REPO_NAME"]="Repository name only"
-        ["GITHUB_USERNAME"]="GitHub username with @"
-        ["DOCS_URL"]="Documentation URL (GitHub Pages)"
-        ["LICENSE_TYPE"]="License identifier (MIT, Apache-2.0, or MPL-2.0)"
-        ["YEAR"]="Copyright year"
-        ["COPYRIGHT_HOLDER"]="Copyright owner name"
-        ["NUGET_STATUS"]="NuGet availability message"
-        ["TEMPLATE_REPO_OWNER"]="Template repository owner"
-        ["TEMPLATE_REPO_NAME"]="Template repository name"
-        ["QUICK_START_EXAMPLE"]="Code example showing basic usage (optional content)"
-        ["FEATURES_TABLE"]="Markdown table listing features (optional content)"
-        ["FEATURE_EXAMPLES"]="Code examples demonstrating features (optional content)"
-        ["TARGET_FRAMEWORKS"]="List of supported .NET frameworks (optional content)"
-        ["ACKNOWLEDGMENTS"]="Credits for libraries/tools used (optional content)"
+    # Core placeholders that should have been replaced by the script
+    local core_placeholders=(
+        "PROJECT_NAME" "PROJECT_DESCRIPTION" "PACKAGE_NAME"
+        "GITHUB_REPO_URL" "REPO_NAME" "GITHUB_USERNAME"
+        "DOCS_URL" "LICENSE_TYPE" "YEAR" "COPYRIGHT_HOLDER"
+        "NUGET_STATUS" "TEMPLATE_REPO_OWNER" "TEMPLATE_REPO_NAME"
+    )
+    
+    # Optional placeholders that users fill in manually as they develop
+    declare -A optional_placeholder_descriptions=(
+        ["QUICK_START_EXAMPLE"]="Code example showing basic usage"
+        ["FEATURES_TABLE"]="Markdown table listing features"
+        ["FEATURE_EXAMPLES"]="Code examples demonstrating features"
+        ["TARGET_FRAMEWORKS"]="List of supported .NET frameworks"
+        ["ACKNOWLEDGMENTS"]="Credits for libraries/tools used"
     )
     
     # Collect placeholders grouped by placeholder name
-    declare -A placeholders_by_name
+    declare -A core_placeholders_by_name
+    declare -A optional_placeholders_by_name
+    
     for file in "${FILES_TO_UPDATE[@]}"; do
         if [[ -f "$file" ]]; then
             # Extract placeholder names (without braces)
             while IFS= read -r placeholder_full; do
-                # Extract just the placeholder name (e.g., PROJECT_NAME from {{PROJECT_NAME}})
+                # Extract just the placeholder name
                 placeholder_name="${placeholder_full//\{/}"
                 placeholder_name="${placeholder_name//\}/}"
                 
-                # Add file to the list for this placeholder
-                if [[ -z "${placeholders_by_name[$placeholder_name]:-}" ]]; then
-                    placeholders_by_name[$placeholder_name]="$file"
-                else
-                    # Check if file is already in the list
-                    if [[ ! "${placeholders_by_name[$placeholder_name]}" =~ $file ]]; then
-                        placeholders_by_name[$placeholder_name]="${placeholders_by_name[$placeholder_name]}|$file"
+                # Categorize placeholder
+                local is_core=0
+                for core_ph in "${core_placeholders[@]}"; do
+                    if [[ "$placeholder_name" == "$core_ph" ]]; then
+                        is_core=1
+                        break
+                    fi
+                done
+                
+                if [[ $is_core -eq 1 ]]; then
+                    # Add to core placeholders
+                    if [[ -z "${core_placeholders_by_name[$placeholder_name]:-}" ]]; then
+                        core_placeholders_by_name[$placeholder_name]="$file"
+                    else
+                        if [[ ! "${core_placeholders_by_name[$placeholder_name]}" =~ $file ]]; then
+                            core_placeholders_by_name[$placeholder_name]="${core_placeholders_by_name[$placeholder_name]}|$file"
+                        fi
+                    fi
+                elif [[ -n "${optional_placeholder_descriptions[$placeholder_name]:-}" ]]; then
+                    # Add to optional placeholders
+                    if [[ -z "${optional_placeholders_by_name[$placeholder_name]:-}" ]]; then
+                        optional_placeholders_by_name[$placeholder_name]="$file"
+                    else
+                        if [[ ! "${optional_placeholders_by_name[$placeholder_name]}" =~ $file ]]; then
+                            optional_placeholders_by_name[$placeholder_name]="${optional_placeholders_by_name[$placeholder_name]}|$file"
+                        fi
                     fi
                 fi
             done < <(grep -o '{{[A-Z_]*}}' "$file" || true)
         fi
     done
     
-    if [[ ${#placeholders_by_name[@]} -eq 0 ]]; then
-        success "All required placeholders replaced successfully!"
-    else
-        warn "Some placeholders were not replaced:"
+    # Report core placeholders that weren't replaced (this is an error)
+    if [[ ${#core_placeholders_by_name[@]} -gt 0 ]]; then
+        error "Error: The following required placeholders were not replaced:"
         echo ""
-        
-        # Sort placeholder names and display
-        for placeholder_name in $(echo "${!placeholders_by_name[@]}" | tr ' ' '\n' | sort); do
-            local description="${placeholder_descriptions[$placeholder_name]:-Unknown placeholder}"
+        for placeholder_name in $(echo "${!core_placeholders_by_name[@]}" | tr ' ' '\n' | sort); do
+            echo -e "${RED}  {{$placeholder_name}}${NC}"
+            echo "    Found in:"
             
-            echo -e "${YELLOW}  {{$placeholder_name}}${NC}"
-            echo -e "    Description: $description"
-            echo -e "    Found in:"
-            
-            # Split file list by | and display each file
-            IFS='|' read -ra files <<< "${placeholders_by_name[$placeholder_name]}"
+            IFS='|' read -ra files <<< "${core_placeholders_by_name[$placeholder_name]}"
             for file in "${files[@]}"; do
                 echo "      - $file"
             done
             echo ""
         done
+        warn "This indicates the script did not replace all required placeholders. Please review the files and replace these manually."
+    else
+        success "All required placeholders replaced successfully!"
+    fi
+    
+    # Report optional placeholders that need manual updates
+    if [[ ${#optional_placeholders_by_name[@]} -gt 0 ]]; then
+        echo ""
+        info "Optional content placeholders to fill in as you develop your project:"
+        echo ""
         
-        info "Optional content placeholders (QUICK_START_EXAMPLE, FEATURES_TABLE, etc.) should be filled in as you develop your project."
+        for placeholder_name in $(echo "${!optional_placeholders_by_name[@]}" | tr ' ' '\n' | sort); do
+            local description="${optional_placeholder_descriptions[$placeholder_name]}"
+            
+            echo -e "${YELLOW}  {{$placeholder_name}}${NC}"
+            echo "    Description: $description"
+            echo "    Found in:"
+            
+            IFS='|' read -ra files <<< "${optional_placeholders_by_name[$placeholder_name]}"
+            for file in "${files[@]}"; do
+                echo "      - $file"
+            done
+            echo ""
+        done
     fi
     
     # Optional cleanup
