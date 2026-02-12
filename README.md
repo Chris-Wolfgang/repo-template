@@ -410,7 +410,7 @@ After creating a repository from this template:
 2. **Authenticate with GitHub** - Run `gh auth login`
 3. **Run the setup script** from your repository root:
    ```powershell
-   .\scripts\Setup-BranchRuleset.ps1
+   ./scripts/Setup-BranchRuleset.ps1
    ```
 4. The script will:
    - ✅ Prompt you to choose single-developer or multi-developer settings
