@@ -653,36 +653,20 @@ main() {
     step "Git Operations"
     echo ""
     
-    # Step 1: Review changes
-    info "Step 1/5: Reviewing changes..."
-    echo ""
-    echo -e "${CYAN}Git Status:${NC}"
-    git status
-    echo ""
-    
-    echo -en "${YELLOW}Would you like to see the full diff? (y/N): ${NC}"
-    read -r show_diff
-    if [[ "$show_diff" =~ ^[Yy]$ ]]; then
-        echo ""
-        echo -e "${CYAN}Git Diff:${NC}"
-        git diff
-        echo ""
-    fi
-    
-    # Step 2: Create branch and commit changes
+    # Step 1: Create branch and commit changes
     echo -en "${YELLOW}Create a branch and commit these changes? (Y/n): ${NC}"
     read -r commit_changes
     if [[ -z "$commit_changes" || "$commit_changes" =~ ^[Yy]$ ]]; then
         # Generate branch name
         branch_name="setup/configure-from-template-$(date +%Y%m%d-%H%M%S)"
         
-        info "Step 2/5: Creating branch '$branch_name'..."
+        info "Step 1/4: Creating branch '$branch_name'..."
         git checkout -b "$branch_name"
         if [[ $? -eq 0 ]]; then
             success "Branch created successfully!"
             echo ""
             
-            info "Step 3/5: Committing changes..."
+            info "Step 2/4: Committing changes..."
             git add .
             if [[ $? -eq 0 ]]; then
                 git commit -m "Configure repository from template"
@@ -691,14 +675,14 @@ main() {
                     echo ""
                     
                     # Step 4: Push to GitHub
-                    info "Step 4/5: Pushing branch to GitHub..."
+                    info "Step 3/4: Pushing branch to GitHub..."
                     git push -u origin "$branch_name"
                     if [[ $? -eq 0 ]]; then
                         success "Branch pushed to GitHub successfully!"
                         echo ""
                         
                         # Step 5: Create Pull Request
-                        info "Step 5/5: Creating pull request..."
+                        info "Step 4/4: Creating pull request..."
                         gh pr create --title "Configure repository from template" --body "This PR contains the initial repository configuration from the template setup script.
 
 Please review the changes, make any necessary adjustments, and merge to main when ready." --base main --head "$branch_name"

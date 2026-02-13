@@ -610,36 +610,20 @@ function Start-Setup {
     Write-Step "Git Operations"
     Write-Host ""
     
-    # Step 1: Review changes
-    Write-Info "Step 1/5: Reviewing changes..."
-    Write-Host ""
-    Write-Host "Git Status:" -ForegroundColor Cyan
-    git status
-    Write-Host ""
-    
-    Write-Host "Would you like to see the full diff? (y/N): " -NoNewline -ForegroundColor Yellow
-    $showDiff = Read-Host
-    if ($showDiff -eq 'y' -or $showDiff -eq 'Y') {
-        Write-Host ""
-        Write-Host "Git Diff:" -ForegroundColor Cyan
-        git diff
-        Write-Host ""
-    }
-    
-    # Step 2: Create branch and commit changes
+    # Step 1: Create branch and commit changes
     Write-Host "Create a branch and commit these changes? (Y/n): " -NoNewline -ForegroundColor Yellow
     $commitChanges = Read-Host
     if ([string]::IsNullOrEmpty($commitChanges) -or $commitChanges -eq 'Y' -or $commitChanges -eq 'y') {
         # Generate branch name
         $branchName = "setup/configure-from-template-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
         
-        Write-Info "Step 2/5: Creating branch '$branchName'..."
+        Write-Info "Step 1/4: Creating branch '$branchName'..."
         git checkout -b $branchName
         if ($LASTEXITCODE -eq 0) {
             Write-Success "Branch created successfully!"
             Write-Host ""
             
-            Write-Info "Step 3/5: Committing changes..."
+            Write-Info "Step 2/4: Committing changes..."
             git add .
             if ($LASTEXITCODE -eq 0) {
                 git commit -m "Configure repository from template"
@@ -648,14 +632,14 @@ function Start-Setup {
                     Write-Host ""
                     
                     # Step 4: Push to GitHub
-                    Write-Info "Step 4/5: Pushing branch to GitHub..."
+                    Write-Info "Step 3/4: Pushing branch to GitHub..."
                     git push -u origin $branchName
                     if ($LASTEXITCODE -eq 0) {
                         Write-Success "Branch pushed to GitHub successfully!"
                         Write-Host ""
                         
                         # Step 5: Create Pull Request
-                        Write-Info "Step 5/5: Creating pull request..."
+                        Write-Info "Step 4/4: Creating pull request..."
                         gh pr create --title "Configure repository from template" --body "This PR contains the initial repository configuration from the template setup script.`n`nPlease review the changes, make any necessary adjustments, and merge to main when ready." --base main --head $branchName
                         if ($LASTEXITCODE -eq 0) {
                             Write-Success "Pull request created successfully!"
