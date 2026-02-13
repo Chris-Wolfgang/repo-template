@@ -491,7 +491,8 @@ function Start-Setup {
     if ($solutionName) {
         Write-Info "Step 4/$totalSteps: Creating solution file..."
         
-        # Create blank solution
+        # Create blank solution in .slnx format
+        # Note: .slnx format requires Visual Studio 2022 version 17.10 or later
         $solutionFileName = "$solutionName.slnx"
         
         # Build the solution XML structure
@@ -521,9 +522,17 @@ function Start-Setup {
             'docfx_project'       # Documentation source (built separately)
         )
         
+        # Get current directory for relative path calculation
+        $currentDir = Get-Location
+        
         # Get all files in the repository
         $allFiles = Get-ChildItem -Recurse -File -Force | Where-Object {
-            $relativePath = $_.FullName.Substring((Get-Location).Path.Length + 1).Replace('\', '/')
+            # Get relative path safely
+            $relativePath = $_.FullName
+            if ($relativePath.StartsWith($currentDir.Path)) {
+                $relativePath = $relativePath.Substring($currentDir.Path.Length).TrimStart('\', '/')
+            }
+            $relativePath = $relativePath.Replace('\', '/')
             
             # Exclude .git directory specifically (not .github)
             if ($relativePath -like '.git/*' -or $relativePath -eq '.git') {
@@ -544,7 +553,12 @@ function Start-Setup {
         # Group files by directory for .root structure
         $filesByDirectory = @{}
         foreach ($file in $allFiles) {
-            $relativePath = $file.FullName.Substring((Get-Location).Path.Length + 1).Replace('\', '/')
+            # Get relative path safely
+            $relativePath = $file.FullName
+            if ($relativePath.StartsWith($currentDir.Path)) {
+                $relativePath = $relativePath.Substring($currentDir.Path.Length).TrimStart('\', '/')
+            }
+            $relativePath = $relativePath.Replace('\', '/')
             $directory = Split-Path $relativePath -Parent
             if ([string]::IsNullOrEmpty($directory)) {
                 $directory = '.'
@@ -596,7 +610,7 @@ function Start-Setup {
     }
     
     # Step 5: Validation
-    Write-Info "Step $(if ($solutionName) { '5/5' } else { '4/4' }): Validating changes..."
+    Write-Info "Step $totalSteps/$totalSteps: Validating changes..."
     
     # Core placeholders that should have been replaced by the script
     # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in FILES_TO_UPDATE
