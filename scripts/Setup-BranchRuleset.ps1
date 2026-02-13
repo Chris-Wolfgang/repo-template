@@ -4,13 +4,24 @@
 
 .DESCRIPTION
     This script uses the GitHub CLI (gh) to create a repository ruleset that protects
-    the main branch with pull request requirements, required status checks, and security
-    scanning rules. Run this locally after creating a new repo from the template.
+    the main branch with pull request requirements, required status checks, security
+    scanning rules, code quality enforcement, and automatic Copilot code review.
+    Run this locally after creating a new repo from the template.
     
     The script will prompt you to choose between single-developer or multi-developer 
     repository settings:
     - Single Developer: No PR approvals required (you can merge your own PRs)
     - Multi-Developer: Requires 1+ approval and code owner review
+    
+    The ruleset includes:
+    - Pull request reviews with configurable approval requirements
+    - Required status checks (tests, security scans)
+    - CodeQL code scanning enforcement (High+ severity)
+    - Code quality reports enforcement (High+ severity)
+    - Automatic Copilot code review for pull requests
+    - Copilot review of new pushes and draft PRs
+    - CodeQL standard queries integration with Copilot reviews
+    - Force push and deletion protection
 
 .PARAMETER Repository
     The repository in owner/repo format. If not provided, uses the current repository.
@@ -29,6 +40,9 @@
 .NOTES
     Requires: GitHub CLI (gh) authenticated with sufficient permissions
     Install gh: https://cli.github.com/
+    
+    Note: Some features like Copilot code review require GitHub Copilot access
+    and may require GitHub Enterprise or specific subscription plans.
 #>
 
 [CmdletBinding()]
