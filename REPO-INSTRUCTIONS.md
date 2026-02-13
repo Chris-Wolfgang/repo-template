@@ -23,8 +23,9 @@ The automated scripts will:
 5. ✅ Rename README-TEMPLATE.md to README.md
 6. ✅ Set up your chosen LICENSE (MIT, Apache 2.0, or MPL 2.0)
 7. ✅ Remove unused license templates
-8. ✅ Validate all replacements
-9. ✅ Optionally clean up template-specific files
+8. ✅ **Optionally create a default .slnx solution file** with proper folder structure (requires Visual Studio 2022 17.10+)
+9. ✅ Validate all replacements
+10. ✅ Optionally clean up template-specific files
 
 **For detailed placeholder documentation, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS.md)**  
 **For license selection guidance, see [LICENSE-SELECTION.md](LICENSE-SELECTION.md)**
@@ -114,7 +115,22 @@ Go to `Issues` tab at the top of your repo and the select `Labels` and click `Ne
 
 ## Creating the project
 
+### Automated Solution Creation (Recommended)
+
+If you used the automated setup script (`pwsh ./scripts/setup.ps1`), you had the option to create a default solution file automatically. The script creates a `.slnx` format solution (requires Visual Studio 2022 version 17.10+) with the following structure:
+- Empty solution folders for `/benchmarks/`, `/examples/`, `/src/`, and `/tests/`
+- A `/.root/` folder containing all repository configuration files (preserves directory structure)
+
+If you chose to create a solution during setup, skip to step 2 below.
+
+### Manual Solution Creation
+
+If you didn't create a solution during setup or prefer the traditional `.sln` format:
+
 1. Create a blank solution and save it in the root folder
+   ```bash
+   dotnet new sln -n YourSolutionName
+   ```
 2. Add new projects to the solution. Each application project will be in its own folder in the /src folder
 3. Add one or more test projects each in its own folder in the /tests folder
 4. If the solution will have benchmark project add each project in its own folder under /benchmarks

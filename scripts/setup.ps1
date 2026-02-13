@@ -511,14 +511,17 @@ function Start-Setup {
         $xmlBuilder = New-Object System.Text.StringBuilder
         [void]$xmlBuilder.AppendLine('<Solution>')
         
-        # Add solution folders for benchmarks, examples, src, tests
-        [void]$xmlBuilder.AppendLine('  <Folder Name="/benchmarks/" />')
-        [void]$xmlBuilder.AppendLine('  <Folder Name="/examples/" />')
-        [void]$xmlBuilder.AppendLine('  <Folder Name="/src/" />')
-        [void]$xmlBuilder.AppendLine('  <Folder Name="/tests/" />')
+        # Add solution folders for benchmarks, examples, src, tests (only if directories exist)
+        $solutionFolders = @('benchmarks', 'examples', 'src', 'tests')
+        foreach ($folder in $solutionFolders) {
+            if (Test-Path -Path $folder -PathType Container) {
+                [void]$xmlBuilder.AppendLine("  <Folder Name=""/$folder/"" />")
+            }
+        }
         
         # Build .root folder with all remaining files
-        # Exclude directories that have their own solution folders or are build artifacts
+        # Exclude files and directories that have their own solution folders or are build artifacts
+        # Note: .git directory is excluded separately below
         $excludePatterns = @(
             'obj',                # Build output
             'bin',                # Build output
@@ -527,6 +530,11 @@ function Start-Setup {
             'node_modules',       # Node dependencies
             '*.user',             # User-specific files
             '*.suo',              # Visual Studio user options
+            '*.slnx',             # Solution files (prevent including solution in itself)
+            '*.env',              # Environment files (may contain secrets)
+            '*.key',              # Key files (may contain secrets)
+            '*.pem',              # Certificate files (may contain secrets)
+            'secrets*',           # Secret files
             'benchmarks',         # Has its own solution folder
             'examples',           # Has its own solution folder
             'src',                # Has its own solution folder
@@ -538,7 +546,7 @@ function Start-Setup {
         $currentDir = Get-Location
         
         # Helper function to get relative path safely
-        $getRelativePath = {
+        function Get-SafeRelativePath {
             param($FullPath)
             try {
                 # Use Resolve-Path with -Relative for safe relative path calculation
@@ -555,11 +563,18 @@ function Start-Setup {
             catch {
                 # Fallback: manual calculation
                 $path = $FullPath
-                if ($path.StartsWith($currentDir.Path)) {
-                    # Remove the base path and any leading separator
-                    $path = $path.Substring($currentDir.Path.Length)
-                    if ($path.StartsWith('\') -or $path.StartsWith('/')) {
-                        $path = $path.Substring(1)
+                if ($path.StartsWith($currentDir.Path, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $baseLength = $currentDir.Path.Length
+                    # Ensure we only strip the base path when it's a complete directory component
+                    if ($path.Length -eq $baseLength -or
+                        ($path.Length -gt $baseLength -and
+                         ($path[$baseLength] -eq [System.IO.Path]::DirectorySeparatorChar -or
+                          $path[$baseLength] -eq [System.IO.Path]::AltDirectorySeparatorChar))) {
+                        # Remove the base path and any leading separator
+                        $path = $path.Substring($baseLength)
+                        if ($path.StartsWith('\') -or $path.StartsWith('/')) {
+                            $path = $path.Substring(1)
+                        }
                     }
                 }
                 return $path.Replace('\', '/')
@@ -569,29 +584,56 @@ function Start-Setup {
         # Get all files in the repository
         $allFiles = Get-ChildItem -Recurse -File -Force | Where-Object {
             # Get relative path safely
-            $relativePath = & $getRelativePath $_.FullName
+            $relativePath = Get-SafeRelativePath $_.FullName
             
-            # Exclude .git directory specifically (not .github)
-            if ($relativePath -like '.git/*' -or $relativePath -eq '.git') {
+            # Exclude files under .git directory specifically (not .github)
+            if ($relativePath -like '.git/*') {
                 return $false
             }
             
-            # Exclude files matching patterns
+            # Exclude files matching patterns using precise matching
             $shouldExclude = $false
+            $pathSegments = $relativePath -split '[\\/]+'
+            $fileExtension = [System.IO.Path]::GetExtension($relativePath)
+            
             foreach ($pattern in $excludePatterns) {
-                if ($relativePath -like "*$pattern*") {
-                    $shouldExclude = $true
-                    break
+                # Handle extension patterns like '*.user' or '*.suo'
+                if ($pattern.StartsWith('*.')) {
+                    $ext = $pattern.Substring(1)
+                    if ($fileExtension -ieq $ext) {
+                        $shouldExclude = $true
+                        break
+                    }
+                }
+                # Handle wildcard patterns like 'secrets*'
+                elseif ($pattern.Contains('*')) {
+                    if ($relativePath -like $pattern) {
+                        $shouldExclude = $true
+                        break
+                    }
+                }
+                # Treat as a path segment name and match against segments
+                else {
+                    if ($pathSegments -contains $pattern) {
+                        $shouldExclude = $true
+                        break
+                    }
                 }
             }
             -not $shouldExclude
         }
         
         # Group files by directory for .root structure
+        # Cache relative paths to avoid recalculating
         $filesByDirectory = @{}
+        $relativePathCache = @{}
+        
         foreach ($file in $allFiles) {
-            # Get relative path safely
-            $relativePath = & $getRelativePath $file.FullName
+            # Get relative path safely (use cached if available)
+            if (-not $relativePathCache.ContainsKey($file.FullName)) {
+                $relativePathCache[$file.FullName] = Get-SafeRelativePath $file.FullName
+            }
+            $relativePath = $relativePathCache[$file.FullName]
             $directory = Split-Path $relativePath -Parent
             if ([string]::IsNullOrEmpty($directory)) {
                 $directory = '.'
@@ -609,22 +651,25 @@ function Start-Setup {
         # Sort directories to ensure proper nesting order
         $sortedDirectories = $filesByDirectory.Keys | Sort-Object
         
-        # Build folder structure
+        # Build folder structure with XML escaping
         foreach ($directory in $sortedDirectories) {
             if ($directory -eq '.') {
                 # Root files
                 [void]$xmlBuilder.AppendLine('  <Folder Name="/.root/">')
                 foreach ($filePath in ($filesByDirectory[$directory] | Sort-Object)) {
-                    [void]$xmlBuilder.AppendLine("    <File Path=""$filePath"" />")
+                    $escapedPath = [System.Security.SecurityElement]::Escape($filePath)
+                    [void]$xmlBuilder.AppendLine("    <File Path=""$escapedPath"" />")
                 }
                 [void]$xmlBuilder.AppendLine('  </Folder>')
             }
             else {
                 # Subdirectory files
                 $folderName = "/.root/$directory/"
-                [void]$xmlBuilder.AppendLine("  <Folder Name=""$folderName"">")
+                $escapedFolderName = [System.Security.SecurityElement]::Escape($folderName)
+                [void]$xmlBuilder.AppendLine("  <Folder Name=""$escapedFolderName"">")
                 foreach ($filePath in ($filesByDirectory[$directory] | Sort-Object)) {
-                    [void]$xmlBuilder.AppendLine("    <File Path=""$filePath"" />")
+                    $escapedPath = [System.Security.SecurityElement]::Escape($filePath)
+                    [void]$xmlBuilder.AppendLine("    <File Path=""$escapedPath"" />")
                 }
                 [void]$xmlBuilder.AppendLine('  </Folder>')
             }
@@ -632,14 +677,22 @@ function Start-Setup {
         
         [void]$xmlBuilder.AppendLine('</Solution>')
         
-        # Write solution file
-        Set-Content -Path $solutionFileName -Value $xmlBuilder.ToString()
-        Write-Success "Created solution file: $solutionFileName"
-        
-        # Show summary
-        $fileCount = $allFiles.Count
-        $folderCount = $filesByDirectory.Keys.Count
-        Write-Info "Added $fileCount files in $folderCount folders to .root/"
+        # Write solution file with error handling
+        try {
+            Set-Content -Path $solutionFileName -Value $xmlBuilder.ToString() -ErrorAction Stop
+            Write-Success "Created solution file: $solutionFileName"
+            
+            # Show summary
+            $fileCount = $allFiles.Count
+            $folderCount = $filesByDirectory.Keys.Count
+            Write-Info "Added $fileCount files in $folderCount folders to .root/"
+        }
+        catch {
+            Write-TemplateWarning "Failed to create solution file '$solutionFileName'. Repository setup will continue."
+            Write-TemplateWarning "Error: $($_.Exception.Message)"
+            # Clear solutionFileName so Next Steps won't reference it
+            $solutionFileName = ''
+        }
     }
     
     # Step 5: Validation
@@ -798,7 +851,7 @@ function Start-Setup {
     Write-Host ""
     Write-Host "5. Start developing!" -ForegroundColor Yellow
     if ($solutionName) {
-        Write-Host "   # Solution file created: $solutionFileName" -ForegroundColor Gray
+        Write-Host "   # Solution file created: $solutionName.slnx" -ForegroundColor Gray
         Write-Host "   # Add your projects to src/ and tests/" -ForegroundColor Gray
     }
     else {
