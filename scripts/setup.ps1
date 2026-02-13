@@ -526,19 +526,29 @@ function Start-Setup {
         $currentDir = Get-Location
         
         # Helper function to get relative path safely
-        $getRelativePath = {
-            param($fullPath)
+        $GetRelativePath = {
+            param($FullPath)
             try {
                 # Use Resolve-Path with -Relative for safe relative path calculation
-                $rel = Resolve-Path -Path $fullPath -Relative -ErrorAction Stop
-                # Remove leading .\ or ./
-                return $rel.TrimStart('.\', './')
+                $rel = Resolve-Path -Path $FullPath -Relative -ErrorAction Stop
+                # Remove leading .\ or ./ prefix properly
+                if ($rel.StartsWith('.\')) {
+                    $rel = $rel.Substring(2)
+                }
+                elseif ($rel.StartsWith('./')) {
+                    $rel = $rel.Substring(2)
+                }
+                return $rel.Replace('\', '/')
             }
             catch {
                 # Fallback: manual calculation
-                $path = $fullPath
+                $path = $FullPath
                 if ($path.StartsWith($currentDir.Path)) {
-                    $path = $path.Substring($currentDir.Path.Length).TrimStart('\', '/')
+                    # Remove the base path and any leading separator
+                    $path = $path.Substring($currentDir.Path.Length)
+                    if ($path.StartsWith('\') -or $path.StartsWith('/')) {
+                        $path = $path.Substring(1)
+                    }
                 }
                 return $path.Replace('\', '/')
             }
@@ -547,7 +557,7 @@ function Start-Setup {
         # Get all files in the repository
         $allFiles = Get-ChildItem -Recurse -File -Force | Where-Object {
             # Get relative path safely
-            $relativePath = & $getRelativePath $_.FullName
+            $relativePath = & $GetRelativePath $_.FullName
             
             # Exclude .git directory specifically (not .github)
             if ($relativePath -like '.git/*' -or $relativePath -eq '.git') {
@@ -569,7 +579,7 @@ function Start-Setup {
         $filesByDirectory = @{}
         foreach ($file in $allFiles) {
             # Get relative path safely
-            $relativePath = & $getRelativePath $file.FullName
+            $relativePath = & $GetRelativePath $file.FullName
             $directory = Split-Path $relativePath -Parent
             if ([string]::IsNullOrEmpty($directory)) {
                 $directory = '.'
