@@ -711,7 +711,7 @@ Please review the changes, make any necessary adjustments, and merge to main whe
                             
                             echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
                             echo -e "${CYAN}║                                                                ║${NC}"
-                            echo -e "${CYAN}║                    📋 Review Required                          ║${NC}"
+                            echo -e "${CYAN}║                       📋 Review Required                       ║${NC}"
                             echo -e "${CYAN}║                                                                ║${NC}"
                             echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
                             echo ""

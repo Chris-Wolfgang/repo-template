@@ -666,7 +666,7 @@ function Start-Setup {
                             
                             Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
                             Write-Host "║                                                                ║" -ForegroundColor Cyan
-                            Write-Host "║                    📋 Review Required                          ║" -ForegroundColor Cyan
+                            Write-Host "║                       📋 Review Required                       ║" -ForegroundColor Cyan
                             Write-Host "║                                                                ║" -ForegroundColor Cyan
                             Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
                             Write-Host ""
