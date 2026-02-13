@@ -675,20 +675,40 @@ main() {
     if [[ -z "$commit_changes" || "$commit_changes" =~ ^[Yy]$ ]]; then
         info "Step 2/3: Committing changes..."
         git add .
-        git commit -m "Configure repository from template"
-        success "Changes committed successfully!"
-        echo ""
-        
-        # Step 3: Push to GitHub
-        echo -en "${YELLOW}Push changes to GitHub? (Y/n): ${NC}"
-        read -r push_changes
-        if [[ -z "$push_changes" || "$push_changes" =~ ^[Yy]$ ]]; then
-            info "Step 3/3: Pushing to GitHub..."
-            git push
-            success "Changes pushed to GitHub successfully!"
-            echo ""
+        if [[ $? -eq 0 ]]; then
+            git commit -m "Configure repository from template"
+            if [[ $? -eq 0 ]]; then
+                success "Changes committed successfully!"
+                echo ""
+                
+                # Step 3: Push to GitHub
+                echo -en "${YELLOW}Push changes to GitHub? (Y/n): ${NC}"
+                read -r push_changes
+                if [[ -z "$push_changes" || "$push_changes" =~ ^[Yy]$ ]]; then
+                    info "Step 3/3: Pushing to GitHub..."
+                    git push
+                    if [[ $? -eq 0 ]]; then
+                        success "Changes pushed to GitHub successfully!"
+                        echo ""
+                    else
+                        warning "Push failed. You can push manually later with: git push"
+                        echo ""
+                    fi
+                else
+                    info "Skipping push. You can push manually later with: git push"
+                    echo ""
+                fi
+            else
+                warning "Commit failed. You can commit manually later with:"
+                echo "  git commit -m \"Configure repository from template\""
+                echo "  git push"
+                echo ""
+            fi
         else
-            info "Skipping push. You can push manually later with: git push"
+            warning "Git add failed. You can commit manually later with:"
+            echo "  git add ."
+            echo "  git commit -m \"Configure repository from template\""
+            echo "  git push"
             echo ""
         fi
     else

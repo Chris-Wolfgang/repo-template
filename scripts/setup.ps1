@@ -632,21 +632,44 @@ function Start-Setup {
     if ([string]::IsNullOrEmpty($commitChanges) -or $commitChanges -eq 'Y' -or $commitChanges -eq 'y') {
         Write-Info "Step 2/3: Committing changes..."
         git add .
-        git commit -m "Configure repository from template"
-        Write-Success "Changes committed successfully!"
-        Write-Host ""
-        
-        # Step 3: Push to GitHub
-        Write-Host "Push changes to GitHub? (Y/n): " -NoNewline -ForegroundColor Yellow
-        $pushChanges = Read-Host
-        if ([string]::IsNullOrEmpty($pushChanges) -or $pushChanges -eq 'Y' -or $pushChanges -eq 'y') {
-            Write-Info "Step 3/3: Pushing to GitHub..."
-            git push
-            Write-Success "Changes pushed to GitHub successfully!"
-            Write-Host ""
+        if ($LASTEXITCODE -eq 0) {
+            git commit -m "Configure repository from template"
+            if ($LASTEXITCODE -eq 0) {
+                Write-Success "Changes committed successfully!"
+                Write-Host ""
+                
+                # Step 3: Push to GitHub
+                Write-Host "Push changes to GitHub? (Y/n): " -NoNewline -ForegroundColor Yellow
+                $pushChanges = Read-Host
+                if ([string]::IsNullOrEmpty($pushChanges) -or $pushChanges -eq 'Y' -or $pushChanges -eq 'y') {
+                    Write-Info "Step 3/3: Pushing to GitHub..."
+                    git push
+                    if ($LASTEXITCODE -eq 0) {
+                        Write-Success "Changes pushed to GitHub successfully!"
+                        Write-Host ""
+                    }
+                    else {
+                        Write-TemplateWarning "Push failed. You can push manually later with: git push"
+                        Write-Host ""
+                    }
+                }
+                else {
+                    Write-Info "Skipping push. You can push manually later with: git push"
+                    Write-Host ""
+                }
+            }
+            else {
+                Write-TemplateWarning "Commit failed. You can commit manually later with:"
+                Write-Host "  git commit -m ""Configure repository from template""" -ForegroundColor Gray
+                Write-Host "  git push" -ForegroundColor Gray
+                Write-Host ""
+            }
         }
         else {
-            Write-Info "Skipping push. You can push manually later with: git push"
+            Write-TemplateWarning "Git add failed. You can commit manually later with:"
+            Write-Host "  git add ." -ForegroundColor Gray
+            Write-Host "  git commit -m ""Configure repository from template""" -ForegroundColor Gray
+            Write-Host "  git push" -ForegroundColor Gray
             Write-Host ""
         }
     }
