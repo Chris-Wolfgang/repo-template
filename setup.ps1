@@ -470,26 +470,93 @@ function Start-Setup {
     # Step 4: Validation
     Write-Info "Step 4/4: Validating changes..."
     
-    $remainingPlaceholders = @()
+    # Core placeholders that should have been replaced by the script
+    # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in FILES_TO_UPDATE
+    $corePlaceholders = @(
+        'PROJECT_NAME', 'PROJECT_DESCRIPTION', 'PACKAGE_NAME',
+        'GITHUB_REPO_URL', 'REPO_NAME', 'GITHUB_USERNAME',
+        'DOCS_URL', 'LICENSE_TYPE',
+        'NUGET_STATUS', 'TEMPLATE_REPO_OWNER', 'TEMPLATE_REPO_NAME'
+    )
+    
+    # Optional placeholders that users fill in manually as they develop
+    $optionalPlaceholderDescriptions = @{
+        'QUICK_START_EXAMPLE' = 'Code example showing basic usage'
+        'FEATURES_TABLE' = 'Markdown table listing features'
+        'FEATURE_EXAMPLES' = 'Code examples demonstrating features'
+        'TARGET_FRAMEWORKS' = 'List of supported .NET frameworks'
+        'ACKNOWLEDGMENTS' = 'Credits for libraries/tools used'
+    }
+    
+    # Collect placeholders grouped by placeholder name
+    $corePlaceholdersByName = @{}
+    $optionalPlaceholdersByName = @{}
+    
     foreach ($file in $filesToUpdate) {
         if (Test-Path $file) {
             $content = Get-Content $file -Raw
-            $matches = [regex]::Matches($content, '\{\{[A-Z_]+\}\}')
-            if ($matches.Count -gt 0) {
-                $remainingPlaceholders += "$file : $($matches.Value -join ', ')"
+            $matches = [regex]::Matches($content, '\{\{([A-Z_]+)\}\}')
+            foreach ($match in $matches) {
+                $placeholderName = $match.Groups[1].Value
+                
+                # Categorize placeholder
+                if ($corePlaceholders -contains $placeholderName) {
+                    if (-not $corePlaceholdersByName.ContainsKey($placeholderName)) {
+                        $corePlaceholdersByName[$placeholderName] = @()
+                    }
+                    if ($corePlaceholdersByName[$placeholderName] -notcontains $file) {
+                        $corePlaceholdersByName[$placeholderName] += $file
+                    }
+                }
+                elseif ($optionalPlaceholderDescriptions.ContainsKey($placeholderName)) {
+                    if (-not $optionalPlaceholdersByName.ContainsKey($placeholderName)) {
+                        $optionalPlaceholdersByName[$placeholderName] = @()
+                    }
+                    if ($optionalPlaceholdersByName[$placeholderName] -notcontains $file) {
+                        $optionalPlaceholdersByName[$placeholderName] += $file
+                    }
+                }
             }
         }
     }
     
-    if ($remainingPlaceholders.Count -eq 0) {
-        Write-Success "All required placeholders replaced successfully!"
+    # Report core placeholders that weren't replaced (this is an error)
+    if ($corePlaceholdersByName.Count -gt 0) {
+        Write-TemplateError "Error: The following required placeholders were not replaced:"
+        Write-Host ""
+        foreach ($placeholderName in ($corePlaceholdersByName.Keys | Sort-Object)) {
+            Write-Host "  {{$placeholderName}}" -ForegroundColor Red
+            Write-Host "    Found in:" -ForegroundColor Gray
+            foreach ($file in $corePlaceholdersByName[$placeholderName]) {
+                Write-Host "      - $file" -ForegroundColor Gray
+            }
+            Write-Host ""
+        }
+        Write-Warning "This indicates the script did not replace all required placeholders. Please review the files and replace these manually."
+        Write-Host ""
+        exit 1
     }
     else {
-        Write-Warning "Some placeholders were not replaced:"
-        foreach ($placeholder in $remainingPlaceholders) {
-            Write-Host "  - $placeholder" -ForegroundColor Yellow
+        Write-Success "All required placeholders replaced successfully!"
+    }
+    
+    # Report optional placeholders that need manual updates
+    if ($optionalPlaceholdersByName.Count -gt 0) {
+        Write-Host ""
+        Write-Info "Optional content placeholders to fill in as you develop your project:"
+        Write-Host ""
+        
+        foreach ($placeholderName in ($optionalPlaceholdersByName.Keys | Sort-Object)) {
+            $description = $optionalPlaceholderDescriptions[$placeholderName]
+            
+            Write-Host "  {{$placeholderName}}" -ForegroundColor Yellow
+            Write-Host "    Description: $description" -ForegroundColor Gray
+            Write-Host "    Found in:" -ForegroundColor Gray
+            foreach ($file in $optionalPlaceholdersByName[$placeholderName]) {
+                Write-Host "      - $file" -ForegroundColor Gray
+            }
+            Write-Host ""
         }
-        Write-Info "These may be optional content placeholders for you to fill in later."
         Write-Info "See TEMPLATE-PLACEHOLDERS.md for details on each placeholder."
     }
     
