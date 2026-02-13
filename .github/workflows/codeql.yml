@@ -38,8 +38,7 @@ jobs:
           if (Test-Path $root) {
             $csharpFiles += Get-ChildItem -Path $root -Recurse -Include "*.cs","*.csproj" -File -ErrorAction SilentlyContinue |
               Where-Object {
-                $_.FullName -notmatch '[\\/]\.git[\\/]'
-                -and $_.FullName -notmatch '[\\/](bin|obj|node_modules)[\\/]'
+                $_.FullName -notmatch '[\\/]\.git[\\/]' -and $_.FullName -notmatch '[\\/](bin|obj|node_modules)[\\/]'
               }
           }
         }
