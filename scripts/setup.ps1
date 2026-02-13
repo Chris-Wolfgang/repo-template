@@ -530,6 +530,7 @@ function Start-Setup {
             'node_modules',       # Node dependencies
             '*.user',             # User-specific files
             '*.suo',              # Visual Studio user options
+            '*.sln',              # Solution files (prevent including solution in itself)
             '*.slnx',             # Solution files (prevent including solution in itself)
             '*.env',              # Environment files (may contain secrets)
             '*.key',              # Key files (may contain secrets)
@@ -588,6 +589,13 @@ function Start-Setup {
             
             # Exclude files under .git directory specifically (not .github)
             if ($relativePath -like '.git/*') {
+                return $false
+            }
+            
+            # Exclude hidden files (starting with .) except those in .github directory
+            $fileName = [System.IO.Path]::GetFileName($relativePath)
+            $isInGitHubDir = $relativePath -like '.github/*'
+            if ($fileName.StartsWith('.') -and -not $isInGitHubDir) {
                 return $false
             }
             
