@@ -303,10 +303,10 @@ The setup scripts will prompt you to choose a license:
 
 ```bash
 # PowerShell
-pwsh ./setup.ps1
+pwsh ./scripts/setup.ps1
 
 # Bash
-./setup.sh
+./scripts/setup.sh
 ```
 
 You'll be asked:

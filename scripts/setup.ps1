@@ -565,8 +565,8 @@ function Start-Setup {
     Write-Host ""
     Write-Host "Remove template-specific files? (y/N)" -ForegroundColor Yellow
     Write-Host "  Files to remove:" -ForegroundColor Gray
-    Write-Host "    - setup.ps1 (this script)" -ForegroundColor Gray
-    Write-Host "    - setup.sh" -ForegroundColor Gray
+    Write-Host "    - scripts/setup.ps1 (this script)" -ForegroundColor Gray
+    Write-Host "    - scripts/setup.sh" -ForegroundColor Gray
     Write-Host "    - LICENSE-SELECTION.md" -ForegroundColor Gray
     Write-Host "    - README-FORMATTING.md" -ForegroundColor Gray
     Write-Host "    - REPO-INSTRUCTIONS.md" -ForegroundColor Gray
@@ -579,8 +579,8 @@ function Start-Setup {
     
     if ($cleanup -eq 'y' -or $cleanup -eq 'Y') {
         $filesToRemove = @(
-            'setup.ps1',
-            'setup.sh',
+            'scripts/setup.ps1',
+            'scripts/setup.sh',
             'LICENSE-SELECTION.md',
             'README-FORMATTING.md',
             'REPO-INSTRUCTIONS.md'
