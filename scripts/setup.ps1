@@ -606,22 +606,140 @@ function Start-Setup {
     Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
     Write-Host ""
     
+    # Git operations
+    Write-Step "Git Operations"
+    Write-Host ""
+    
+    # Step 1: Create branch and commit changes
+    Write-Host "Create a branch and commit these changes? (Y/n): " -NoNewline -ForegroundColor Yellow
+    $commitChanges = Read-Host
+    if ([string]::IsNullOrEmpty($commitChanges) -or $commitChanges -eq 'Y' -or $commitChanges -eq 'y') {
+        # Generate branch name
+        $branchName = "setup/configure-from-template-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+        
+        Write-Info "Step 1/4: Creating branch '$branchName'..."
+        git checkout -b $branchName
+        if ($LASTEXITCODE -eq 0) {
+            Write-Success "Branch created successfully!"
+            Write-Host ""
+            
+            Write-Info "Step 2/4: Committing changes..."
+            git add .
+            if ($LASTEXITCODE -eq 0) {
+                git commit -m "Configure repository from template"
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Success "Changes committed successfully!"
+                    Write-Host ""
+                    
+                    # Step 3: Push to GitHub
+                    Write-Info "Step 3/4: Pushing branch to GitHub..."
+                    git push -u origin $branchName
+                    if ($LASTEXITCODE -eq 0) {
+                        Write-Success "Branch pushed to GitHub successfully!"
+                        Write-Host ""
+                        
+                        # Step 4: Create Pull Request
+                        Write-Info "Step 4/4: Creating pull request..."
+                        
+                        # Check if gh command is available
+                        try {
+                            $null = Get-Command gh -ErrorAction Stop
+                            
+                            gh pr create --title "Configure repository from template" --body "This PR contains the initial repository configuration from the template setup script.`n`nPlease review the changes, make any necessary adjustments, and merge to main when ready." --base main --head $branchName
+                            if ($LASTEXITCODE -eq 0) {
+                                Write-Success "Pull request created successfully!"
+                                Write-Host ""
+                                
+                                # Get PR URL (best-effort; fall back to generic instruction on failure)
+                                $prUrl = gh pr view $branchName --json url --jq .url 2>$null
+                                if ($LASTEXITCODE -eq 0 -and $prUrl) {
+                                    Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+                                    Write-Host "║                                                                ║" -ForegroundColor Cyan
+                                    Write-Host "║                       📋 Review Required                       ║" -ForegroundColor Cyan
+                                    Write-Host "║                                                                ║" -ForegroundColor Cyan
+                                    Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+                                    Write-Host ""
+                                    Write-Host "Branch: $branchName" -ForegroundColor Yellow
+                                    Write-Host "Pull Request: $prUrl" -ForegroundColor Yellow
+                                    Write-Host ""
+                                    Write-Info "Please review the pull request, make any necessary changes, and merge it to main before continuing with development."
+                                    Write-Host ""
+                                }
+                                else {
+                                    Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+                                    Write-Host "║                                                                ║" -ForegroundColor Cyan
+                                    Write-Host "║                       📋 Review Required                       ║" -ForegroundColor Cyan
+                                    Write-Host "║                                                                ║" -ForegroundColor Cyan
+                                    Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+                                    Write-Host ""
+                                    Write-Host "Branch: $branchName" -ForegroundColor Yellow
+                                    Write-Host ""
+                                    Write-Info "Please review the pull request, make any necessary changes, and merge it to main before continuing with development."
+                                    Write-Info "You can view the pull request with: gh pr view $branchName --web"
+                                    Write-Host ""
+                                }
+                            }
+                            else {
+                                Write-TemplateWarning "Failed to create pull request. You can create it manually with:"
+                                Write-Host "  gh pr create --title ""Configure repository from template"" --body ""Initial setup"" --base main --head $branchName" -ForegroundColor Gray
+                                Write-Host ""
+                            }
+                        }
+                        catch {
+                            Write-TemplateWarning "GitHub CLI (gh) is not installed or not available in PATH."
+                            Write-TemplateWarning "Please install it from https://cli.github.com/ to enable automatic PR creation."
+                            Write-Host ""
+                            Write-Info "You can create the pull request manually with:"
+                            Write-Host "  gh pr create --title ""Configure repository from template"" --body ""Initial setup"" --base main --head $branchName" -ForegroundColor Gray
+                            Write-Host ""
+                        }
+                    }
+                    else {
+                        Write-TemplateWarning "Push failed. You can push manually later with:"
+                        Write-Host "  git push -u origin $branchName" -ForegroundColor Gray
+                        Write-Host ""
+                    }
+                }
+                else {
+                    Write-TemplateWarning "Commit failed. You can commit manually later with:"
+                    Write-Host "  git commit -m ""Configure repository from template""" -ForegroundColor Gray
+                    Write-Host "  git push -u origin $branchName" -ForegroundColor Gray
+                    Write-Host ""
+                }
+            }
+            else {
+                Write-TemplateWarning "Git add failed. You can commit manually later with:"
+                Write-Host "  git add ." -ForegroundColor Gray
+                Write-Host "  git commit -m ""Configure repository from template""" -ForegroundColor Gray
+                Write-Host "  git push -u origin $branchName" -ForegroundColor Gray
+                Write-Host ""
+            }
+        }
+        else {
+            Write-TemplateWarning "Failed to create branch. You can create it manually with:"
+            Write-Host "  git checkout -b $branchName" -ForegroundColor Gray
+            Write-Host "  git add ." -ForegroundColor Gray
+            Write-Host "  git commit -m ""Configure repository from template""" -ForegroundColor Gray
+            Write-Host "  git push -u origin $branchName" -ForegroundColor Gray
+            Write-Host ""
+        }
+    }
+    else {
+        Write-Info "Skipping branch creation and commit. You can do this manually later with:"
+        Write-Host "  git checkout -b setup/configure-from-template-<timestamp>" -ForegroundColor Gray
+        Write-Host "  git add ." -ForegroundColor Gray
+        Write-Host "  git commit -m ""Configure repository from template""" -ForegroundColor Gray
+        Write-Host "  git push -u origin setup/configure-from-template-<timestamp>" -ForegroundColor Gray
+        Write-Host "  gh pr create --title ""Configure repository from template"" --base main" -ForegroundColor Gray
+        Write-Host ""
+    }
+    
+    # Next steps
     Write-Host "✅ Next Steps:" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "1. Review the changes:" -ForegroundColor Yellow
-    Write-Host "   git status" -ForegroundColor Gray
-    Write-Host "   git diff" -ForegroundColor Gray
+    Write-Host "1. Configure branch protection (see REPO-INSTRUCTIONS.md if kept)" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "2. Commit the changes:" -ForegroundColor Yellow
-    Write-Host "   git add ." -ForegroundColor Gray
-    Write-Host "   git commit -m ""Configure repository from template""" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "3. Push to GitHub:" -ForegroundColor Yellow
-    Write-Host "   git push" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "4. Configure branch protection (see REPO-INSTRUCTIONS.md if kept)" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "5. Start developing!" -ForegroundColor Yellow
+    Write-Host "2. Start developing!" -ForegroundColor Yellow
     Write-Host "   dotnet new sln -n $projectName" -ForegroundColor Gray
     Write-Host "   # Add your projects to src/ and tests/" -ForegroundColor Gray
     Write-Host ""
