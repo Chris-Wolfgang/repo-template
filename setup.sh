@@ -481,6 +481,7 @@ main() {
             echo "  - $placeholder"
         done
         info "These may be optional content placeholders for you to fill in later."
+        info "See TEMPLATE-PLACEHOLDERS.md for details on each placeholder."
     fi
     
     # Optional cleanup
@@ -490,7 +491,6 @@ main() {
     echo -e "  Files to remove:"
     echo "    - setup.ps1"
     echo "    - setup.sh (this script)"
-    echo "    - TEMPLATE-PLACEHOLDERS.md"
     echo "    - LICENSE-SELECTION.md"
     echo "    - README-FORMATTING.md"
     echo "    - REPO-INSTRUCTIONS.md"
@@ -502,7 +502,6 @@ main() {
         FILES_TO_REMOVE=(
             "setup.ps1"
             "setup.sh"
-            "TEMPLATE-PLACEHOLDERS.md"
             "LICENSE-SELECTION.md"
             "README-FORMATTING.md"
             "REPO-INSTRUCTIONS.md"

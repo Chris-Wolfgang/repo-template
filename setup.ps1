@@ -469,6 +469,7 @@ function Start-Setup {
             Write-Host "  - $placeholder" -ForegroundColor Yellow
         }
         Write-Info "These may be optional content placeholders for you to fill in later."
+        Write-Info "See TEMPLATE-PLACEHOLDERS.md for details on each placeholder."
     }
     
     # Optional cleanup
@@ -478,7 +479,6 @@ function Start-Setup {
     Write-Host "  Files to remove:" -ForegroundColor Gray
     Write-Host "    - setup.ps1 (this script)" -ForegroundColor Gray
     Write-Host "    - setup.sh" -ForegroundColor Gray
-    Write-Host "    - TEMPLATE-PLACEHOLDERS.md" -ForegroundColor Gray
     Write-Host "    - LICENSE-SELECTION.md" -ForegroundColor Gray
     Write-Host "    - README-FORMATTING.md" -ForegroundColor Gray
     Write-Host "    - REPO-INSTRUCTIONS.md" -ForegroundColor Gray
@@ -490,7 +490,6 @@ function Start-Setup {
         $filesToRemove = @(
             'setup.ps1',
             'setup.sh',
-            'TEMPLATE-PLACEHOLDERS.md',
             'LICENSE-SELECTION.md',
             'README-FORMATTING.md',
             'REPO-INSTRUCTIONS.md'
