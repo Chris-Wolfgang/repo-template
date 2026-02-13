@@ -511,14 +511,6 @@ function Start-Setup {
         $xmlBuilder = New-Object System.Text.StringBuilder
         [void]$xmlBuilder.AppendLine('<Solution>')
         
-        # Add solution folders for benchmarks, examples, src, tests (only if directories exist)
-        $solutionFolders = @('benchmarks', 'examples', 'src', 'tests')
-        foreach ($folder in $solutionFolders) {
-            if (Test-Path -Path $folder -PathType Container) {
-                [void]$xmlBuilder.AppendLine("  <Folder Name=""/$folder/"" />")
-            }
-        }
-        
         # Build .root folder with all remaining files
         # Exclude files and directories that have their own solution folders or are build artifacts
         # Note: .git directory is excluded separately below
@@ -693,6 +685,15 @@ function Start-Setup {
                     [void]$xmlBuilder.AppendLine("    <File Path=""$escapedPath"" />")
                 }
                 [void]$xmlBuilder.AppendLine('  </Folder>')
+            }
+        }
+        
+        # Add solution folders for benchmarks, examples, src, tests (only if directories exist)
+        # These are added after .root to prioritize configuration files in solution explorer
+        $solutionFolders = @('benchmarks', 'examples', 'src', 'tests')
+        foreach ($folder in $solutionFolders) {
+            if (Test-Path -Path $folder -PathType Container) {
+                [void]$xmlBuilder.AppendLine("  <Folder Name=""/$folder/"" />")
             }
         }
         
