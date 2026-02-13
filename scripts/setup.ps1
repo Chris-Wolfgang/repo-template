@@ -505,25 +505,24 @@ function Start-Setup {
         [void]$xmlBuilder.AppendLine('  <Folder Name="/tests/" />')
         
         # Build .root folder with all remaining files
-        # Get all files recursively, excluding certain patterns
+        # Exclude directories that have their own solution folders or are build artifacts
         $excludePatterns = @(
-            'obj',
-            'bin',
-            'TestResults',
-            'CoverageReport',
-            'node_modules',
-            '*.user',
-            '*.suo',
-            'benchmarks',
-            'examples',
-            'src',
-            'tests',
-            'docfx_project'
+            'obj',                # Build output
+            'bin',                # Build output
+            'TestResults',        # Test artifacts
+            'CoverageReport',     # Coverage artifacts
+            'node_modules',       # Node dependencies
+            '*.user',             # User-specific files
+            '*.suo',              # Visual Studio user options
+            'benchmarks',         # Has its own solution folder
+            'examples',           # Has its own solution folder
+            'src',                # Has its own solution folder
+            'tests',              # Has its own solution folder
+            'docfx_project'       # Documentation source (built separately)
         )
         
         # Get all files in the repository
         $allFiles = Get-ChildItem -Recurse -File -Force | Where-Object {
-            $filePath = $_.FullName
             $relativePath = $_.FullName.Substring((Get-Location).Path.Length + 1).Replace('\', '/')
             
             # Exclude .git directory specifically (not .github)
