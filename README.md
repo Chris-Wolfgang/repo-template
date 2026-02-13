@@ -29,19 +29,20 @@ Before using this template, ensure you have the following installed:
    ./setup.sh
    ```
 4. **Commit and push** - Push your changes to the repository
-5. **Set up branch protection** - Configure branch protection rules:
-   ```powershell
-   # Authenticate with GitHub CLI first (if not already done)
+5. **Authenticate with GitHub CLI** - Required for branch protection setup:
+   ```bash
    gh auth login
-   
-   # Run the branch protection setup script (will prompt for single/multi-developer settings)
+   ```
+   Follow the prompts to authenticate. You only need to do this once per machine.
+6. **Set up branch protection** - Configure branch protection rules:
+   ```powershell
    pwsh ./scripts/Setup-BranchRuleset.ps1
    ```
    
    The script will ask if you want:
    - **Single Developer**: No PR approvals required (you can merge your own PRs)
    - **Multi-Developer**: Requires 1+ approval and code owner review
-6. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
+7. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
 
 The setup script automatically:
 - ✅ Replaces all placeholders with your project information
@@ -304,14 +305,20 @@ Once you've run the setup script and committed the changes:
 
 ### 1. Configure Branch Protection
 
-Run the PowerShell script to set up branch protection (see **Automated Security & Branch Protection** section below for details):
+**Important:** You must authenticate with GitHub CLI before running the branch protection script.
+
+#### Step 1: Authenticate with GitHub CLI
+
+```bash
+gh auth login
+```
+
+Follow the prompts to authenticate. You only need to do this once per machine.
+
+#### Step 2: Run the branch protection setup script
 
 ```powershell
-# Authenticate with GitHub CLI first (if not already done)
-gh auth login
-
-# Run the branch protection setup script
-./scripts/Setup-BranchRuleset.ps1
+pwsh ./scripts/Setup-BranchRuleset.ps1
 ```
 
 The script will prompt you to choose between single-developer or multi-developer settings and automatically configure all required protections.
@@ -416,10 +423,12 @@ Configured by running the local PowerShell setup script (see "How It Works" belo
 After creating a repository from this template:
 
 1. **Install GitHub CLI (gh)** - Download from [https://cli.github.com/](https://cli.github.com/)
-2. **Authenticate with GitHub** - Run `gh auth login`
+2. **Authenticate with GitHub** - Run `gh auth login` and follow the prompts
+   - **Important:** You MUST complete this step before running the setup script
+   - Authentication only needs to be done once per machine
 3. **Run the setup script** from your repository root:
    ```powershell
-   ./scripts/Setup-BranchRuleset.ps1
+   pwsh ./scripts/Setup-BranchRuleset.ps1
    ```
 4. The script will:
    - ✅ Prompt you to choose single-developer or multi-developer settings
