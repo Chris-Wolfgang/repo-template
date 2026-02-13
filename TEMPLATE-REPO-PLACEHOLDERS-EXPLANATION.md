@@ -79,9 +79,9 @@ The setup instructions should reference the **actual template they used**, not t
 
 ## Files That Process These Placeholders
 
-1. **scripts/setup.ps1** - PowerShell setup script (lines 341-349, 390-391)
-2. **scripts/setup.sh** - Bash setup script (lines 361-371, 412-413)
-3. **.github/workflows/setup-template.yml** - GitHub Actions workflow (lines 133-134, 147-148)
+1. **scripts/setup.ps1** - PowerShell setup script (prompts: lines 341-349; replacements hashtable: lines 390-391)
+2. **scripts/setup.sh** - Bash setup script (prompts: lines 361-371; replacements array: lines 412-413)
+3. **.github/workflows/setup-template.yml** - GitHub Actions workflow (variable extraction: lines 133-134; sed replacements: lines 147-148)
 4. **REPO-INSTRUCTIONS.md** - Target file where replacement occurs (line 46)
 
 ## Validation
