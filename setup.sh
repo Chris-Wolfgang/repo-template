@@ -214,7 +214,7 @@ main() {
     echo ""
     
     # Ask if creating NuGet package
-    echo -e -n "${YELLOW}Will this project be published as a NuGet package? (Y/n): ${NC}" >&2
+    echo -en "${YELLOW}Will this project be published as a NuGet package? (Y/n): ${NC}" >&2
     read -r create_nuget_package
     if [[ -n "$create_nuget_package" ]] && [[ "$create_nuget_package" != "Y" ]] && [[ "$create_nuget_package" != "y" ]]; then
         is_nuget_package=false
