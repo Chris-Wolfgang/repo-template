@@ -426,7 +426,7 @@ After creating a repository from this template:
 2. **Authenticate with GitHub** - Run `gh auth login` and follow the prompts
    - **Important:** You MUST complete this step before running the branch protection script
    - Authentication only needs to be done once per machine
-3. **Run the setup script** from your repository root:
+3. **Run the branch protection script** from your repository root:
    ```powershell
    pwsh ./scripts/Setup-BranchRuleset.ps1
    ```
