@@ -74,7 +74,7 @@ show_banner() {
 
 ╔════════════════════════════════════════════════════════════════╗
 ║                                                                ║
-║        .NET Repository Template - Automated Setup             ║
+║        .NET Repository Template - Automated Setup              ║
 ║                                                                ║
 ╚════════════════════════════════════════════════════════════════╝
 
@@ -216,10 +216,10 @@ main() {
     # Ask if creating NuGet package
     echo -en "${YELLOW}Will this project be published as a NuGet package? (Y/n): ${NC}" >&2
     read -r create_nuget_package
-    if [[ -n "$create_nuget_package" ]] && [[ "$create_nuget_package" != "Y" ]] && [[ "$create_nuget_package" != "y" ]]; then
-        is_nuget_package=false
-    else
+    if [[ -z "$create_nuget_package" ]] || [[ "$create_nuget_package" == "Y" ]] || [[ "$create_nuget_package" == "y" ]]; then
         is_nuget_package=true
+    else
+        is_nuget_package=false
     fi
     echo ""
     
@@ -307,11 +307,15 @@ main() {
         "$YEAR" \
         "false")
     
-    NUGET_STATUS=$(read_input \
-        "NuGet Package Status" \
-        "Coming soon to NuGet.org" \
-        "Available on NuGet.org" \
-        "false")
+    if [[ "$is_nuget_package" == true ]]; then
+        NUGET_STATUS=$(read_input \
+            "NuGet Package Status" \
+            "Coming soon to NuGet.org" \
+            "Available on NuGet.org" \
+            "false")
+    else
+        NUGET_STATUS="Not applicable"
+    fi
     
     # License selection
     step "Selecting License..."
