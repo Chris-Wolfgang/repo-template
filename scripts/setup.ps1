@@ -356,11 +356,23 @@ function Start-Setup {
     
     $solutionName = ''
     if ($createSolution -eq 'y' -or $createSolution -eq 'Y') {
-        $solutionName = Read-Input `
-            -Prompt "Solution Name" `
-            -Default $repoName `
-            -Example $repoName `
-            -Required
+        $isValidSolutionName = $false
+        while (-not $isValidSolutionName) {
+            $solutionName = Read-Input `
+                -Prompt "Solution Name" `
+                -Default $repoName `
+                -Example $repoName `
+                -Required
+
+            $invalidFileNameChars = [System.IO.Path]::GetInvalidFileNameChars()
+            if ($solutionName.IndexOfAny($invalidFileNameChars) -ne -1) {
+                $invalidCharsDisplay = -join $invalidFileNameChars
+                Write-Error "Solution name contains invalid characters. Please avoid any of: $invalidCharsDisplay" -ErrorAction Continue
+            }
+            else {
+                $isValidSolutionName = $true
+            }
+        }
     }
     
     # Summary
