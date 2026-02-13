@@ -147,9 +147,12 @@ $rulesetConfig = @{
             exclude = @()
         }
     }
+    # Allow repository admins to bypass branch protection rules
+    # Repository role IDs: 1 = read, 2 = write, 5 = admin
+    # Using 5 (admin) ensures only users with admin permissions can bypass
     bypass_actors = @(
         @{
-            actor_id = 1
+            actor_id = 5
             actor_type = "RepositoryRole"
             bypass_mode = "always"
         }
@@ -268,6 +271,17 @@ try {
             Write-Host "`n🔧 Try re-authenticating with:" -ForegroundColor Cyan
             Write-Host "   gh auth login" -ForegroundColor Gray
             Write-Host "   For more information about required scopes, see: https://cli.github.com/manual/gh_auth_login" -ForegroundColor Gray
+        }
+        
+        if ($response -like "*422*" -or $response -like "*Validation Failed*") {
+            Write-Host "`n💡 This validation error usually means:" -ForegroundColor Yellow
+            Write-Host "   1. The repository doesn't meet the requirements for rulesets (e.g., needs to be a GitHub Pro/Team/Enterprise repo)" -ForegroundColor Yellow
+            Write-Host "   2. Some configuration in the ruleset is invalid for this repository type" -ForegroundColor Yellow
+            Write-Host "   3. Required workflows or status checks might not exist yet" -ForegroundColor Yellow
+            Write-Host "`n🔧 Possible solutions:" -ForegroundColor Cyan
+            Write-Host "   - Verify this is a GitHub Pro, Team, or Enterprise repository" -ForegroundColor Gray
+            Write-Host "   - Check that the required workflows exist in .github/workflows/" -ForegroundColor Gray
+            Write-Host "   - Ensure you have admin permissions on the repository" -ForegroundColor Gray
         }
         
         exit 1
