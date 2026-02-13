@@ -631,37 +631,65 @@ function Start-Setup {
                     Write-Success "Changes committed successfully!"
                     Write-Host ""
                     
-                    # Step 4: Push to GitHub
+                    # Step 3: Push to GitHub
                     Write-Info "Step 3/4: Pushing branch to GitHub..."
                     git push -u origin $branchName
                     if ($LASTEXITCODE -eq 0) {
                         Write-Success "Branch pushed to GitHub successfully!"
                         Write-Host ""
                         
-                        # Step 5: Create Pull Request
+                        # Step 4: Create Pull Request
                         Write-Info "Step 4/4: Creating pull request..."
-                        gh pr create --title "Configure repository from template" --body "This PR contains the initial repository configuration from the template setup script.`n`nPlease review the changes, make any necessary adjustments, and merge to main when ready." --base main --head $branchName
-                        if ($LASTEXITCODE -eq 0) {
-                            Write-Success "Pull request created successfully!"
-                            Write-Host ""
+                        
+                        # Check if gh command is available
+                        try {
+                            $null = Get-Command gh -ErrorAction Stop
                             
-                            # Get PR URL
-                            $prUrl = gh pr view $branchName --json url --jq .url
-                            
-                            Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-                            Write-Host "║                                                                ║" -ForegroundColor Cyan
-                            Write-Host "║                       📋 Review Required                       ║" -ForegroundColor Cyan
-                            Write-Host "║                                                                ║" -ForegroundColor Cyan
-                            Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-                            Write-Host ""
-                            Write-Host "Branch: $branchName" -ForegroundColor Yellow
-                            Write-Host "Pull Request: $prUrl" -ForegroundColor Yellow
-                            Write-Host ""
-                            Write-Info "Please review the pull request, make any necessary changes, and merge it to main before continuing with development."
-                            Write-Host ""
+                            gh pr create --title "Configure repository from template" --body "This PR contains the initial repository configuration from the template setup script.`n`nPlease review the changes, make any necessary adjustments, and merge to main when ready." --base main --head $branchName
+                            if ($LASTEXITCODE -eq 0) {
+                                Write-Success "Pull request created successfully!"
+                                Write-Host ""
+                                
+                                # Get PR URL (best-effort; fall back to generic instruction on failure)
+                                $prUrl = gh pr view $branchName --json url --jq .url 2>$null
+                                if ($LASTEXITCODE -eq 0 -and $prUrl) {
+                                    Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+                                    Write-Host "║                                                                ║" -ForegroundColor Cyan
+                                    Write-Host "║                       📋 Review Required                       ║" -ForegroundColor Cyan
+                                    Write-Host "║                                                                ║" -ForegroundColor Cyan
+                                    Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+                                    Write-Host ""
+                                    Write-Host "Branch: $branchName" -ForegroundColor Yellow
+                                    Write-Host "Pull Request: $prUrl" -ForegroundColor Yellow
+                                    Write-Host ""
+                                    Write-Info "Please review the pull request, make any necessary changes, and merge it to main before continuing with development."
+                                    Write-Host ""
+                                }
+                                else {
+                                    Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+                                    Write-Host "║                                                                ║" -ForegroundColor Cyan
+                                    Write-Host "║                       📋 Review Required                       ║" -ForegroundColor Cyan
+                                    Write-Host "║                                                                ║" -ForegroundColor Cyan
+                                    Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+                                    Write-Host ""
+                                    Write-Host "Branch: $branchName" -ForegroundColor Yellow
+                                    Write-Host ""
+                                    Write-Info "Please review the pull request, make any necessary changes, and merge it to main before continuing with development."
+                                    Write-Info "You can view the pull request with: gh pr view $branchName --web"
+                                    Write-Host ""
+                                }
+                            }
+                            else {
+                                Write-TemplateWarning "Failed to create pull request. You can create it manually with:"
+                                Write-Host "  gh pr create --title ""Configure repository from template"" --body ""Initial setup"" --base main --head $branchName" -ForegroundColor Gray
+                                Write-Host ""
+                            }
                         }
-                        else {
-                            Write-TemplateWarning "Failed to create pull request. You can create it manually with:"
+                        catch {
+                            Write-TemplateWarning "GitHub CLI (gh) is not installed or not available in PATH."
+                            Write-TemplateWarning "Please install it from https://cli.github.com/ to enable automatic PR creation."
+                            Write-Host ""
+                            Write-Info "You can create the pull request manually with:"
                             Write-Host "  gh pr create --title ""Configure repository from template"" --body ""Initial setup"" --base main --head $branchName" -ForegroundColor Gray
                             Write-Host ""
                         }
