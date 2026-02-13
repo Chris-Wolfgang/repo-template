@@ -88,7 +88,7 @@ The setup instructions should reference the **actual template they used**, not t
 
 The setup scripts validate that these placeholders are properly replaced (along with other core placeholders) before completing:
 
-**PowerShell (setup.ps1, line 479):**
+**PowerShell (setup.ps1, lines 475-479):**
 ```powershell
 $corePlaceholders = @(
     'PROJECT_NAME', 'PROJECT_DESCRIPTION', 'PACKAGE_NAME',
