@@ -495,6 +495,9 @@ main() {
     echo "    - README-FORMATTING.md"
     echo "    - REPO-INSTRUCTIONS.md"
     echo ""
+    echo -e "${CYAN}  Note: TEMPLATE-PLACEHOLDERS.md will remain for your reference.${NC}"
+    echo -e "${CYAN}        Delete it manually when you've reviewed it and no longer need it.${NC}"
+    echo ""
     echo -en "${YELLOW}Remove template files? (y/N): ${NC}"
     read -r cleanup
     
