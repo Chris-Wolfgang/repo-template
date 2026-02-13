@@ -337,6 +337,17 @@ function Start-Setup {
     
     Write-Success "Selected: $licenseType License"
     
+    # Template repository info (for REPO-INSTRUCTIONS.md)
+    $templateRepoOwner = Read-Input `
+        -Prompt "Template Repository Owner" `
+        -Default "Chris-Wolfgang" `
+        -Example "YourUsername"
+    
+    $templateRepoName = Read-Input `
+        -Prompt "Template Repository Name" `
+        -Default "repo-template" `
+        -Example "my-template"
+    
     # Solution creation
     Write-Step "Solution Creation"
     Write-Host ""
@@ -351,17 +362,6 @@ function Start-Setup {
             -Example $repoName `
             -Required
     }
-    
-    # Template repository info (for REPO-INSTRUCTIONS.md)
-    $templateRepoOwner = Read-Input `
-        -Prompt "Template Repository Owner" `
-        -Default "Chris-Wolfgang" `
-        -Example "YourUsername"
-    
-    $templateRepoName = Read-Input `
-        -Prompt "Template Repository Name" `
-        -Default "repo-template" `
-        -Example "my-template"
     
     # Summary
     Write-Step "Configuration Summary"
@@ -489,7 +489,7 @@ function Start-Setup {
     
     # Step 4: Create solution (if requested)
     if ($solutionName) {
-        Write-Info "Step 4/5: Creating solution file..."
+        Write-Info "Step 4/$totalSteps: Creating solution file..."
         
         # Create blank solution
         $solutionFileName = "$solutionName.slnx"
