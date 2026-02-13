@@ -100,7 +100,7 @@ These placeholders represent sections that users should fill in later. They can 
 
 | Line(s) | Placeholder | Context |
 |---------|-------------|---------|
-| ~13 | `{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}` | Template selection instruction |
+| 46 | `{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}` | Template selection instruction |
 | ~135 | `{{GITHUB_USERNAME}}` | CODEOWNERS update instruction |
 
 ### 5. scripts/Setup-BranchRuleset.ps1

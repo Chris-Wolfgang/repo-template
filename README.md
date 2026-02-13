@@ -259,6 +259,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 | `README.md`[^1] | **THIS FILE** - Deleted during setup, replaced by renamed README-TEMPLATE.md |
 | `README-TEMPLATE.md`[^1] | Project README template (renamed to `README.md` during setup) |
 | `TEMPLATE-PLACEHOLDERS.md` | Complete placeholder documentation |
+| `TEMPLATE-REPO-PLACEHOLDERS-EXPLANATION.md` | Detailed explanation of TEMPLATE_REPO_OWNER and TEMPLATE_REPO_NAME placeholders |
 | `LICENSE-SELECTION.md` | License comparison and selection guide |
 | `REPO-INSTRUCTIONS.md` | Manual setup instructions |
 | `scripts/setup.ps1` | PowerShell setup automation |

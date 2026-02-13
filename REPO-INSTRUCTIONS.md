@@ -44,7 +44,7 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 	1. `Repository name`
  	2. `Description`
   	3. Select `Public` or `Private`
-1. `Start with a template` select `Chris-Wolfgang/repo-template`
+1. `Start with a template` select `{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}`
 1. `Include all branches` set `On` - this will include the `develop` branch. If you don't want the `develop` branch or if there are other branches you don't want you can leave this `off` and create the `develop` branch in your new repository
 
 
