@@ -583,6 +583,7 @@ main() {
             done
             echo ""
         done
+        info "See TEMPLATE-PLACEHOLDERS.md for details on each placeholder."
     fi
     
     # Optional cleanup
@@ -592,10 +593,12 @@ main() {
     echo -e "  Files to remove:"
     echo "    - setup.ps1"
     echo "    - setup.sh (this script)"
-    echo "    - TEMPLATE-PLACEHOLDERS.md"
     echo "    - LICENSE-SELECTION.md"
     echo "    - README-FORMATTING.md"
     echo "    - REPO-INSTRUCTIONS.md"
+    echo ""
+    echo -e "${CYAN}  Note: TEMPLATE-PLACEHOLDERS.md will remain for your reference.${NC}"
+    echo -e "${CYAN}        Delete it manually when you've reviewed it and no longer need it.${NC}"
     echo ""
     echo -en "${YELLOW}Remove template files? (y/N): ${NC}"
     read -r cleanup
@@ -604,7 +607,6 @@ main() {
         FILES_TO_REMOVE=(
             "setup.ps1"
             "setup.sh"
-            "TEMPLATE-PLACEHOLDERS.md"
             "LICENSE-SELECTION.md"
             "README-FORMATTING.md"
             "REPO-INSTRUCTIONS.md"
