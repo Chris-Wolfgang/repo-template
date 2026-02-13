@@ -206,6 +206,35 @@ $rulesetConfig = @{
             }
         },
         @{
+            type = "code_quality_reports"
+            parameters = @{
+                # Require code quality results to be resolved before merging
+                # Severity threshold at which code quality reviews must be resolved
+                code_quality_tools = @(
+                    @{
+                        tool = "CodeQL"
+                        alerts_threshold = "high_or_higher"
+                    }
+                )
+            }
+        },
+        @{
+            type = "copilot_code_review"
+            parameters = @{
+                # Automatically request Copilot code review for new pull requests
+                # if the author has access and hasn't reached the premium quota limit
+                auto_request_copilot_review = $true
+                # Review new pushes to the pull request automatically
+                review_new_pushes = $true
+                # Review draft pull requests before they are marked as ready
+                review_draft_pull_requests = $true
+                # Static analysis tools to include in Copilot code review
+                static_analysis_tools = @("CodeQL")
+                # Query suite for CodeQL
+                codeql_query_suite = "standard"
+            }
+        },
+        @{
             type = "non_fast_forward"
         },
         @{
@@ -254,6 +283,12 @@ try {
         Write-Host "   ✅ Conversation resolution required before merging" -ForegroundColor Gray
         Write-Host "   ✅ Stale reviews dismissed when new commits are pushed" -ForegroundColor Gray
         Write-Host "   ✅ CodeQL code scanning enforcement (blocks on High+ severity findings)" -ForegroundColor Gray
+        Write-Host "   ✅ Code quality reports required (High+ severity threshold)" -ForegroundColor Gray
+        Write-Host "   ✅ Automatic Copilot code review enabled:" -ForegroundColor Gray
+        Write-Host "      - Auto-request for new pull requests" -ForegroundColor DarkGray
+        Write-Host "      - Review new pushes automatically" -ForegroundColor DarkGray
+        Write-Host "      - Review draft pull requests" -ForegroundColor DarkGray
+        Write-Host "      - Static analysis tools: CodeQL (standard queries)" -ForegroundColor DarkGray
         Write-Host "   ✅ Force pushes blocked on $BranchName branch" -ForegroundColor Gray
         Write-Host "   ✅ Branch deletion prevented for $BranchName" -ForegroundColor Gray
         Write-Host "   ✅ Repository admins can bypass these rules" -ForegroundColor Gray
