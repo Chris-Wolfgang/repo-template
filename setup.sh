@@ -213,6 +213,16 @@ main() {
     step "Collecting project information..."
     echo ""
     
+    # Ask if creating NuGet package
+    echo -e -n "${YELLOW}Will this project be published as a NuGet package? (Y/n): ${NC}" >&2
+    read -r create_nuget_package
+    if [[ -n "$create_nuget_package" ]] && [[ "$create_nuget_package" != "Y" ]] && [[ "$create_nuget_package" != "y" ]]; then
+        is_nuget_package=false
+    else
+        is_nuget_package=true
+    fi
+    echo ""
+    
     PROJECT_NAME=$(read_input \
         "Project Name (e.g., Wolfgang.Extensions.IAsyncEnumerable)" \
         "" \
@@ -225,11 +235,15 @@ main() {
         "High-performance extension methods for IAsyncEnumerable<T>" \
         "true")
     
-    PACKAGE_NAME=$(read_input \
-        "NuGet Package Name" \
-        "$PROJECT_NAME" \
-        "$PROJECT_NAME" \
-        "false")
+    if [[ "$is_nuget_package" == true ]]; then
+        PACKAGE_NAME=$(read_input \
+            "NuGet Package Name" \
+            "$PROJECT_NAME" \
+            "$PROJECT_NAME" \
+            "false")
+    else
+        PACKAGE_NAME="$PROJECT_NAME"
+    fi
     
     GITHUB_REPO_URL=$(read_input \
         "GitHub Repository URL" \
