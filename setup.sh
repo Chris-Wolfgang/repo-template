@@ -464,10 +464,11 @@ main() {
     info "Step 4/4: Validating changes..."
     
     # Core placeholders that should have been replaced by the script
+    # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in FILES_TO_UPDATE
     local core_placeholders=(
         "PROJECT_NAME" "PROJECT_DESCRIPTION" "PACKAGE_NAME"
         "GITHUB_REPO_URL" "REPO_NAME" "GITHUB_USERNAME"
-        "DOCS_URL" "LICENSE_TYPE" "YEAR" "COPYRIGHT_HOLDER"
+        "DOCS_URL" "LICENSE_TYPE"
         "NUGET_STATUS" "TEMPLATE_REPO_OWNER" "TEMPLATE_REPO_NAME"
     )
     
@@ -506,7 +507,16 @@ main() {
                     if [[ -z "${core_placeholders_by_name[$placeholder_name]:-}" ]]; then
                         core_placeholders_by_name[$placeholder_name]="$file"
                     else
-                        if [[ ! "${core_placeholders_by_name[$placeholder_name]}" =~ $file ]]; then
+                        # Check if file is already in the list (literal string match)
+                        local already_added=0
+                        IFS='|' read -ra existing_files <<< "${core_placeholders_by_name[$placeholder_name]}"
+                        for existing_file in "${existing_files[@]}"; do
+                            if [[ "$existing_file" == "$file" ]]; then
+                                already_added=1
+                                break
+                            fi
+                        done
+                        if [[ $already_added -eq 0 ]]; then
                             core_placeholders_by_name[$placeholder_name]="${core_placeholders_by_name[$placeholder_name]}|$file"
                         fi
                     fi
@@ -515,7 +525,16 @@ main() {
                     if [[ -z "${optional_placeholders_by_name[$placeholder_name]:-}" ]]; then
                         optional_placeholders_by_name[$placeholder_name]="$file"
                     else
-                        if [[ ! "${optional_placeholders_by_name[$placeholder_name]}" =~ $file ]]; then
+                        # Check if file is already in the list (literal string match)
+                        local already_added=0
+                        IFS='|' read -ra existing_files <<< "${optional_placeholders_by_name[$placeholder_name]}"
+                        for existing_file in "${existing_files[@]}"; do
+                            if [[ "$existing_file" == "$file" ]]; then
+                                already_added=1
+                                break
+                            fi
+                        done
+                        if [[ $already_added -eq 0 ]]; then
                             optional_placeholders_by_name[$placeholder_name]="${optional_placeholders_by_name[$placeholder_name]}|$file"
                         fi
                     fi

@@ -450,10 +450,11 @@ function Start-Setup {
     Write-Info "Step 4/4: Validating changes..."
     
     # Core placeholders that should have been replaced by the script
+    # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in FILES_TO_UPDATE
     $corePlaceholders = @(
         'PROJECT_NAME', 'PROJECT_DESCRIPTION', 'PACKAGE_NAME',
         'GITHUB_REPO_URL', 'REPO_NAME', 'GITHUB_USERNAME',
-        'DOCS_URL', 'LICENSE_TYPE', 'YEAR', 'COPYRIGHT_HOLDER',
+        'DOCS_URL', 'LICENSE_TYPE',
         'NUGET_STATUS', 'TEMPLATE_REPO_OWNER', 'TEMPLATE_REPO_NAME'
     )
     
@@ -511,6 +512,8 @@ function Start-Setup {
             Write-Host ""
         }
         Write-Warning "This indicates the script did not replace all required placeholders. Please review the files and replace these manually."
+        Write-Host ""
+        exit 1
     }
     else {
         Write-Success "All required placeholders replaced successfully!"
