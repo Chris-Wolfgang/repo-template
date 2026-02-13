@@ -722,33 +722,33 @@ Please review the changes, make any necessary adjustments, and merge to main whe
                             echo ""
                         else
                             warning "Failed to create pull request. You can create it manually with:"
-                            echo "  gh pr create --title \"Configure repository from template\" --body \"Initial setup\" --base main --head $branch_name"
+                            echo "  gh pr create --title \"Configure repository from template\" --body \"Initial setup\" --base main --head "$branch_name""
                             echo ""
                         fi
                     else
                         warning "Push failed. You can push manually later with:"
-                        echo "  git push -u origin $branch_name"
+                        echo "  git push -u origin "$branch_name""
                         echo ""
                     fi
                 else
                     warning "Commit failed. You can commit manually later with:"
                     echo "  git commit -m \"Configure repository from template\""
-                    echo "  git push -u origin $branch_name"
+                    echo "  git push -u origin "$branch_name""
                     echo ""
                 fi
             else
                 warning "Git add failed. You can commit manually later with:"
                 echo "  git add ."
                 echo "  git commit -m \"Configure repository from template\""
-                echo "  git push -u origin $branch_name"
+                echo "  git push -u origin "$branch_name""
                 echo ""
             fi
         else
             warning "Failed to create branch. You can create it manually with:"
-            echo "  git checkout -b $branch_name"
+            echo "  git checkout -b "$branch_name""
             echo "  git add ."
             echo "  git commit -m \"Configure repository from template\""
-            echo "  git push -u origin $branch_name"
+            echo "  git push -u origin "$branch_name""
             echo ""
         fi
     else
