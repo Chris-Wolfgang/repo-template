@@ -236,7 +236,7 @@ $rulesetConfig = @{
             type = "copilot_code_review"
             parameters = @{
                 # Automatically request Copilot code review for new pull requests
-                # if the author has access and hasn't reached the premium quota limit
+                # if the author has Copilot access and hasn't reached their review request limit
                 auto_request_copilot_review = $true
                 # Review new pushes to the pull request automatically
                 review_new_pushes = $true
