@@ -670,14 +670,14 @@ main() {
                 if git commit -m "Configure repository from template"; then
                     success "Changes committed successfully!"
                     echo ""
-                    
-                    # Step 4: Push to GitHub
+                    # Step 3: Push to GitHub
                     info "Step 3/4: Pushing branch to GitHub..."
-                    if git push -u origin "$branch_name"; then
+                    git push -u origin "$branch_name"
+                    if [[ $? -eq 0 ]]; then
                         success "Branch pushed to GitHub successfully!"
                         echo ""
                         
-                        # Step 5: Create Pull Request
+                        # Step 4: Create Pull Request
                         info "Step 4/4: Creating pull request..."
                         if gh pr create --title "Configure repository from template" --body "This PR contains the initial repository configuration from the template setup script.
 
