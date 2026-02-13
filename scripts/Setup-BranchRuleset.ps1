@@ -206,10 +206,10 @@ $rulesetConfig = @{
             parameters = @{
                 # NOTE: CodeQL uses the 'code_scanning' ruleset type instead of 'required_status_checks'
                 # because it has built-in intelligence to handle cases where scans don't run
-                # The workflow (.github/workflows/codeql.yml) has no path filters to ensure it
+                # The workflow (.github/workflows/codeql.yml) has no path filters to ensure
                 # GitHub can properly evaluate this rule. The workflow runs on all PRs but gracefully
-                # attempts to run on all PRs, but skips analysis gracefully when there's no C# code.
-                # preventing false merge blocks while still enforcing security scanning when needed.
+                # skips analysis when there's no C# code, preventing false merge blocks while still
+                # enforcing security scanning when needed.
                 code_scanning_tools = @(
                     @{
                         tool = "CodeQL"
@@ -223,7 +223,8 @@ $rulesetConfig = @{
             type = "code_quality_reports"
             parameters = @{
                 # Require code quality results to be resolved before merging
-                # Severity threshold at which code quality reviews must be resolved
+                # Uses alerts_threshold to set severity level (different from code_scanning's
+                # security_alerts_threshold which is specific to security vulnerabilities)
                 code_quality_tools = @(
                     @{
                         tool = "CodeQL"
