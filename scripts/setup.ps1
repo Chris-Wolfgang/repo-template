@@ -194,8 +194,13 @@ function Start-Setup {
     
     # Ask if creating NuGet package
     Write-Host "Will this project be published as a NuGet package? (Y/n): " -NoNewline -ForegroundColor Yellow
-    $nugetResponse = Read-Host
-    $isNugetPackage = -not ($nugetResponse -and $nugetResponse -ne 'Y' -and $nugetResponse -ne 'y')
+    $createNugetPackage = Read-Host
+    if ([string]::IsNullOrEmpty($createNugetPackage) -or $createNugetPackage -eq 'Y' -or $createNugetPackage -eq 'y') {
+        $isNugetPackage = $true
+    }
+    else {
+        $isNugetPackage = $false
+    }
     Write-Host ""
     
     $projectName = Read-Input `
