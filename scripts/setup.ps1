@@ -606,22 +606,64 @@ function Start-Setup {
     Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
     Write-Host ""
     
+    # Git operations
+    Write-Step "Git Operations"
+    Write-Host ""
+    
+    # Step 1: Review changes
+    Write-Info "Step 1/3: Reviewing changes..."
+    Write-Host ""
+    Write-Host "Git Status:" -ForegroundColor Cyan
+    git status
+    Write-Host ""
+    
+    Write-Host "Would you like to see the full diff? (y/N): " -NoNewline -ForegroundColor Yellow
+    $showDiff = Read-Host
+    if ($showDiff -eq 'y' -or $showDiff -eq 'Y') {
+        Write-Host ""
+        Write-Host "Git Diff:" -ForegroundColor Cyan
+        git diff
+        Write-Host ""
+    }
+    
+    # Step 2: Commit changes
+    Write-Host "Commit these changes? (Y/n): " -NoNewline -ForegroundColor Yellow
+    $commitChanges = Read-Host
+    if ([string]::IsNullOrEmpty($commitChanges) -or $commitChanges -eq 'Y' -or $commitChanges -eq 'y') {
+        Write-Info "Step 2/3: Committing changes..."
+        git add .
+        git commit -m "Configure repository from template"
+        Write-Success "Changes committed successfully!"
+        Write-Host ""
+        
+        # Step 3: Push to GitHub
+        Write-Host "Push changes to GitHub? (Y/n): " -NoNewline -ForegroundColor Yellow
+        $pushChanges = Read-Host
+        if ([string]::IsNullOrEmpty($pushChanges) -or $pushChanges -eq 'Y' -or $pushChanges -eq 'y') {
+            Write-Info "Step 3/3: Pushing to GitHub..."
+            git push
+            Write-Success "Changes pushed to GitHub successfully!"
+            Write-Host ""
+        }
+        else {
+            Write-Info "Skipping push. You can push manually later with: git push"
+            Write-Host ""
+        }
+    }
+    else {
+        Write-Info "Skipping commit. You can commit manually later with:"
+        Write-Host "  git add ." -ForegroundColor Gray
+        Write-Host "  git commit -m ""Configure repository from template""" -ForegroundColor Gray
+        Write-Host "  git push" -ForegroundColor Gray
+        Write-Host ""
+    }
+    
+    # Next steps
     Write-Host "✅ Next Steps:" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "1. Review the changes:" -ForegroundColor Yellow
-    Write-Host "   git status" -ForegroundColor Gray
-    Write-Host "   git diff" -ForegroundColor Gray
+    Write-Host "1. Configure branch protection (see REPO-INSTRUCTIONS.md if kept)" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "2. Commit the changes:" -ForegroundColor Yellow
-    Write-Host "   git add ." -ForegroundColor Gray
-    Write-Host "   git commit -m ""Configure repository from template""" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "3. Push to GitHub:" -ForegroundColor Yellow
-    Write-Host "   git push" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "4. Configure branch protection (see REPO-INSTRUCTIONS.md if kept)" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "5. Start developing!" -ForegroundColor Yellow
+    Write-Host "2. Start developing!" -ForegroundColor Yellow
     Write-Host "   dotnet new sln -n $projectName" -ForegroundColor Gray
     Write-Host "   # Add your projects to src/ and tests/" -ForegroundColor Gray
     Write-Host ""

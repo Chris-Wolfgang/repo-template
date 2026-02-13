@@ -649,22 +649,62 @@ main() {
     echo -e "${GREEN}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     
+    # Git operations
+    step "Git Operations"
+    echo ""
+    
+    # Step 1: Review changes
+    info "Step 1/3: Reviewing changes..."
+    echo ""
+    echo -e "${CYAN}Git Status:${NC}"
+    git status
+    echo ""
+    
+    echo -en "${YELLOW}Would you like to see the full diff? (y/N): ${NC}"
+    read -r show_diff
+    if [[ "$show_diff" =~ ^[Yy]$ ]]; then
+        echo ""
+        echo -e "${CYAN}Git Diff:${NC}"
+        git diff
+        echo ""
+    fi
+    
+    # Step 2: Commit changes
+    echo -en "${YELLOW}Commit these changes? (Y/n): ${NC}"
+    read -r commit_changes
+    if [[ -z "$commit_changes" || "$commit_changes" =~ ^[Yy]$ ]]; then
+        info "Step 2/3: Committing changes..."
+        git add .
+        git commit -m "Configure repository from template"
+        success "Changes committed successfully!"
+        echo ""
+        
+        # Step 3: Push to GitHub
+        echo -en "${YELLOW}Push changes to GitHub? (Y/n): ${NC}"
+        read -r push_changes
+        if [[ -z "$push_changes" || "$push_changes" =~ ^[Yy]$ ]]; then
+            info "Step 3/3: Pushing to GitHub..."
+            git push
+            success "Changes pushed to GitHub successfully!"
+            echo ""
+        else
+            info "Skipping push. You can push manually later with: git push"
+            echo ""
+        fi
+    else
+        info "Skipping commit. You can commit manually later with:"
+        echo "  git add ."
+        echo "  git commit -m \"Configure repository from template\""
+        echo "  git push"
+        echo ""
+    fi
+    
+    # Next steps
     echo -e "${CYAN}✅ Next Steps:${NC}"
     echo ""
-    echo -e "${YELLOW}1. Review the changes:${NC}"
-    echo -e "   ${NC}git status${NC}"
-    echo -e "   ${NC}git diff${NC}"
+    echo -e "${YELLOW}1. Configure branch protection (see REPO-INSTRUCTIONS.md if kept)${NC}"
     echo ""
-    echo -e "${YELLOW}2. Commit the changes:${NC}"
-    echo -e "   ${NC}git add .${NC}"
-    echo -e "   ${NC}git commit -m \"Configure repository from template\"${NC}"
-    echo ""
-    echo -e "${YELLOW}3. Push to GitHub:${NC}"
-    echo -e "   ${NC}git push${NC}"
-    echo ""
-    echo -e "${YELLOW}4. Configure branch protection (see REPO-INSTRUCTIONS.md if kept)${NC}"
-    echo ""
-    echo -e "${YELLOW}5. Start developing!${NC}"
+    echo -e "${YELLOW}2. Start developing!${NC}"
     echo -e "   ${NC}dotnet new sln -n $PROJECT_NAME${NC}"
     echo -e "   ${NC}# Add your projects to src/ and tests/${NC}"
     echo ""
