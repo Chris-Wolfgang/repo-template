@@ -192,6 +192,17 @@ function Start-Setup {
     Write-Step "Collecting project information..."
     Write-Host ""
     
+    # Ask if creating NuGet package
+    Write-Host "Will this project be published as a NuGet package? (Y/n): " -NoNewline -ForegroundColor Yellow
+    $createNugetPackage = Read-Host
+    if ($createNugetPackage -and $createNugetPackage -ne 'Y' -and $createNugetPackage -ne 'y') {
+        $isNugetPackage = $false
+    }
+    else {
+        $isNugetPackage = $true
+    }
+    Write-Host ""
+    
     $projectName = Read-Input `
         -Prompt "Project Name (e.g., Wolfgang.Extensions.IAsyncEnumerable)" `
         -Example "MyCompany.MyLibrary" `
@@ -202,10 +213,15 @@ function Start-Setup {
         -Example "High-performance extension methods for IAsyncEnumerable<T>" `
         -Required
     
-    $packageName = Read-Input `
-        -Prompt "NuGet Package Name" `
-        -Default $projectName `
-        -Example $projectName
+    if ($isNugetPackage) {
+        $packageName = Read-Input `
+            -Prompt "NuGet Package Name" `
+            -Default $projectName `
+            -Example $projectName
+    }
+    else {
+        $packageName = $projectName
+    }
     
     $githubRepoUrl = Read-Input `
         -Prompt "GitHub Repository URL" `
@@ -270,10 +286,15 @@ function Start-Setup {
         -Default $currentYear.ToString() `
         -Example $currentYear.ToString()
     
-    $nugetStatus = Read-Input `
-        -Prompt "NuGet Package Status" `
-        -Default "Coming soon to NuGet.org" `
-        -Example "Available on NuGet.org"
+    if ($isNugetPackage) {
+        $nugetStatus = Read-Input `
+            -Prompt "NuGet Package Status" `
+            -Default "Coming soon to NuGet.org" `
+            -Example "Available on NuGet.org"
+    }
+    else {
+        $nugetStatus = "Not applicable"
+    }
     
     # License selection
     Write-Step "Selecting License..."
@@ -469,6 +490,7 @@ function Start-Setup {
             Write-Host "  - $placeholder" -ForegroundColor Yellow
         }
         Write-Info "These may be optional content placeholders for you to fill in later."
+        Write-Info "See TEMPLATE-PLACEHOLDERS.md for details on each placeholder."
     }
     
     # Optional cleanup
@@ -478,10 +500,12 @@ function Start-Setup {
     Write-Host "  Files to remove:" -ForegroundColor Gray
     Write-Host "    - scripts/setup.ps1 (this script)" -ForegroundColor Gray
     Write-Host "    - scripts/setup.sh" -ForegroundColor Gray
-    Write-Host "    - TEMPLATE-PLACEHOLDERS.md" -ForegroundColor Gray
     Write-Host "    - LICENSE-SELECTION.md" -ForegroundColor Gray
     Write-Host "    - README-FORMATTING.md" -ForegroundColor Gray
     Write-Host "    - REPO-INSTRUCTIONS.md" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  Note: TEMPLATE-PLACEHOLDERS.md will remain for your reference." -ForegroundColor Cyan
+    Write-Host "        Delete it manually when you've reviewed it and no longer need it." -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Remove template files? (y/N): " -NoNewline -ForegroundColor Yellow
     $cleanup = Read-Host
@@ -490,7 +514,6 @@ function Start-Setup {
         $filesToRemove = @(
             'scripts/setup.ps1',
             'scripts/setup.sh',
-            'TEMPLATE-PLACEHOLDERS.md',
             'LICENSE-SELECTION.md',
             'README-FORMATTING.md',
             'REPO-INSTRUCTIONS.md'

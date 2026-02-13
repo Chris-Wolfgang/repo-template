@@ -481,6 +481,7 @@ main() {
             echo "  - $placeholder"
         done
         info "These may be optional content placeholders for you to fill in later."
+        info "See TEMPLATE-PLACEHOLDERS.md for details on each placeholder."
     fi
     
     # Optional cleanup
@@ -490,10 +491,12 @@ main() {
     echo -e "  Files to remove:"
     echo "    - scripts/setup.ps1"
     echo "    - scripts/setup.sh (this script)"
-    echo "    - TEMPLATE-PLACEHOLDERS.md"
     echo "    - LICENSE-SELECTION.md"
     echo "    - README-FORMATTING.md"
     echo "    - REPO-INSTRUCTIONS.md"
+    echo ""
+    echo -e "${CYAN}  Note: TEMPLATE-PLACEHOLDERS.md will remain for your reference.${NC}"
+    echo -e "${CYAN}        Delete it manually when you've reviewed it and no longer need it.${NC}"
     echo ""
     echo -en "${YELLOW}Remove template files? (y/N): ${NC}"
     read -r cleanup
@@ -502,7 +505,6 @@ main() {
         FILES_TO_REMOVE=(
             "scripts/setup.ps1"
             "scripts/setup.sh"
-            "TEMPLATE-PLACEHOLDERS.md"
             "LICENSE-SELECTION.md"
             "README-FORMATTING.md"
             "REPO-INSTRUCTIONS.md"
