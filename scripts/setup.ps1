@@ -525,14 +525,29 @@ function Start-Setup {
         # Get current directory for relative path calculation
         $currentDir = Get-Location
         
+        # Helper function to get relative path safely
+        $getRelativePath = {
+            param($fullPath)
+            try {
+                # Use Resolve-Path with -Relative for safe relative path calculation
+                $rel = Resolve-Path -Path $fullPath -Relative -ErrorAction Stop
+                # Remove leading .\ or ./
+                return $rel.TrimStart('.\', './')
+            }
+            catch {
+                # Fallback: manual calculation
+                $path = $fullPath
+                if ($path.StartsWith($currentDir.Path)) {
+                    $path = $path.Substring($currentDir.Path.Length).TrimStart('\', '/')
+                }
+                return $path.Replace('\', '/')
+            }
+        }
+        
         # Get all files in the repository
         $allFiles = Get-ChildItem -Recurse -File -Force | Where-Object {
             # Get relative path safely
-            $relativePath = $_.FullName
-            if ($relativePath.StartsWith($currentDir.Path)) {
-                $relativePath = $relativePath.Substring($currentDir.Path.Length).TrimStart('\', '/')
-            }
-            $relativePath = $relativePath.Replace('\', '/')
+            $relativePath = & $getRelativePath $_.FullName
             
             # Exclude .git directory specifically (not .github)
             if ($relativePath -like '.git/*' -or $relativePath -eq '.git') {
@@ -554,11 +569,7 @@ function Start-Setup {
         $filesByDirectory = @{}
         foreach ($file in $allFiles) {
             # Get relative path safely
-            $relativePath = $file.FullName
-            if ($relativePath.StartsWith($currentDir.Path)) {
-                $relativePath = $relativePath.Substring($currentDir.Path.Length).TrimStart('\', '/')
-            }
-            $relativePath = $relativePath.Replace('\', '/')
+            $relativePath = & $getRelativePath $file.FullName
             $directory = Split-Path $relativePath -Parent
             if ([string]::IsNullOrEmpty($directory)) {
                 $directory = '.'
