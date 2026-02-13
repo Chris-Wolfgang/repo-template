@@ -5,7 +5,7 @@
 .DESCRIPTION
     This script uses the GitHub CLI (gh) to create a repository ruleset that protects
     the main branch with pull request requirements, required status checks, security
-    scanning rules, code quality enforcement, and automatic Copilot code review.
+    scanning rules, and automatic Copilot code review.
     Run this locally after creating a new repo from the template.
     
     The script will prompt you to choose between single-developer or multi-developer 
@@ -17,7 +17,6 @@
     - Pull request reviews with configurable approval requirements
     - Required status checks (tests, security scans)
     - CodeQL code scanning enforcement (High+ severity)
-    - Code quality reports enforcement (High+ severity)
     - Automatic Copilot code review for pull requests
     - Copilot review of new pushes and draft PRs
     - CodeQL standard queries integration with Copilot reviews
@@ -41,8 +40,9 @@
     Requires: GitHub CLI (gh) authenticated with sufficient permissions
     Install gh: https://cli.github.com/
     
-    Note: Some features like Copilot code review require GitHub Copilot access
-    and may require GitHub Enterprise or specific subscription plans.
+    Note: The copilot_code_review ruleset type requires GitHub Copilot access
+    and may require GitHub Enterprise or specific subscription plans. Verify your organization has the
+    necessary subscriptions before running this script.
 #>
 
 [CmdletBinding()]
@@ -207,7 +207,7 @@ $rulesetConfig = @{
                 # NOTE: CodeQL uses the 'code_scanning' ruleset type instead of 'required_status_checks'
                 # because it has built-in intelligence to handle cases where scans don't run
                 # The workflow (.github/workflows/codeql.yml) has no path filters to ensure
-                # GitHub can properly evaluate this rule. The workflow runs on all PRs but gracefully
+                # GitHub can properly evaluate this rule. The workflow runs on all PRs and gracefully
                 # skips analysis when there's no C# code, preventing false merge blocks while still
                 # enforcing security scanning when needed.
                 code_scanning_tools = @(
@@ -215,20 +215,6 @@ $rulesetConfig = @{
                         tool = "CodeQL"
                         security_alerts_threshold = "high_or_higher"
                         alerts_threshold = "errors"
-                    }
-                )
-            }
-        },
-        @{
-            type = "code_quality_reports"
-            parameters = @{
-                # Require code quality results to be resolved before merging
-                # Uses alerts_threshold to set severity level (different from code_scanning's
-                # security_alerts_threshold which is specific to security vulnerabilities)
-                code_quality_tools = @(
-                    @{
-                        tool = "CodeQL"
-                        alerts_threshold = "high_or_higher"
                     }
                 )
             }
@@ -294,11 +280,11 @@ try {
         Write-Host "      - Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" -ForegroundColor DarkGray
         Write-Host "      - Stage 3: macOS Tests (.NET 6.0-10.0)" -ForegroundColor DarkGray
         Write-Host "      - Security Scan (DevSkim)" -ForegroundColor DarkGray
+        Write-Host "      - Security Scan (CodeQL)" -ForegroundColor DarkGray
         Write-Host "   ✅ Branches must be up to date before merging" -ForegroundColor Gray
         Write-Host "   ✅ Conversation resolution required before merging" -ForegroundColor Gray
         Write-Host "   ✅ Stale reviews dismissed when new commits are pushed" -ForegroundColor Gray
         Write-Host "   ✅ CodeQL code scanning enforcement (blocks on High+ severity findings)" -ForegroundColor Gray
-        Write-Host "   ✅ Code quality reports required (High+ severity threshold)" -ForegroundColor Gray
         Write-Host "   ✅ Automatic Copilot code review enabled:" -ForegroundColor Gray
         Write-Host "      - Auto-request for new pull requests" -ForegroundColor DarkGray
         Write-Host "      - Review new pushes automatically" -ForegroundColor DarkGray
