@@ -359,13 +359,13 @@ main() {
     
     # Template repository info
     TEMPLATE_REPO_OWNER=$(read_input \
-        "Template Repository Owner" \
+        "Template Repository Owner (the GitHub user/org that owns the template you used)" \
         "Chris-Wolfgang" \
         "YourUsername" \
         "false")
     
     TEMPLATE_REPO_NAME=$(read_input \
-        "Template Repository Name" \
+        "Template Repository Name (the name of the template repository you used)" \
         "repo-template" \
         "my-template" \
         "false")

@@ -339,12 +339,12 @@ function Start-Setup {
     
     # Template repository info (for REPO-INSTRUCTIONS.md)
     $templateRepoOwner = Read-Input `
-        -Prompt "Template Repository Owner" `
+        -Prompt "Template Repository Owner (the GitHub user/org that owns the template you used)" `
         -Default "Chris-Wolfgang" `
         -Example "YourUsername"
     
     $templateRepoName = Read-Input `
-        -Prompt "Template Repository Name" `
+        -Prompt "Template Repository Name (the name of the template repository you used)" `
         -Default "repo-template" `
         -Example "my-template"
     
