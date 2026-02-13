@@ -714,10 +714,10 @@ function Start-Setup {
     }
     else {
         Write-Info "Skipping branch creation and commit. You can do this manually later with:"
-        Write-Host "  git checkout -b setup/configure-from-template-YYYYMMDD-HHMMSS" -ForegroundColor Gray
+        Write-Host "  git checkout -b setup/configure-from-template-<timestamp>" -ForegroundColor Gray
         Write-Host "  git add ." -ForegroundColor Gray
         Write-Host "  git commit -m ""Configure repository from template""" -ForegroundColor Gray
-        Write-Host "  git push -u origin setup/configure-from-template-YYYYMMDD-HHMMSS" -ForegroundColor Gray
+        Write-Host "  git push -u origin setup/configure-from-template-<timestamp>" -ForegroundColor Gray
         Write-Host "  gh pr create --title ""Configure repository from template"" --base main" -ForegroundColor Gray
         Write-Host ""
     }

@@ -753,10 +753,10 @@ Please review the changes, make any necessary adjustments, and merge to main whe
         fi
     else
         info "Skipping branch creation and commit. You can do this manually later with:"
-        echo "  git checkout -b setup/configure-from-template-YYYYMMDD-HHMMSS"
+        echo "  git checkout -b setup/configure-from-template-<timestamp>"
         echo "  git add ."
         echo "  git commit -m \"Configure repository from template\""
-        echo "  git push -u origin setup/configure-from-template-YYYYMMDD-HHMMSS"
+        echo "  git push -u origin setup/configure-from-template-<timestamp>"
         echo "  gh pr create --title \"Configure repository from template\" --base main"
         echo ""
     fi
