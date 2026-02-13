@@ -706,19 +706,33 @@ Please review the changes, make any necessary adjustments, and merge to main whe
                             success "Pull request created successfully!"
                             echo ""
                             
-                            # Get PR URL
-                            pr_url=$(gh pr view "$branch_name" --json url --jq .url)
-                            
-                            echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
-                            echo -e "${CYAN}║                                                                ║${NC}"
-                            echo -e "${CYAN}║                       📋 Review Required                       ║${NC}"
-                            echo -e "${CYAN}║                                                                ║${NC}"
-                            echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
-                            echo ""
-                            echo -e "${YELLOW}Branch: $branch_name${NC}"
-                            echo -e "${YELLOW}Pull Request: $pr_url${NC}"
-                            echo ""
-                            info "Please review the pull request, make any necessary changes, and merge it to main before continuing with development."
+                            # Get PR URL (best-effort; fall back to generic instruction on failure)
+                            if pr_url=$(gh pr view "$branch_name" --json url --jq .url 2>/dev/null); then
+                                echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
+                                echo -e "${CYAN}║                                                                ║${NC}"
+                                echo -e "${CYAN}║                       📋 Review Required                       ║${NC}"
+                                echo -e "${CYAN}║                                                                ║${NC}"
+                                echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
+                                echo ""
+                                echo -e "${YELLOW}Branch: $branch_name${NC}"
+                                echo -e "${YELLOW}Pull Request: $pr_url${NC}"
+                                echo ""
+                                info "Please review the pull request, make any necessary changes, and merge it to main before continuing with development."
+                                echo ""
+                            else
+                                echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
+                                echo -e "${CYAN}║                                                                ║${NC}"
+                                echo -e "${CYAN}║                       📋 Review Required                       ║${NC}"
+                                echo -e "${CYAN}║                                                                ║${NC}"
+                                echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
+                                echo ""
+                                echo -e "${YELLOW}Branch: $branch_name${NC}"
+                                echo -e "${YELLOW}Pull Request URL: (unable to automatically determine)${NC}"
+                                echo ""
+                                info "Please review the pull request, make any necessary changes, and merge it to main before continuing with development."
+                                info "If needed, you can view the pull request with: gh pr view \"$branch_name\" --web"
+                                echo ""
+                            fi
                             echo ""
                         else
                             warning "Failed to create pull request. You can create it manually with:"
