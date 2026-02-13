@@ -526,7 +526,7 @@ function Start-Setup {
         $currentDir = Get-Location
         
         # Helper function to get relative path safely
-        $GetRelativePath = {
+        $getRelativePath = {
             param($FullPath)
             try {
                 # Use Resolve-Path with -Relative for safe relative path calculation
@@ -557,7 +557,7 @@ function Start-Setup {
         # Get all files in the repository
         $allFiles = Get-ChildItem -Recurse -File -Force | Where-Object {
             # Get relative path safely
-            $relativePath = & $GetRelativePath $_.FullName
+            $relativePath = & $getRelativePath $_.FullName
             
             # Exclude .git directory specifically (not .github)
             if ($relativePath -like '.git/*' -or $relativePath -eq '.git') {
@@ -579,7 +579,7 @@ function Start-Setup {
         $filesByDirectory = @{}
         foreach ($file in $allFiles) {
             # Get relative path safely
-            $relativePath = & $GetRelativePath $file.FullName
+            $relativePath = & $getRelativePath $file.FullName
             $directory = Split-Path $relativePath -Parent
             if ([string]::IsNullOrEmpty($directory)) {
                 $directory = '.'
@@ -785,8 +785,14 @@ function Start-Setup {
     Write-Host "4. Configure branch protection (see REPO-INSTRUCTIONS.md if kept)" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "5. Start developing!" -ForegroundColor Yellow
-    Write-Host "   dotnet new sln -n $projectName" -ForegroundColor Gray
-    Write-Host "   # Add your projects to src/ and tests/" -ForegroundColor Gray
+    if ($solutionName) {
+        Write-Host "   # Solution file created: $solutionFileName" -ForegroundColor Gray
+        Write-Host "   # Add your projects to src/ and tests/" -ForegroundColor Gray
+    }
+    else {
+        Write-Host "   dotnet new sln -n $projectName" -ForegroundColor Gray
+        Write-Host "   # Add your projects to src/ and tests/" -ForegroundColor Gray
+    }
     Write-Host ""
     
     Write-Info "Your repository is now configured and ready for development!"
