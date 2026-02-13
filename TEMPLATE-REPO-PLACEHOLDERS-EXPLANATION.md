@@ -43,7 +43,6 @@ TEMPLATE_REPO_NAME=$(read_input \
 The `setup-template.yml` workflow automatically detects the template repository:
 
 ```yaml
-# Line 133-134
 template_repo_owner=$(printf '%s\n' "${{ github.event.repository.template_repository.owner.login || 'Chris-Wolfgang' }}" | sed -e 's/[&|\\]/\\&/g')
 template_repo_name=$(printf '%s\n' "${{ github.event.repository.template_repository.name || 'repo-template' }}" | sed -e 's/[&|\\]/\\&/g')
 ```
@@ -54,9 +53,14 @@ This uses GitHub's API to automatically detect the source template repository wh
 
 ### Primary Usage: REPO-INSTRUCTIONS.md
 
-The main purpose is to replace the hardcoded reference in `REPO-INSTRUCTIONS.md`:
+The main purpose is to replace the placeholder reference in `REPO-INSTRUCTIONS.md`:
 
 **Before replacement (line 46):**
+```markdown
+1. `Start with a template` select `{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}`
+```
+
+**After replacement (if using default template):**
 ```markdown
 1. `Start with a template` select `Chris-Wolfgang/repo-template`
 ```
