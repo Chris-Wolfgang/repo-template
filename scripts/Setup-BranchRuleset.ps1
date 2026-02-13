@@ -4,13 +4,23 @@
 
 .DESCRIPTION
     This script uses the GitHub CLI (gh) to create a repository ruleset that protects
-    the main branch with pull request requirements, required status checks, and security
-    scanning rules. Run this locally after creating a new repo from the template.
+    the main branch with pull request requirements, required status checks, security
+    scanning rules, and automatic Copilot code review.
+    Run this locally after creating a new repo from the template.
     
     The script will prompt you to choose between single-developer or multi-developer 
     repository settings:
     - Single Developer: No PR approvals required (you can merge your own PRs)
     - Multi-Developer: Requires 1+ approval and code owner review
+    
+    The ruleset includes:
+    - Pull request reviews with configurable approval requirements
+    - Required status checks (tests, security scans)
+    - CodeQL code scanning enforcement (High+ severity)
+    - Automatic Copilot code review for pull requests
+    - Copilot review of new pushes and draft PRs
+    - CodeQL standard queries integration with Copilot reviews
+    - Force push and deletion protection
 
 .PARAMETER Repository
     The repository in owner/repo format. If not provided, uses the current repository.
@@ -29,6 +39,10 @@
 .NOTES
     Requires: GitHub CLI (gh) authenticated with sufficient permissions
     Install gh: https://cli.github.com/
+    
+    Note: The copilot_code_review ruleset type requires GitHub Copilot access
+    and may require GitHub Enterprise or specific subscription plans. Verify your organization has the
+    necessary subscriptions before running this script.
 #>
 
 [CmdletBinding()]
@@ -192,10 +206,10 @@ $rulesetConfig = @{
             parameters = @{
                 # NOTE: CodeQL uses the 'code_scanning' ruleset type instead of 'required_status_checks'
                 # because it has built-in intelligence to handle cases where scans don't run
-                # The workflow (.github/workflows/codeql.yml) has no path filters to ensure it
-                # GitHub can properly evaluate this rule. The workflow runs on all PRs but gracefully
-                # attempts to run on all PRs, but skips analysis gracefully when there's no C# code.
-                # preventing false merge blocks while still enforcing security scanning when needed.
+                # The workflow (.github/workflows/codeql.yml) has no path filters to ensure
+                # GitHub can properly evaluate this rule. The workflow runs on all PRs and gracefully
+                # skips analysis when there's no C# code, preventing false merge blocks while still
+                # enforcing security scanning when needed.
                 code_scanning_tools = @(
                     @{
                         tool = "CodeQL"
@@ -203,6 +217,22 @@ $rulesetConfig = @{
                         alerts_threshold = "errors"
                     }
                 )
+            }
+        },
+        @{
+            type = "copilot_code_review"
+            parameters = @{
+                # Automatically request Copilot code review for new pull requests
+                # if the author has Copilot access and hasn't reached their review request limit
+                auto_request_copilot_review = $true
+                # Review new pushes to the pull request automatically
+                review_new_pushes = $true
+                # Review draft pull requests before they are marked as ready
+                review_draft_pull_requests = $true
+                # Static analysis tools to include in Copilot code review
+                static_analysis_tools = @("CodeQL")
+                # Query suite for CodeQL
+                codeql_query_suite = "standard"
             }
         },
         @{
@@ -250,10 +280,16 @@ try {
         Write-Host "      - Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" -ForegroundColor DarkGray
         Write-Host "      - Stage 3: macOS Tests (.NET 6.0-10.0)" -ForegroundColor DarkGray
         Write-Host "      - Security Scan (DevSkim)" -ForegroundColor DarkGray
+        Write-Host "      - Security Scan (CodeQL)" -ForegroundColor DarkGray
         Write-Host "   ✅ Branches must be up to date before merging" -ForegroundColor Gray
         Write-Host "   ✅ Conversation resolution required before merging" -ForegroundColor Gray
         Write-Host "   ✅ Stale reviews dismissed when new commits are pushed" -ForegroundColor Gray
         Write-Host "   ✅ CodeQL code scanning enforcement (blocks on High+ severity findings)" -ForegroundColor Gray
+        Write-Host "   ✅ Automatic Copilot code review enabled:" -ForegroundColor Gray
+        Write-Host "      - Auto-request for new pull requests" -ForegroundColor DarkGray
+        Write-Host "      - Review new pushes automatically" -ForegroundColor DarkGray
+        Write-Host "      - Review draft pull requests" -ForegroundColor DarkGray
+        Write-Host "      - Static analysis tools: CodeQL (standard queries)" -ForegroundColor DarkGray
         Write-Host "   ✅ Force pushes blocked on $BranchName branch" -ForegroundColor Gray
         Write-Host "   ✅ Branch deletion prevented for $BranchName" -ForegroundColor Gray
         Write-Host "   ✅ Repository admins can bypass these rules" -ForegroundColor Gray
