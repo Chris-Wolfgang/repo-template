@@ -8,11 +8,11 @@
 
 ```bash
 # PowerShell (Windows/macOS/Linux)
-pwsh ./setup.ps1
+pwsh ./scripts/setup.ps1
 
 # Or Bash (macOS/Linux)
-chmod +x setup.sh
-./setup.sh
+chmod +x scripts/setup.sh
+./scripts/setup.sh
 ```
 
 The automated scripts will:

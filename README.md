@@ -22,11 +22,11 @@ Before using this template, ensure you have the following installed:
 3. **Run the automated setup and follow the prompts** - The script will ask you for required values and read other details from your git configuration and repository, then replace all placeholders with your project information:
    ```bash
    # PowerShell (Windows/macOS/Linux)
-   pwsh ./setup.ps1
+   pwsh ./scripts/setup.ps1
    
    # Or Bash (macOS/Linux)
-   chmod +x setup.sh
-   ./setup.sh
+   chmod +x scripts/setup.sh
+   ./scripts/setup.sh
    ```
 4. **Commit and push** - Push your changes to the repository
 5. **Authenticate with GitHub CLI** - Required for branch protection setup:
@@ -167,7 +167,7 @@ Choose from three popular open-source licenses or add your own during setup:
 | **MPL 2.0** | File-level copyleft | Weak copyleft, file-based |
 
 See [LICENSE-SELECTION.md](LICENSE-SELECTION.md) for detailed comparison and guidance.
-> **Note:** You will be prompted for a license when you run the setup (setup.ps1 or setup.sh)
+> **Note:** You will be prompted for a license when you run the setup (scripts/setup.ps1 or scripts/setup.sh)
 
 ---
 
@@ -182,14 +182,14 @@ The template includes automated setup scripts that handle all configuration:
 > **Note:** If you don't have `pwsh` installed, you can install it using `winget install Microsoft.PowerShell`
 
 ```powershell
-pwsh ./setup.ps1
+pwsh ./scripts/setup.ps1
 ```
 
 #### Bash (macOS/Linux)
 
 ```bash
-chmod +x setup.sh
-./setup.sh
+chmod +x scripts/setup.sh
+./scripts/setup.sh
 ```
 
 The scripts will:
@@ -261,12 +261,12 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 | `TEMPLATE-PLACEHOLDERS.md` | Complete placeholder documentation |
 | `LICENSE-SELECTION.md` | License comparison and selection guide |
 | `REPO-INSTRUCTIONS.md` | Manual setup instructions |
-| `setup.ps1` | PowerShell setup automation |
-| `setup.sh` | Bash setup automation |
+| `scripts/setup.ps1` | PowerShell setup automation |
+| `scripts/setup.sh` | Bash setup automation |
 
 [^1]: Modified during setup process
 
-> **Note:** During setup (setup.ps1 or setup.sh), the template README.md (this file) is deleted and README-TEMPLATE.md is renamed to README.md. The new README.md file will be a customized starter README for your repository, with placeholders replaced by the values you define.
+> **Note:** During setup (scripts/setup.ps1 or scripts/setup.sh), the template README.md (this file) is deleted and README-TEMPLATE.md is renamed to README.md. The new README.md file will be a customized starter README for your repository, with placeholders replaced by the values you define.
 
 ### License Templates
 

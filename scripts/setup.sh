@@ -25,7 +25,7 @@ check_bash_version() {
             echo -e "  \033[1;32mbrew install bash\033[0m" >&2
             echo "" >&2
             echo -e "\033[0;36mThen run this script with the updated bash:\033[0m" >&2
-            echo -e "  \033[1;32m\$(brew --prefix)/bin/bash setup.sh\033[0m" >&2
+            echo -e "  \033[1;32m\$(brew --prefix)/bin/bash scripts/setup.sh\033[0m" >&2
         else
             echo -e "\033[0;36mℹ️  Please upgrade Bash to version ${required_major}.${required_minor} or later.\033[0m" >&2
         fi
@@ -74,7 +74,7 @@ show_banner() {
 
 ╔════════════════════════════════════════════════════════════════╗
 ║                                                                ║
-║        .NET Repository Template - Automated Setup             ║
+║        .NET Repository Template - Automated Setup              ║
 ║                                                                ║
 ╚════════════════════════════════════════════════════════════════╝
 
@@ -213,6 +213,16 @@ main() {
     step "Collecting project information..."
     echo ""
     
+    # Ask if creating NuGet package
+    echo -en "${YELLOW}Will this project be published as a NuGet package? (Y/n): ${NC}" >&2
+    read -r create_nuget_package
+    if [[ -z "$create_nuget_package" ]] || [[ "$create_nuget_package" == "Y" ]] || [[ "$create_nuget_package" == "y" ]]; then
+        is_nuget_package=true
+    else
+        is_nuget_package=false
+    fi
+    echo ""
+    
     PROJECT_NAME=$(read_input \
         "Project Name (e.g., Wolfgang.Extensions.IAsyncEnumerable)" \
         "" \
@@ -225,11 +235,15 @@ main() {
         "High-performance extension methods for IAsyncEnumerable<T>" \
         "true")
     
-    PACKAGE_NAME=$(read_input \
-        "NuGet Package Name" \
-        "$PROJECT_NAME" \
-        "$PROJECT_NAME" \
-        "false")
+    if [[ "$is_nuget_package" == true ]]; then
+        PACKAGE_NAME=$(read_input \
+            "NuGet Package Name" \
+            "$PROJECT_NAME" \
+            "$PROJECT_NAME" \
+            "false")
+    else
+        PACKAGE_NAME="$PROJECT_NAME"
+    fi
     
     GITHUB_REPO_URL=$(read_input \
         "GitHub Repository URL" \
@@ -293,11 +307,15 @@ main() {
         "$YEAR" \
         "false")
     
-    NUGET_STATUS=$(read_input \
-        "NuGet Package Status" \
-        "Coming soon to NuGet.org" \
-        "Available on NuGet.org" \
-        "false")
+    if [[ "$is_nuget_package" == true ]]; then
+        NUGET_STATUS=$(read_input \
+            "NuGet Package Status" \
+            "Coming soon to NuGet.org" \
+            "Available on NuGet.org" \
+            "false")
+    else
+        NUGET_STATUS="Not applicable"
+    fi
     
     # License selection
     step "Selecting License..."
@@ -463,24 +481,127 @@ main() {
     # Step 4: Validation
     info "Step 4/4: Validating changes..."
     
-    local remaining_placeholders=()
+    # Core placeholders that should have been replaced by the script
+    # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in FILES_TO_UPDATE
+    local core_placeholders=(
+        "PROJECT_NAME" "PROJECT_DESCRIPTION" "PACKAGE_NAME"
+        "GITHUB_REPO_URL" "REPO_NAME" "GITHUB_USERNAME"
+        "DOCS_URL" "LICENSE_TYPE"
+        "NUGET_STATUS" "TEMPLATE_REPO_OWNER" "TEMPLATE_REPO_NAME"
+    )
+    
+    # Optional placeholders that users fill in manually as they develop
+    declare -A optional_placeholder_descriptions=(
+        ["QUICK_START_EXAMPLE"]="Code example showing basic usage"
+        ["FEATURES_TABLE"]="Markdown table listing features"
+        ["FEATURE_EXAMPLES"]="Code examples demonstrating features"
+        ["TARGET_FRAMEWORKS"]="List of supported .NET frameworks"
+        ["ACKNOWLEDGMENTS"]="Credits for libraries/tools used"
+    )
+    
+    # Collect placeholders grouped by placeholder name
+    declare -A core_placeholders_by_name
+    declare -A optional_placeholders_by_name
+    
     for file in "${FILES_TO_UPDATE[@]}"; do
         if [[ -f "$file" ]]; then
-            local matches=$(grep -o '{{[A-Z_]*}}' "$file" || true)
-            if [[ -n "$matches" ]]; then
-                remaining_placeholders+=("$file : $matches")
-            fi
+            # Extract placeholder names (without braces)
+            while IFS= read -r placeholder_full; do
+                # Extract just the placeholder name
+                placeholder_name="${placeholder_full//\{/}"
+                placeholder_name="${placeholder_name//\}/}"
+                
+                # Categorize placeholder
+                local is_core=0
+                for core_ph in "${core_placeholders[@]}"; do
+                    if [[ "$placeholder_name" == "$core_ph" ]]; then
+                        is_core=1
+                        break
+                    fi
+                done
+                
+                if [[ $is_core -eq 1 ]]; then
+                    # Add to core placeholders
+                    if [[ -z "${core_placeholders_by_name[$placeholder_name]:-}" ]]; then
+                        core_placeholders_by_name[$placeholder_name]="$file"
+                    else
+                        # Check if file is already in the list (literal string match)
+                        local already_added=0
+                        IFS='|' read -ra existing_files <<< "${core_placeholders_by_name[$placeholder_name]}"
+                        for existing_file in "${existing_files[@]}"; do
+                            if [[ "$existing_file" == "$file" ]]; then
+                                already_added=1
+                                break
+                            fi
+                        done
+                        if [[ $already_added -eq 0 ]]; then
+                            core_placeholders_by_name[$placeholder_name]="${core_placeholders_by_name[$placeholder_name]}|$file"
+                        fi
+                    fi
+                elif [[ -n "${optional_placeholder_descriptions[$placeholder_name]:-}" ]]; then
+                    # Add to optional placeholders
+                    if [[ -z "${optional_placeholders_by_name[$placeholder_name]:-}" ]]; then
+                        optional_placeholders_by_name[$placeholder_name]="$file"
+                    else
+                        # Check if file is already in the list (literal string match)
+                        local already_added=0
+                        IFS='|' read -ra existing_files <<< "${optional_placeholders_by_name[$placeholder_name]}"
+                        for existing_file in "${existing_files[@]}"; do
+                            if [[ "$existing_file" == "$file" ]]; then
+                                already_added=1
+                                break
+                            fi
+                        done
+                        if [[ $already_added -eq 0 ]]; then
+                            optional_placeholders_by_name[$placeholder_name]="${optional_placeholders_by_name[$placeholder_name]}|$file"
+                        fi
+                    fi
+                fi
+            done < <(grep -o '{{[A-Z_]+}}' "$file" || true)
         fi
     done
     
-    if [[ ${#remaining_placeholders[@]} -eq 0 ]]; then
-        success "All required placeholders replaced successfully!"
-    else
-        warn "Some placeholders were not replaced:"
-        for placeholder in "${remaining_placeholders[@]}"; do
-            echo "  - $placeholder"
+    # Report core placeholders that weren't replaced (this is an error)
+    if [[ ${#core_placeholders_by_name[@]} -gt 0 ]]; then
+        error "Error: The following required placeholders were not replaced:"
+        echo ""
+        for placeholder_name in $(echo "${!core_placeholders_by_name[@]}" | tr ' ' '\n' | sort); do
+            echo -e "${RED}  {{$placeholder_name}}${NC}"
+            echo "    Found in:"
+            
+            IFS='|' read -ra files <<< "${core_placeholders_by_name[$placeholder_name]}"
+            for file in "${files[@]}"; do
+                echo "      - $file"
+            done
+            echo ""
         done
-        info "These may be optional content placeholders for you to fill in later."
+        warn "This indicates the script did not replace all required placeholders. Please review the files and replace these manually."
+        echo ""
+        exit 1
+    else
+        success "All required placeholders replaced successfully!"
+    fi
+    
+    # Report optional placeholders that need manual updates
+    if [[ ${#optional_placeholders_by_name[@]} -gt 0 ]]; then
+        echo ""
+        info "Optional content placeholders to fill in as you develop your project:"
+        echo ""
+        
+        for placeholder_name in $(echo "${!optional_placeholders_by_name[@]}" | tr ' ' '\n' | sort); do
+            local description="${optional_placeholder_descriptions[$placeholder_name]}"
+            
+            echo -e "${YELLOW}  {{$placeholder_name}}${NC}"
+            echo "    Description: $description"
+            echo "    Found in:"
+            
+            IFS='|' read -ra files <<< "${optional_placeholders_by_name[$placeholder_name]}"
+            for file in "${files[@]}"; do
+                echo "      - $file"
+            done
+            echo ""
+        done
+        info "See TEMPLATE-PLACEHOLDERS.md for details on each placeholder."
     fi
     
     # Optional cleanup
@@ -488,21 +609,22 @@ main() {
     echo ""
     echo -e "${YELLOW}Remove template-specific files? (y/N)${NC}"
     echo -e "  Files to remove:"
-    echo "    - setup.ps1"
-    echo "    - setup.sh (this script)"
-    echo "    - TEMPLATE-PLACEHOLDERS.md"
+    echo "    - scripts/setup.ps1"
+    echo "    - scripts/setup.sh (this script)"
     echo "    - LICENSE-SELECTION.md"
     echo "    - README-FORMATTING.md"
     echo "    - REPO-INSTRUCTIONS.md"
+    echo ""
+    echo -e "${CYAN}  Note: TEMPLATE-PLACEHOLDERS.md will remain for your reference.${NC}"
+    echo -e "${CYAN}        Delete it manually when you've reviewed it and no longer need it.${NC}"
     echo ""
     echo -en "${YELLOW}Remove template files? (y/N): ${NC}"
     read -r cleanup
     
     if [[ "$cleanup" =~ ^[Yy]$ ]]; then
         FILES_TO_REMOVE=(
-            "setup.ps1"
-            "setup.sh"
-            "TEMPLATE-PLACEHOLDERS.md"
+            "scripts/setup.ps1"
+            "scripts/setup.sh"
             "LICENSE-SELECTION.md"
             "README-FORMATTING.md"
             "REPO-INSTRUCTIONS.md"
