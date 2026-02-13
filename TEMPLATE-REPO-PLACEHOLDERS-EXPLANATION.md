@@ -98,7 +98,7 @@ $corePlaceholders = @(
 )
 ```
 
-**Bash (setup.sh, line 490):**
+**Bash (setup.sh, lines 486-491):**
 ```bash
 local core_placeholders=(
     "PROJECT_NAME" "PROJECT_DESCRIPTION" "PACKAGE_NAME"
