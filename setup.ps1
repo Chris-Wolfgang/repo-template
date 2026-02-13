@@ -192,6 +192,17 @@ function Start-Setup {
     Write-Step "Collecting project information..."
     Write-Host ""
     
+    # Ask if creating NuGet package
+    Write-Host "Will this project be published as a NuGet package? (Y/n): " -NoNewline -ForegroundColor Yellow
+    $createNugetPackage = Read-Host
+    if ($createNugetPackage -and $createNugetPackage -ne 'Y' -and $createNugetPackage -ne 'y') {
+        $isNugetPackage = $false
+    }
+    else {
+        $isNugetPackage = $true
+    }
+    Write-Host ""
+    
     $projectName = Read-Input `
         -Prompt "Project Name (e.g., Wolfgang.Extensions.IAsyncEnumerable)" `
         -Example "MyCompany.MyLibrary" `
@@ -202,10 +213,15 @@ function Start-Setup {
         -Example "High-performance extension methods for IAsyncEnumerable<T>" `
         -Required
     
-    $packageName = Read-Input `
-        -Prompt "NuGet Package Name" `
-        -Default $projectName `
-        -Example $projectName
+    if ($isNugetPackage) {
+        $packageName = Read-Input `
+            -Prompt "NuGet Package Name" `
+            -Default $projectName `
+            -Example $projectName
+    }
+    else {
+        $packageName = $projectName
+    }
     
     $githubRepoUrl = Read-Input `
         -Prompt "GitHub Repository URL" `
@@ -270,10 +286,15 @@ function Start-Setup {
         -Default $currentYear.ToString() `
         -Example $currentYear.ToString()
     
-    $nugetStatus = Read-Input `
-        -Prompt "NuGet Package Status" `
-        -Default "Coming soon to NuGet.org" `
-        -Example "Available on NuGet.org"
+    if ($isNugetPackage) {
+        $nugetStatus = Read-Input `
+            -Prompt "NuGet Package Status" `
+            -Default "Coming soon to NuGet.org" `
+            -Example "Available on NuGet.org"
+    }
+    else {
+        $nugetStatus = "Not applicable"
+    }
     
     # License selection
     Write-Step "Selecting License..."
