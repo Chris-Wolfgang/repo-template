@@ -424,7 +424,7 @@ After creating a repository from this template:
 
 1. **Install GitHub CLI (gh)** - Download from [https://cli.github.com/](https://cli.github.com/)
 2. **Authenticate with GitHub** - Run `gh auth login` and follow the prompts
-   - **Important:** You MUST complete this step before running the setup script
+   - **Important:** You MUST complete this step before running the branch protection script
    - Authentication only needs to be done once per machine
 3. **Run the setup script** from your repository root:
    ```powershell
