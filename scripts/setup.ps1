@@ -337,6 +337,21 @@ function Start-Setup {
     
     Write-Success "Selected: $licenseType License"
     
+    # Solution creation
+    Write-Step "Solution Creation"
+    Write-Host ""
+    Write-Host "Create a default solution? (y/N): " -NoNewline -ForegroundColor Yellow
+    $createSolution = Read-Host
+    
+    $solutionName = ''
+    if ($createSolution -eq 'y' -or $createSolution -eq 'Y') {
+        $solutionName = Read-Input `
+            -Prompt "Solution Name" `
+            -Default $repoName `
+            -Example $repoName `
+            -Required
+    }
+    
     # Template repository info (for REPO-INSTRUCTIONS.md)
     $templateRepoOwner = Read-Input `
         -Prompt "Template Repository Owner" `
@@ -365,6 +380,9 @@ function Start-Setup {
     Write-Host "  NuGet Status:        $nugetStatus"
     Write-Host "  Template Owner:      $templateRepoOwner"
     Write-Host "  Template Name:       $templateRepoName"
+    if ($solutionName) {
+        Write-Host "  Solution Name:       $solutionName"
+    }
     Write-Host ""
     
     Write-Host "Proceed with configuration? (Y/n): " -NoNewline -ForegroundColor Yellow
@@ -395,8 +413,10 @@ function Start-Setup {
     Write-Step "Performing setup..."
     Write-Host ""
     
+    $totalSteps = if ($solutionName) { 5 } else { 4 }
+    
     # Step 1: README swap
-    Write-Info "Step 1/4: Swapping README files..."
+    Write-Info "Step 1/$totalSteps: Swapping README files..."
     if (Test-Path 'README.md') {
         Remove-Item 'README.md' -Force
         Write-Success "Deleted template README.md"
@@ -412,7 +432,7 @@ function Start-Setup {
     }
     
     # Step 2: Replace placeholders
-    Write-Info "Step 2/4: Replacing placeholders in files..."
+    Write-Info "Step 2/$totalSteps: Replacing placeholders in files..."
     
     $filesToUpdate = @(
         'README.md',
@@ -434,7 +454,7 @@ function Start-Setup {
     }
     
     # Step 3: Set up LICENSE
-    Write-Info "Step 3/4: Setting up LICENSE file..."
+    Write-Info "Step 3/$totalSteps: Setting up LICENSE file..."
     
     if (Test-Path $licenseFile) {
         # Read license template
@@ -467,8 +487,117 @@ function Start-Setup {
         exit 1
     }
     
-    # Step 4: Validation
-    Write-Info "Step 4/4: Validating changes..."
+    # Step 4: Create solution (if requested)
+    if ($solutionName) {
+        Write-Info "Step 4/5: Creating solution file..."
+        
+        # Create blank solution
+        $solutionFileName = "$solutionName.slnx"
+        
+        # Build the solution XML structure
+        $xmlBuilder = New-Object System.Text.StringBuilder
+        [void]$xmlBuilder.AppendLine('<Solution>')
+        
+        # Add solution folders for benchmarks, examples, src, tests
+        [void]$xmlBuilder.AppendLine('  <Folder Name="/benchmarks/" />')
+        [void]$xmlBuilder.AppendLine('  <Folder Name="/examples/" />')
+        [void]$xmlBuilder.AppendLine('  <Folder Name="/src/" />')
+        [void]$xmlBuilder.AppendLine('  <Folder Name="/tests/" />')
+        
+        # Build .root folder with all remaining files
+        # Get all files recursively, excluding certain patterns
+        $excludePatterns = @(
+            'obj',
+            'bin',
+            'TestResults',
+            'CoverageReport',
+            'node_modules',
+            '*.user',
+            '*.suo',
+            'benchmarks',
+            'examples',
+            'src',
+            'tests',
+            'docfx_project'
+        )
+        
+        # Get all files in the repository
+        $allFiles = Get-ChildItem -Recurse -File -Force | Where-Object {
+            $filePath = $_.FullName
+            $relativePath = $_.FullName.Substring((Get-Location).Path.Length + 1).Replace('\', '/')
+            
+            # Exclude .git directory specifically (not .github)
+            if ($relativePath -like '.git/*' -or $relativePath -eq '.git') {
+                return $false
+            }
+            
+            # Exclude files matching patterns
+            $shouldExclude = $false
+            foreach ($pattern in $excludePatterns) {
+                if ($relativePath -like "*$pattern*") {
+                    $shouldExclude = $true
+                    break
+                }
+            }
+            -not $shouldExclude
+        }
+        
+        # Group files by directory for .root structure
+        $filesByDirectory = @{}
+        foreach ($file in $allFiles) {
+            $relativePath = $file.FullName.Substring((Get-Location).Path.Length + 1).Replace('\', '/')
+            $directory = Split-Path $relativePath -Parent
+            if ([string]::IsNullOrEmpty($directory)) {
+                $directory = '.'
+            }
+            else {
+                $directory = $directory.Replace('\', '/')
+            }
+            
+            if (-not $filesByDirectory.ContainsKey($directory)) {
+                $filesByDirectory[$directory] = @()
+            }
+            $filesByDirectory[$directory] += $relativePath
+        }
+        
+        # Sort directories to ensure proper nesting order
+        $sortedDirectories = $filesByDirectory.Keys | Sort-Object
+        
+        # Build folder structure
+        foreach ($directory in $sortedDirectories) {
+            if ($directory -eq '.') {
+                # Root files
+                [void]$xmlBuilder.AppendLine('  <Folder Name="/.root/">')
+                foreach ($filePath in ($filesByDirectory[$directory] | Sort-Object)) {
+                    [void]$xmlBuilder.AppendLine("    <File Path=""$filePath"" />")
+                }
+                [void]$xmlBuilder.AppendLine('  </Folder>')
+            }
+            else {
+                # Subdirectory files
+                $folderName = "/.root/$directory/"
+                [void]$xmlBuilder.AppendLine("  <Folder Name=""$folderName"">")
+                foreach ($filePath in ($filesByDirectory[$directory] | Sort-Object)) {
+                    [void]$xmlBuilder.AppendLine("    <File Path=""$filePath"" />")
+                }
+                [void]$xmlBuilder.AppendLine('  </Folder>')
+            }
+        }
+        
+        [void]$xmlBuilder.AppendLine('</Solution>')
+        
+        # Write solution file
+        Set-Content -Path $solutionFileName -Value $xmlBuilder.ToString()
+        Write-Success "Created solution file: $solutionFileName"
+        
+        # Show summary
+        $fileCount = $allFiles.Count
+        $folderCount = $filesByDirectory.Keys.Count
+        Write-Info "Added $fileCount files in $folderCount folders to .root/"
+    }
+    
+    # Step 5: Validation
+    Write-Info "Step $(if ($solutionName) { '5/5' } else { '4/4' }): Validating changes..."
     
     # Core placeholders that should have been replaced by the script
     # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in FILES_TO_UPDATE
