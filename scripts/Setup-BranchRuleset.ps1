@@ -72,7 +72,7 @@ if ($Repository -eq "{{GITHUB_USERNAME}}/{{REPO_NAME}}" -or -not $Repository) {
         Write-Host "✅ Using repository: $Repository" -ForegroundColor Green
     } catch {
         if ($Repository -eq "{{GITHUB_USERNAME}}/{{REPO_NAME}}") {
-            Write-Error "❌ Could not detect repository. Please run the setup script (setup.ps1 or setup.sh) first to replace placeholders, or specify -Repository parameter."
+            Write-Error "❌ Could not detect repository. Please run the setup script (scripts/setup.ps1 or scripts/setup.sh) first to replace placeholders, or specify -Repository parameter."
         } else {
             Write-Error "❌ Could not detect repository. Please run from within a git repository or specify -Repository parameter."
         }

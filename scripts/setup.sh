@@ -25,7 +25,7 @@ check_bash_version() {
             echo -e "  \033[1;32mbrew install bash\033[0m" >&2
             echo "" >&2
             echo -e "\033[0;36mThen run this script with the updated bash:\033[0m" >&2
-            echo -e "  \033[1;32m\$(brew --prefix)/bin/bash setup.sh\033[0m" >&2
+            echo -e "  \033[1;32m\$(brew --prefix)/bin/bash scripts/setup.sh\033[0m" >&2
         else
             echo -e "\033[0;36mℹ️  Please upgrade Bash to version ${required_major}.${required_minor} or later.\033[0m" >&2
         fi
@@ -591,8 +591,8 @@ main() {
     echo ""
     echo -e "${YELLOW}Remove template-specific files? (y/N)${NC}"
     echo -e "  Files to remove:"
-    echo "    - setup.ps1"
-    echo "    - setup.sh (this script)"
+    echo "    - scripts/setup.ps1"
+    echo "    - scripts/setup.sh (this script)"
     echo "    - LICENSE-SELECTION.md"
     echo "    - README-FORMATTING.md"
     echo "    - REPO-INSTRUCTIONS.md"
@@ -605,8 +605,8 @@ main() {
     
     if [[ "$cleanup" =~ ^[Yy]$ ]]; then
         FILES_TO_REMOVE=(
-            "setup.ps1"
-            "setup.sh"
+            "scripts/setup.ps1"
+            "scripts/setup.sh"
             "LICENSE-SELECTION.md"
             "README-FORMATTING.md"
             "REPO-INSTRUCTIONS.md"
