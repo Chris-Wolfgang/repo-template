@@ -674,10 +674,10 @@ main() {
     read -r commit_changes
     if [[ -z "$commit_changes" || "$commit_changes" =~ ^[Yy]$ ]]; then
         # Generate branch name
-        BRANCH_NAME="setup/configure-from-template-$(date +%Y%m%d-%H%M%S)"
+        branch_name="setup/configure-from-template-$(date +%Y%m%d-%H%M%S)"
         
-        info "Step 2/5: Creating branch '$BRANCH_NAME'..."
-        git checkout -b "$BRANCH_NAME"
+        info "Step 2/5: Creating branch '$branch_name'..."
+        git checkout -b "$branch_name"
         if [[ $? -eq 0 ]]; then
             success "Branch created successfully!"
             echo ""
@@ -692,7 +692,7 @@ main() {
                     
                     # Step 4: Push to GitHub
                     info "Step 4/5: Pushing branch to GitHub..."
-                    git push -u origin "$BRANCH_NAME"
+                    git push -u origin "$branch_name"
                     if [[ $? -eq 0 ]]; then
                         success "Branch pushed to GitHub successfully!"
                         echo ""
@@ -701,13 +701,13 @@ main() {
                         info "Step 5/5: Creating pull request..."
                         gh pr create --title "Configure repository from template" --body "This PR contains the initial repository configuration from the template setup script.
 
-Please review the changes, make any necessary adjustments, and merge to main when ready." --base main --head "$BRANCH_NAME"
+Please review the changes, make any necessary adjustments, and merge to main when ready." --base main --head "$branch_name"
                         if [[ $? -eq 0 ]]; then
                             success "Pull request created successfully!"
                             echo ""
                             
                             # Get PR URL
-                            PR_URL=$(gh pr view "$BRANCH_NAME" --json url --jq .url)
+                            pr_url=$(gh pr view "$branch_name" --json url --jq .url)
                             
                             echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
                             echo -e "${CYAN}║                                                                ║${NC}"
@@ -715,40 +715,40 @@ Please review the changes, make any necessary adjustments, and merge to main whe
                             echo -e "${CYAN}║                                                                ║${NC}"
                             echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
                             echo ""
-                            echo -e "${YELLOW}Branch: $BRANCH_NAME${NC}"
-                            echo -e "${YELLOW}Pull Request: $PR_URL${NC}"
+                            echo -e "${YELLOW}Branch: $branch_name${NC}"
+                            echo -e "${YELLOW}Pull Request: $pr_url${NC}"
                             echo ""
                             info "Please review the pull request, make any necessary changes, and merge it to main before continuing with development."
                             echo ""
                         else
                             warning "Failed to create pull request. You can create it manually with:"
-                            echo "  gh pr create --title \"Configure repository from template\" --body \"Initial setup\" --base main --head $BRANCH_NAME"
+                            echo "  gh pr create --title \"Configure repository from template\" --body \"Initial setup\" --base main --head $branch_name"
                             echo ""
                         fi
                     else
                         warning "Push failed. You can push manually later with:"
-                        echo "  git push -u origin $BRANCH_NAME"
+                        echo "  git push -u origin $branch_name"
                         echo ""
                     fi
                 else
                     warning "Commit failed. You can commit manually later with:"
                     echo "  git commit -m \"Configure repository from template\""
-                    echo "  git push -u origin $BRANCH_NAME"
+                    echo "  git push -u origin $branch_name"
                     echo ""
                 fi
             else
                 warning "Git add failed. You can commit manually later with:"
                 echo "  git add ."
                 echo "  git commit -m \"Configure repository from template\""
-                echo "  git push -u origin $BRANCH_NAME"
+                echo "  git push -u origin $branch_name"
                 echo ""
             fi
         else
             warning "Failed to create branch. You can create it manually with:"
-            echo "  git checkout -b $BRANCH_NAME"
+            echo "  git checkout -b $branch_name"
             echo "  git add ."
             echo "  git commit -m \"Configure repository from template\""
-            echo "  git push -u origin $BRANCH_NAME"
+            echo "  git push -u origin $branch_name"
             echo ""
         fi
     else
