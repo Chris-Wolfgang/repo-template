@@ -622,6 +622,19 @@ function Start-Setup {
                 }
                 # Treat as a path segment name and match against segments
                 else {
+            # Split the relative path into segments for precise matching
+            $pathSegments = $relativePath -split '[\\/]+'
+            foreach ($pattern in $excludePatterns) {
+                # Handle simple extension patterns like '*.user' or '*.suo'
+                if ($pattern.StartsWith('*.') -and -not ($pattern.Substring(1) -like '*[*?]*')) {
+                    $ext = [System.IO.Path]::GetExtension($relativePath)
+                    if ($ext -ieq $pattern.Substring(1)) {
+                        $shouldExclude = $true
+                        break
+                    }
+                }
+                else {
+                    # Treat the pattern as a path segment name and match against segments
                     if ($pathSegments -contains $pattern) {
                         $shouldExclude = $true
                         break
