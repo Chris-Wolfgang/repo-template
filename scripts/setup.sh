@@ -661,31 +661,47 @@ main() {
         branch_name="setup/configure-from-template-$(date +%Y%m%d-%H%M%S)"
         
         info "Step 1/4: Creating branch '$branch_name'..."
-        git checkout -b "$branch_name"
-        if [[ $? -eq 0 ]]; then
+        if git checkout -b "$branch_name"; then
             success "Branch created successfully!"
             echo ""
             
             info "Step 2/4: Committing changes..."
-            git add .
-            if [[ $? -eq 0 ]]; then
-                git commit -m "Configure repository from template"
-                if [[ $? -eq 0 ]]; then
+            if git add .; then
+                if git commit -m "Configure repository from template"; then
                     success "Changes committed successfully!"
                     echo ""
                     
                     # Step 4: Push to GitHub
                     info "Step 3/4: Pushing branch to GitHub..."
-                    git push -u origin "$branch_name"
-                    if [[ $? -eq 0 ]]; then
+                    if git push -u origin "$branch_name"; then
                         success "Branch pushed to GitHub successfully!"
                         echo ""
                         
                         # Step 5: Create Pull Request
                         info "Step 4/4: Creating pull request..."
-                        gh pr create --title "Configure repository from template" --body "This PR contains the initial repository configuration from the template setup script.
+                        if gh pr create --title "Configure repository from template" --body "This PR contains the initial repository configuration from the template setup script.
 
-Please review the changes, make any necessary adjustments, and merge to main when ready." --base main --head "$branch_name"
+Please review the changes, make any necessary adjustments, and merge to main when ready." --base main --head "$branch_name"; then
+                            success "Pull request created successfully!"
+                        else
+                            echo -e "${RED:-}❌ Error: Failed to create pull request. You can create one manually from branch '$branch_name'.${NC:-}" >&2
+                        fi
+                    else
+                        echo -e "${RED:-}❌ Error: Failed to push branch '$branch_name' to origin. Please check your Git remote and network connection, then try again.${NC:-}" >&2
+                        exit 1
+                    fi
+                else
+                    echo -e "${RED:-}❌ Error: Failed to commit changes. Please resolve any issues and try committing manually.${NC:-}" >&2
+                    exit 1
+                fi
+            else
+                echo -e "${RED:-}❌ Error: Failed to add files to the commit. Please check your working directory and try again.${NC:-}" >&2
+                exit 1
+            fi
+        else
+            echo -e "${RED:-}❌ Error: Failed to create branch '$branch_name'. Please ensure your repository is initialized and try again.${NC:-}" >&2
+            exit 1
+        fi
                         if [[ $? -eq 0 ]]; then
                             success "Pull request created successfully!"
                             echo ""
