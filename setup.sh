@@ -520,7 +520,7 @@ main() {
                         fi
                     fi
                 fi
-            done < <(grep -o '{{[A-Z_]*}}' "$file" || true)
+            done < <(grep -o '{{[A-Z_]+}}' "$file" || true)
         fi
     done
     
