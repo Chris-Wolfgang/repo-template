@@ -539,6 +539,8 @@ main() {
             echo ""
         done
         warn "This indicates the script did not replace all required placeholders. Please review the files and replace these manually."
+        echo ""
+        exit 1
     else
         success "All required placeholders replaced successfully!"
     fi
