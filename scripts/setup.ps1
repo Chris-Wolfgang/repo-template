@@ -631,10 +631,10 @@ function Start-Setup {
     $commitChanges = Read-Host
     if ([string]::IsNullOrEmpty($commitChanges) -or $commitChanges -eq 'Y' -or $commitChanges -eq 'y') {
         # Generate branch name
-        $BranchName = "setup/configure-from-template-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+        $branchName = "setup/configure-from-template-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
         
-        Write-Info "Step 2/5: Creating branch '$BranchName'..."
-        git checkout -b $BranchName
+        Write-Info "Step 2/5: Creating branch '$branchName'..."
+        git checkout -b $branchName
         if ($LASTEXITCODE -eq 0) {
             Write-Success "Branch created successfully!"
             Write-Host ""
@@ -649,20 +649,20 @@ function Start-Setup {
                     
                     # Step 4: Push to GitHub
                     Write-Info "Step 4/5: Pushing branch to GitHub..."
-                    git push -u origin $BranchName
+                    git push -u origin $branchName
                     if ($LASTEXITCODE -eq 0) {
                         Write-Success "Branch pushed to GitHub successfully!"
                         Write-Host ""
                         
                         # Step 5: Create Pull Request
                         Write-Info "Step 5/5: Creating pull request..."
-                        gh pr create --title "Configure repository from template" --body "This PR contains the initial repository configuration from the template setup script.`n`nPlease review the changes, make any necessary adjustments, and merge to main when ready." --base main --head $BranchName
+                        gh pr create --title "Configure repository from template" --body "This PR contains the initial repository configuration from the template setup script.`n`nPlease review the changes, make any necessary adjustments, and merge to main when ready." --base main --head $branchName
                         if ($LASTEXITCODE -eq 0) {
                             Write-Success "Pull request created successfully!"
                             Write-Host ""
                             
                             # Get PR URL
-                            $PrUrl = gh pr view $BranchName --json url --jq .url
+                            $prUrl = gh pr view $branchName --json url --jq .url
                             
                             Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
                             Write-Host "║                                                                ║" -ForegroundColor Cyan
@@ -670,28 +670,28 @@ function Start-Setup {
                             Write-Host "║                                                                ║" -ForegroundColor Cyan
                             Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
                             Write-Host ""
-                            Write-Host "Branch: $BranchName" -ForegroundColor Yellow
-                            Write-Host "Pull Request: $PrUrl" -ForegroundColor Yellow
+                            Write-Host "Branch: $branchName" -ForegroundColor Yellow
+                            Write-Host "Pull Request: $prUrl" -ForegroundColor Yellow
                             Write-Host ""
                             Write-Info "Please review the pull request, make any necessary changes, and merge it to main before continuing with development."
                             Write-Host ""
                         }
                         else {
                             Write-TemplateWarning "Failed to create pull request. You can create it manually with:"
-                            Write-Host "  gh pr create --title ""Configure repository from template"" --body ""Initial setup"" --base main --head $BranchName" -ForegroundColor Gray
+                            Write-Host "  gh pr create --title ""Configure repository from template"" --body ""Initial setup"" --base main --head $branchName" -ForegroundColor Gray
                             Write-Host ""
                         }
                     }
                     else {
                         Write-TemplateWarning "Push failed. You can push manually later with:"
-                        Write-Host "  git push -u origin $BranchName" -ForegroundColor Gray
+                        Write-Host "  git push -u origin $branchName" -ForegroundColor Gray
                         Write-Host ""
                     }
                 }
                 else {
                     Write-TemplateWarning "Commit failed. You can commit manually later with:"
                     Write-Host "  git commit -m ""Configure repository from template""" -ForegroundColor Gray
-                    Write-Host "  git push -u origin $BranchName" -ForegroundColor Gray
+                    Write-Host "  git push -u origin $branchName" -ForegroundColor Gray
                     Write-Host ""
                 }
             }
@@ -699,16 +699,16 @@ function Start-Setup {
                 Write-TemplateWarning "Git add failed. You can commit manually later with:"
                 Write-Host "  git add ." -ForegroundColor Gray
                 Write-Host "  git commit -m ""Configure repository from template""" -ForegroundColor Gray
-                Write-Host "  git push -u origin $BranchName" -ForegroundColor Gray
+                Write-Host "  git push -u origin $branchName" -ForegroundColor Gray
                 Write-Host ""
             }
         }
         else {
             Write-TemplateWarning "Failed to create branch. You can create it manually with:"
-            Write-Host "  git checkout -b $BranchName" -ForegroundColor Gray
+            Write-Host "  git checkout -b $branchName" -ForegroundColor Gray
             Write-Host "  git add ." -ForegroundColor Gray
             Write-Host "  git commit -m ""Configure repository from template""" -ForegroundColor Gray
-            Write-Host "  git push -u origin $BranchName" -ForegroundColor Gray
+            Write-Host "  git push -u origin $branchName" -ForegroundColor Gray
             Write-Host ""
         }
     }
