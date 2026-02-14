@@ -348,6 +348,33 @@ function Start-Setup {
         -Default "repo-template" `
         -Example "my-template"
     
+    # Solution creation
+    Write-Step "Solution Creation"
+    Write-Host ""
+    Write-Host "Create a default solution? (y/N): " -NoNewline -ForegroundColor Yellow
+    $createSolution = Read-Host
+    
+    $solutionName = ''
+    if ($createSolution -eq 'y' -or $createSolution -eq 'Y') {
+        $isValidSolutionName = $false
+        while (-not $isValidSolutionName) {
+            $solutionName = Read-Input `
+                -Prompt "Solution Name" `
+                -Default $repoName `
+                -Example $repoName `
+                -Required
+
+            $invalidFileNameChars = [System.IO.Path]::GetInvalidFileNameChars()
+            if ($solutionName.IndexOfAny($invalidFileNameChars) -ne -1) {
+                $invalidCharsDisplay = -join $invalidFileNameChars
+                Write-Error "Solution name contains invalid characters. Please avoid any of: $invalidCharsDisplay" -ErrorAction Continue
+            }
+            else {
+                $isValidSolutionName = $true
+            }
+        }
+    }
+    
     # Summary
     Write-Step "Configuration Summary"
     Write-Host ""
@@ -365,6 +392,9 @@ function Start-Setup {
     Write-Host "  NuGet Status:        $nugetStatus"
     Write-Host "  Template Owner:      $templateRepoOwner"
     Write-Host "  Template Name:       $templateRepoName"
+    if ($solutionName) {
+        Write-Host "  Solution Name:       $solutionName"
+    }
     Write-Host ""
     
     Write-Host "Proceed with configuration? (Y/n): " -NoNewline -ForegroundColor Yellow
@@ -395,8 +425,10 @@ function Start-Setup {
     Write-Step "Performing setup..."
     Write-Host ""
     
+    $totalSteps = if ($solutionName) { 5 } else { 4 }
+    
     # Step 1: README swap
-    Write-Info "Step 1/4: Swapping README files..."
+    Write-Info "Step 1/$totalSteps: Swapping README files..."
     if (Test-Path 'README.md') {
         Remove-Item 'README.md' -Force
         Write-Success "Deleted template README.md"
@@ -412,7 +444,7 @@ function Start-Setup {
     }
     
     # Step 2: Replace placeholders
-    Write-Info "Step 2/4: Replacing placeholders in files..."
+    Write-Info "Step 2/$totalSteps: Replacing placeholders in files..."
     
     $filesToUpdate = @(
         'README.md',
@@ -434,7 +466,7 @@ function Start-Setup {
     }
     
     # Step 3: Set up LICENSE
-    Write-Info "Step 3/4: Setting up LICENSE file..."
+    Write-Info "Step 3/$totalSteps: Setting up LICENSE file..."
     
     if (Test-Path $licenseFile) {
         # Read license template
@@ -467,8 +499,226 @@ function Start-Setup {
         exit 1
     }
     
-    # Step 4: Validation
-    Write-Info "Step 4/4: Validating changes..."
+    # Step 4: Create solution (if requested)
+    if ($solutionName) {
+        Write-Info "Step 4/$totalSteps: Creating solution file..."
+        
+        # Create blank solution in .slnx format
+        # Note: .slnx format requires Visual Studio 2022 version 17.10 or later
+        $solutionFileName = "$solutionName.slnx"
+        
+        # Build the solution XML structure
+        $xmlBuilder = New-Object System.Text.StringBuilder
+        [void]$xmlBuilder.AppendLine('<Solution>')
+        
+        # Build .root folder with all remaining files
+        # Exclude files and directories that have their own solution folders or are build artifacts
+        # Note: .git directory is excluded separately below
+        $excludePatterns = @(
+            'obj',                # Build output
+            'bin',                # Build output
+            'TestResults',        # Test artifacts
+            'CoverageReport',     # Coverage artifacts
+            'node_modules',       # Node dependencies
+            '*.user',             # User-specific files
+            '*.suo',              # Visual Studio user options
+            '*.sln',              # Solution files (prevent including solution in itself)
+            '*.slnx',             # Solution files (prevent including solution in itself)
+            '*.env',              # Environment files (may contain secrets)
+            '*.key',              # Key files (may contain secrets)
+            '*.pem',              # Certificate files (may contain secrets)
+            'secrets*',           # Secret files
+            'benchmarks',         # Has its own solution folder
+            'examples',           # Has its own solution folder
+            'src',                # Has its own solution folder
+            'tests',              # Has its own solution folder
+            'docfx_project'       # Documentation source (built separately)
+        )
+        
+        # Get current directory for relative path calculation
+        $currentDir = Get-Location
+        
+        # Helper function to get relative path safely
+        function Get-SafeRelativePath {
+            param($FullPath)
+            try {
+                # Use Resolve-Path with -Relative for safe relative path calculation
+                $rel = Resolve-Path -Path $FullPath -Relative -ErrorAction Stop
+                # Remove leading .\ or ./ prefix properly
+                if ($rel.StartsWith('.\')) {
+                    $rel = $rel.Substring(2)
+                }
+                elseif ($rel.StartsWith('./')) {
+                    $rel = $rel.Substring(2)
+                }
+                return $rel.Replace('\', '/')
+            }
+            catch {
+                # Fallback: manual calculation
+                $path = $FullPath
+                if ($path.StartsWith($currentDir.Path, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $baseLength = $currentDir.Path.Length
+                    # Ensure we only strip the base path when it's a complete directory component
+                    if ($path.Length -eq $baseLength -or
+                        ($path.Length -gt $baseLength -and
+                         ($path[$baseLength] -eq [System.IO.Path]::DirectorySeparatorChar -or
+                          $path[$baseLength] -eq [System.IO.Path]::AltDirectorySeparatorChar))) {
+                        # Remove the base path and any leading separator
+                        $path = $path.Substring($baseLength)
+                        if ($path.StartsWith('\') -or $path.StartsWith('/')) {
+                            $path = $path.Substring(1)
+                        }
+                    }
+                }
+                return $path.Replace('\', '/')
+            }
+        }
+        
+        # Get all files in the repository
+        $allFiles = Get-ChildItem -Recurse -File -Force | Where-Object {
+            # Get relative path safely
+            $relativePath = Get-SafeRelativePath $_.FullName
+            
+            # Exclude files under .git directory specifically (not .github)
+            if ($relativePath -like '.git/*') {
+                return $false
+            }
+            
+            # Exclude hidden files (starting with .) except those in .github directory
+            $fileName = [System.IO.Path]::GetFileName($relativePath)
+            $isInGitHubDir = $relativePath -like '.github/*'
+            if ($fileName.StartsWith('.') -and -not $isInGitHubDir) {
+                return $false
+            }
+            
+            # Exclude files matching patterns using precise matching
+            $shouldExclude = $false
+            $pathSegments = $relativePath -split '[\\/]+'
+            $fileExtension = [System.IO.Path]::GetExtension($relativePath)
+            
+            foreach ($pattern in $excludePatterns) {
+                # Handle extension patterns like '*.user' or '*.suo'
+                if ($pattern.StartsWith('*.')) {
+                    $ext = $pattern.Substring(1)
+                    if ($fileExtension -ieq $ext) {
+                        $shouldExclude = $true
+                        break
+                    }
+                }
+                # Handle wildcard patterns like 'secrets*'
+                elseif ($pattern.Contains('*')) {
+                    if ($relativePath -like $pattern) {
+                        $shouldExclude = $true
+                        break
+                    }
+                }
+                # Treat as a path segment name and match against segments
+                else {
+            # Split the relative path into segments for precise matching
+            $pathSegments = $relativePath -split '[\\/]+'
+            foreach ($pattern in $excludePatterns) {
+                # Handle simple extension patterns like '*.user' or '*.suo'
+                if ($pattern.StartsWith('*.') -and -not ($pattern.Substring(1) -like '*[*?]*')) {
+                    $ext = [System.IO.Path]::GetExtension($relativePath)
+                    if ($ext -ieq $pattern.Substring(1)) {
+                        $shouldExclude = $true
+                        break
+                    }
+                }
+                else {
+                    # Treat the pattern as a path segment name and match against segments
+                    if ($pathSegments -contains $pattern) {
+                        $shouldExclude = $true
+                        break
+                    }
+                }
+            }
+            -not $shouldExclude
+        }
+        
+        # Group files by directory for .root structure
+        # Cache relative paths to avoid recalculating
+        $filesByDirectory = @{}
+        $relativePathCache = @{}
+        
+        foreach ($file in $allFiles) {
+            # Get relative path safely (use cached if available)
+            if (-not $relativePathCache.ContainsKey($file.FullName)) {
+                $relativePathCache[$file.FullName] = Get-SafeRelativePath $file.FullName
+            }
+            $relativePath = $relativePathCache[$file.FullName]
+            $directory = Split-Path $relativePath -Parent
+            if ([string]::IsNullOrEmpty($directory)) {
+                $directory = '.'
+            }
+            else {
+                $directory = $directory.Replace('\', '/')
+            }
+            
+            if (-not $filesByDirectory.ContainsKey($directory)) {
+                $filesByDirectory[$directory] = @()
+            }
+            $filesByDirectory[$directory] += $relativePath
+        }
+        
+        # Sort directories to ensure proper nesting order
+        $sortedDirectories = $filesByDirectory.Keys | Sort-Object
+        
+        # Build folder structure with XML escaping
+        foreach ($directory in $sortedDirectories) {
+            if ($directory -eq '.') {
+                # Root files
+                [void]$xmlBuilder.AppendLine('  <Folder Name="/.root/">')
+                foreach ($filePath in ($filesByDirectory[$directory] | Sort-Object)) {
+                    $escapedPath = [System.Security.SecurityElement]::Escape($filePath)
+                    [void]$xmlBuilder.AppendLine("    <File Path=""$escapedPath"" />")
+                }
+                [void]$xmlBuilder.AppendLine('  </Folder>')
+            }
+            else {
+                # Subdirectory files
+                $folderName = "/.root/$directory/"
+                $escapedFolderName = [System.Security.SecurityElement]::Escape($folderName)
+                [void]$xmlBuilder.AppendLine("  <Folder Name=""$escapedFolderName"">")
+                foreach ($filePath in ($filesByDirectory[$directory] | Sort-Object)) {
+                    $escapedPath = [System.Security.SecurityElement]::Escape($filePath)
+                    [void]$xmlBuilder.AppendLine("    <File Path=""$escapedPath"" />")
+                }
+                [void]$xmlBuilder.AppendLine('  </Folder>')
+            }
+        }
+        
+        # Add solution folders for benchmarks, examples, src, tests (only if directories exist)
+        # These are added after .root to prioritize configuration files in solution explorer
+        $solutionFolders = @('benchmarks', 'examples', 'src', 'tests')
+        foreach ($folder in $solutionFolders) {
+            if (Test-Path -Path $folder -PathType Container) {
+                [void]$xmlBuilder.AppendLine("  <Folder Name=""/$folder/"" />")
+            }
+        }
+        
+        [void]$xmlBuilder.AppendLine('</Solution>')
+        
+        # Write solution file with error handling
+        try {
+            Set-Content -Path $solutionFileName -Value $xmlBuilder.ToString() -ErrorAction Stop
+            Write-Success "Created solution file: $solutionFileName"
+            
+            # Show summary
+            $fileCount = $allFiles.Count
+            $folderCount = $filesByDirectory.Keys.Count
+            Write-Info "Added $fileCount files in $folderCount folders to .root/"
+        }
+        catch {
+            Write-TemplateWarning "Failed to create solution file '$solutionFileName'. Repository setup will continue."
+            Write-TemplateWarning "Error: $($_.Exception.Message)"
+            # Clear solutionFileName so Next Steps won't reference it
+            $solutionFileName = ''
+        }
+    }
+    
+    # Step 5: Validation
+    Write-Info "Step $totalSteps/$totalSteps: Validating changes..."
     
     # Core placeholders that should have been replaced by the script
     # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in FILES_TO_UPDATE
@@ -740,8 +990,14 @@ function Start-Setup {
     Write-Host "1. Configure branch protection (see REPO-INSTRUCTIONS.md if kept)" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "2. Start developing!" -ForegroundColor Yellow
-    Write-Host "   dotnet new sln -n $projectName" -ForegroundColor Gray
-    Write-Host "   # Add your projects to src/ and tests/" -ForegroundColor Gray
+    if ($solutionName) {
+        Write-Host "   # Solution file created: $solutionName.slnx" -ForegroundColor Gray
+        Write-Host "   # Add your projects to src/ and tests/" -ForegroundColor Gray
+    }
+    else {
+        Write-Host "   dotnet new sln -n $projectName" -ForegroundColor Gray
+        Write-Host "   # Add your projects to src/ and tests/" -ForegroundColor Gray
+    }
     Write-Host ""
     
     Write-Info "Your repository is now configured and ready for development!"
