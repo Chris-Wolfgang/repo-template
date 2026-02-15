@@ -100,14 +100,27 @@ jobs:
 
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
         run: |
+          # Find all .NET projects (to determine if this is an empty template)
+          all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
+          
           # Find all test projects
           test_projects=$(find ./tests -type f -name "*.csproj")
           
           if [ -z "$test_projects" ]; then
-            echo "⚠️ No test projects found in ./tests directory"
-            echo "This is expected for a new repository. Skipping tests."
-            echo "Add test projects to enable test execution."
-            exit 0
+            # No test projects found - check if this is an empty template
+            if [ -z "$all_projects" ]; then
+              echo "⚠️ No .NET projects found in repository"
+              echo "This is expected for a template repository. Skipping tests."
+              exit 0
+            else
+              echo "❌ ERROR: .NET projects exist but no test projects found"
+              echo ""
+              echo "This repository has .NET projects but no tests."
+              echo "Quality gate REQUIRES test projects with minimum coverage."
+              echo ""
+              echo "Please add test projects to ./tests directory."
+              exit 1
+            fi
           fi
           
           echo "=========================================="
@@ -144,9 +157,18 @@ jobs:
         run: |
           # Check if TestResults directory exists and has coverage files
           if [ ! -d "TestResults" ] || [ -z "$(find TestResults -name 'coverage.cobertura.xml' 2>/dev/null)" ]; then
-            echo "⚠️ No test results found - skipping coverage report generation"
-            echo "This is expected when no test projects exist in the repository."
-            exit 0
+            # Find all .NET projects to determine if this is an empty template
+            all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
+            
+            if [ -z "$all_projects" ]; then
+              echo "⚠️ No test results found - skipping coverage report generation"
+              echo "This is expected for a template repository."
+              exit 0
+            else
+              echo "❌ ERROR: Tests did not produce coverage results"
+              echo "This indicates a problem with the test execution."
+              exit 1
+            fi
           fi
           
           reportgenerator \
@@ -157,10 +179,18 @@ jobs:
       - name: Enforce 90% coverage threshold
         run: |
           if [ ! -f CoverageReport/Summary.txt ]; then
-            echo "⚠️ Coverage report not found - skipping coverage threshold check"
-            echo "This is expected when no test projects exist in the repository."
-            echo "Add test projects to enable coverage validation."
-            exit 0
+            # Find all .NET projects to determine if this is an empty template
+            all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
+            
+            if [ -z "$all_projects" ]; then
+              echo "⚠️ Coverage report not found - skipping coverage threshold check"
+              echo "This is expected for a template repository."
+              exit 0
+            else
+              echo "❌ ERROR: Coverage report not found"
+              echo "This indicates a problem with coverage generation."
+              exit 1
+            fi
           fi
 
           echo "Coverage Summary:"
@@ -285,13 +315,27 @@ jobs:
       - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
         run: |
+          # Find all .NET projects (to determine if this is an empty template)
+          $allProjects = Get-ChildItem -Path . -Recurse -Include *.csproj,*.vbproj,*.fsproj
+          
+          # Find test projects
           $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
           
           if ($testProjects.Count -eq 0) {
-            Write-Host "⚠️ No test projects found in ./tests directory"
-            Write-Host "This is expected for a new repository. Skipping tests."
-            Write-Host "Add test projects to enable test execution."
-            exit 0
+            # No test projects found - check if this is an empty template
+            if ($allProjects.Count -eq 0) {
+              Write-Host "⚠️ No .NET projects found in repository" -ForegroundColor Yellow
+              Write-Host "This is expected for a template repository. Skipping tests." -ForegroundColor Yellow
+              exit 0
+            } else {
+              Write-Host "❌ ERROR: .NET projects exist but no test projects found" -ForegroundColor Red
+              Write-Host ""
+              Write-Host "This repository has .NET projects but no tests." -ForegroundColor Red
+              Write-Host "Quality gate REQUIRES test projects with minimum coverage." -ForegroundColor Red
+              Write-Host ""
+              Write-Host "Please add test projects to ./tests directory." -ForegroundColor Red
+              exit 1
+            }
           }
           
           Write-Host "==========================================" -ForegroundColor Cyan
@@ -391,14 +435,27 @@ jobs:
 
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
         run: |
+          # Find all .NET projects (to determine if this is an empty template)
+          all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
+          
           # Find all test projects
           test_projects=$(find ./tests -type f -name "*.csproj")
           
           if [ -z "$test_projects" ]; then
-            echo "⚠️ No test projects found in ./tests directory"
-            echo "This is expected for a new repository. Skipping tests."
-            echo "Add test projects to enable test execution."
-            exit 0
+            # No test projects found - check if this is an empty template
+            if [ -z "$all_projects" ]; then
+              echo "⚠️ No .NET projects found in repository"
+              echo "This is expected for a template repository. Skipping tests."
+              exit 0
+            else
+              echo "❌ ERROR: .NET projects exist but no test projects found"
+              echo ""
+              echo "This repository has .NET projects but no tests."
+              echo "Quality gate REQUIRES test projects with minimum coverage."
+              echo ""
+              echo "Please add test projects to ./tests directory."
+              exit 1
+            fi
           fi
           
           echo "=========================================="
