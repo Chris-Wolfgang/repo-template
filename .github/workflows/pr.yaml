@@ -279,7 +279,9 @@ jobs:
           }
           
           dotnet build --no-restore --configuration Release
-
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
       - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
         run: |
