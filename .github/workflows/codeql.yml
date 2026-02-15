@@ -55,7 +55,7 @@ jobs:
         Write-Host "" -ForegroundColor Cyan
         if ($csharpFileCount -eq 0) {
           Write-Host "⚠️  No C# source code found." -ForegroundColor Yellow
-          Write-Host "   This appears to be a template repository or a repository without C# code." -ForegroundColor Yellow
+          Write-Host "   No projects found in the src folder or other standard directories." -ForegroundColor Yellow
           Write-Host "   CodeQL analysis will be SKIPPED, but the job will complete successfully." -ForegroundColor Yellow
           Write-Host "   This ensures branch protection requirements are met." -ForegroundColor Yellow
           echo "has-csharp=false" >> $env:GITHUB_OUTPUT
