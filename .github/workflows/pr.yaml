@@ -84,7 +84,7 @@ jobs:
 
       - name: Restore and build (exclude .NET Framework-only projects)
         run: |
-          echo "Finding all projects in solution..."
+          echo "Scanning repository for .NET project files..."
           
           # Filter out projects that ONLY target .NET Framework 4.x
           # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
@@ -415,7 +415,7 @@ jobs:
 
       - name: Restore and build (exclude .NET Framework-only projects)
         run: |
-          echo "Finding all projects in solution..."
+          echo "Finding all tracked .NET project files (via git ls-files)..."
           
           # Filter out projects that ONLY target .NET Framework 4.x
           # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
@@ -469,7 +469,7 @@ jobs:
             
             # Extract target frameworks from the project file
             # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$proj" | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            frameworks=$(sed -n -E 's/.*<TargetFrameworks?>[[:space:]]*>([^<]+)<\/TargetFrameworks?>.*/\1/p' "$proj" | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⚠️  No macOS ARM64-compatible frameworks found in $proj"
