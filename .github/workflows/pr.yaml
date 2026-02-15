@@ -101,15 +101,26 @@ jobs:
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
         id: run-tests
         run: |
+          # Check if there are source projects that need testing
+          src_projects=$(find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) 2>/dev/null || true)
+          
           # Find all test projects
           test_projects=$(find ./tests -type f -name "*.csproj")
           
-          if [ -z "$test_projects" ]; then
-            echo "⚠️ No test projects found in ./tests directory"
-            echo "This is expected for a new repository. Skipping tests."
-            echo "Add test projects to enable test execution."
+          # If src folder is empty, tests are optional
+          if [ -z "$src_projects" ]; then
+            echo "ℹ️ No source projects found in ./src directory"
+            echo "Tests and coverage are not required for repositories without source code."
             echo "tests-skipped=true" >> $GITHUB_OUTPUT
             exit 0
+          fi
+          
+          # If src has projects but no tests exist, this is an error
+          if [ -z "$test_projects" ]; then
+            echo "❌ ERROR: Source projects exist but no test projects found"
+            echo "Source projects in ./src require corresponding test projects in ./tests"
+            echo "Add test projects to cover your source code."
+            exit 1
           fi
           
           echo "tests-skipped=false" >> $GITHUB_OUTPUT
@@ -164,8 +175,8 @@ jobs:
             # Check if tests were intentionally skipped
             if [ "${{ steps.run-tests.outputs.tests-skipped }}" = "true" ]; then
               echo "⚠️ Coverage report not found - skipping coverage threshold check"
-              echo "This is expected when no test projects exist in the repository."
-              echo "Add test projects to enable coverage validation."
+              echo "This is expected when no source projects exist in the ./src directory."
+              echo "Add source projects to ./src to enable coverage validation."
               exit 0
             else
               echo "❌ ERROR: Coverage report is missing but tests were expected to run"
