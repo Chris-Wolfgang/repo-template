@@ -38,15 +38,15 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
       
-      - name: Check for .csproj files
+      - name: Check for .NET project files
         id: check-projects
         run: |
-          if git ls-files '*.csproj' | grep -q .; then
+          if git ls-files '*.csproj' '*.vbproj' '*.fsproj' | grep -q .; then
             echo "has-projects=true" >> $GITHUB_OUTPUT
-            echo "✅ Found .csproj files - .NET build and test jobs will run"
+            echo "✅ Found .NET project files - .NET build and test jobs will run"
           else
             echo "has-projects=false" >> $GITHUB_OUTPUT
-            echo "ℹ️  No .csproj files found - skipping .NET build and test jobs"
+            echo "ℹ️  No .NET project files found - skipping .NET build and test jobs"
           fi
 
   # ============================================================================
@@ -82,44 +82,85 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Restore and build (exclude .NET Framework 4.x projects)
+      - name: Restore and build (exclude .NET Framework-only projects)
         run: |
-          echo "Finding all projects in solution..."
+          echo "Finding .NET project files in repository (via find command)..."
           
-          # Get list of all projects from solution file
-          if [ -f "*.sln" ]; then
-            sln_file=$(ls *.sln | head -n 1)
-            echo "Using solution file: $sln_file"
-          fi
+          # Filter out projects that ONLY target .NET Framework 4.x
+          # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
+          projects=()
+          project_found=false
           
-          # Find all .csproj, .vbproj, and .fsproj files
-          # Exclude those with 'dotnet4' or 'DotNet4' in the path (case-insensitive)
-          projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4")
+          while IFS= read -r -d '' proj; do
+            project_found=true
+            # Check if project has any .NET 5+ target framework
+            # Look for: net5.0, net6.0, net7.0, net8.0, net9.0, net10.0, or netcoreapp, netstandard
+            if grep -qE '<TargetFramework[s]?>.*(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp|netstandard)' "$proj"; then
+              projects+=("$proj")
+              echo "✓ Including: $proj (has .NET 5+ or .NET Core target)"
+            else
+              echo "⊘ Excluding: $proj (Framework-only, incompatible with Linux)"
+            fi
+          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
           
-          if [ -z "$projects" ]; then
-            echo "No projects found!"
+          if [ "$project_found" = false ]; then
+            echo "❌ No .NET projects found."
+            echo "This should not occur as detect-projects already verified project existence."
             exit 1
           fi
           
+          if [ ${#projects[@]} -eq 0 ]; then
+            echo "❌ No compatible .NET projects found."
+            echo "All projects target only .NET Framework 4.x, which is incompatible with Linux."
+            exit 1
+          fi
+          
+          echo ""
           echo "=========================================="
-          echo "Projects to build (excluding .NET Framework 4.x):"
+          echo "Projects to build:"
           echo "=========================================="
-          echo "$projects"
+          printf '%s\n' "${projects[@]}"
           echo ""
           
           # Restore each project
           echo "Restoring projects..."
-          for proj in $projects; do
+          for proj in "${projects[@]}"; do
             echo "Restoring: $proj"
             dotnet restore "$proj" || exit 1
           done
           
           echo ""
           echo "Building projects..."
-          # Build each project
-          for proj in $projects; do
+          # Build each project, handling multi-targeting projects
+          # For multi-targeting projects, build only Linux-compatible frameworks (.NET 5.0+, .NET Core, .NET Standard)
+          for proj in "${projects[@]}"; do
             echo "Building: $proj"
-            dotnet build "$proj" --no-restore --configuration Release || exit 1
+            
+            # Extract target frameworks from the project file
+            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
+            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$proj" | tr ';' '\n' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp[0-9.]+|netstandard[0-9.]+)$' || true)
+            
+            if [ -z "$frameworks" ]; then
+              echo "⚠️  No Linux-compatible frameworks found in $proj"
+              continue
+            fi
+            
+            # Check if this is a multi-targeting project
+            framework_count=$(echo "$frameworks" | wc -l)
+            
+            if [ "$framework_count" -eq 1 ]; then
+              # Single target framework - build normally
+              echo "  Target framework: $frameworks"
+              dotnet build "$proj" --no-restore --configuration Release || exit 1
+            else
+              # Multi-targeting project - build each compatible framework separately
+              echo "  Target frameworks (multi-targeting): $(echo "$frameworks" | tr '\n' ' ')"
+              while IFS= read -r fw; do
+                [ -z "$fw" ] && continue
+                echo "  Building framework: $fw"
+                dotnet build "$proj" --no-restore --configuration Release --framework "$fw" || exit 1
+              done <<< "$frameworks"
+            fi
           done
           
           echo ""
@@ -127,10 +168,10 @@ jobs:
 
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
         run: |
-          # Find all test projects
-          test_projects=$(find ./tests -type f -name "*.csproj")
+          # Find all test projects (C#, VB.NET, F#)
+          mapfile -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
           
-          if [ -z "$test_projects" ]; then
+          if [ ${#test_projects[@]} -eq 0 ]; then
             echo "❌ No test projects found in ./tests directory!"
             exit 1
           fi
@@ -138,18 +179,30 @@ jobs:
           echo "=========================================="
           echo "Found test projects:"
           echo "=========================================="
-          echo "$test_projects"
+          printf '%s\n' "${test_projects[@]}"
           echo ""
           
-          # Test each framework individually to ensure all are tested
-          frameworks=(net5.0 net6.0 net7.0 net8.0 net9.0 net10.0)
-          
-          for test_proj in $test_projects; do
+          for test_proj in "${test_projects[@]}"; do
             echo "=========================================="
             echo "Testing project: $test_proj"
             echo "=========================================="
             
-            for fw in "${frameworks[@]}"; do
+            # Extract target frameworks from the project file
+            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
+            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$test_proj" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            
+            if [ -z "$frameworks" ]; then
+              echo "⊘ Skipping: No compatible .NET 5.0-10.0 target frameworks found"
+              echo ""
+              continue
+            fi
+            
+            echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
+            echo ""
+            
+            # Test each framework that the project actually targets
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
               echo "Testing framework: $fw"
               
               dotnet test "$test_proj" \
@@ -158,7 +211,7 @@ jobs:
                 --collect:"XPlat Code Coverage" \
                 --results-directory "./TestResults" \
                 --logger "console;verbosity=minimal" || exit 1
-            done
+            done <<< "$frameworks"
             echo ""
           done
 
@@ -274,9 +327,11 @@ jobs:
       - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
         run: |
-          $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
+          $ErrorActionPreference = 'Stop'
           
-          if ($testProjects.Count -eq 0) {
+          $testProjects = @(Get-ChildItem -Path './tests/*' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj')
+          
+          if (@($testProjects).Count -eq 0) {
             Write-Error "❌ No test projects found in ./tests directory!"
             exit 1
           }
@@ -287,14 +342,35 @@ jobs:
           $testProjects | ForEach-Object { Write-Host $_.FullName -ForegroundColor White }
           Write-Host ""
           
-          # Combined frameworks: .NET 5.0-10.0 and .NET Framework 4.6.2-4.8.1
-          $frameworks = @('net5.0', 'net6.0', 'net7.0', 'net8.0', 'net9.0', 'net10.0', 'net462', 'net472', 'net48', 'net481')
-          
           foreach ($testProj in $testProjects) {
             Write-Host "==========================================" -ForegroundColor Cyan
             Write-Host "Testing project: $($testProj.FullName)" -ForegroundColor Cyan
             Write-Host "==========================================" -ForegroundColor Cyan
             
+            # Extract target frameworks from the project file
+            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
+            $content = Get-Content $testProj.FullName -Raw
+            $tfmMatch = [regex]::Match($content, '<TargetFramework[s]?>([^<]+)</TargetFramework[s]?>')
+            
+            if (-not $tfmMatch.Success) {
+              Write-Host "⊘ Skipping: No target frameworks found" -ForegroundColor Yellow
+              Write-Host ""
+              continue
+            }
+            
+            # Split by semicolon for multi-targeting projects
+            $frameworks = $tfmMatch.Groups[1].Value -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0|462|472|48|481)$' }
+            
+            if ($frameworks.Count -eq 0) {
+              Write-Host "⊘ Skipping: No compatible .NET 5.0-10.0 or Framework 4.6.2-4.8.1 target frameworks found" -ForegroundColor Yellow
+              Write-Host ""
+              continue
+            }
+            
+            Write-Host "Target frameworks: $($frameworks -join ', ')" -ForegroundColor White
+            Write-Host ""
+            
+            # Test each framework that the project actually targets
             foreach ($fw in $frameworks) {
               Write-Host "Testing framework: $fw" -ForegroundColor Yellow
               
@@ -337,38 +413,86 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Restore and build (exclude .NET Framework 4.x projects)
+      - name: Restore and build (exclude .NET Framework-only projects)
         run: |
-          echo "Finding all projects in solution..."
+          echo "Enumerating tracked .NET project files (git ls-files)..."
           
-          # Find all .csproj, .vbproj, and .fsproj files
-          # Exclude those with 'dotnet4' or 'DotNet4' in the path (case-insensitive)
-          projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4")
+          # Filter out projects that ONLY target .NET Framework 4.x
+          # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
+          projects=()
+          project_found=false
           
-          if [ -z "$projects" ]; then
-            echo "No projects found!"
+          while IFS= read -r -d '' proj; do
+            project_found=true
+            # Check if project has any .NET 6+ target framework (macOS ARM64 compatible)
+            # Look for: net6.0, net7.0, net8.0, net9.0, net10.0
+            if grep -qE '<TargetFramework[s]?>.*net(6\.0|7\.0|8\.0|9\.0|10\.0)' "$proj"; then
+              projects+=("$proj")
+              echo "✓ Including: $proj (has .NET 6+ target)"
+            else
+              echo "⊘ Excluding: $proj (no .NET 6+ target, incompatible with macOS ARM64)"
+            fi
+          done < <(git ls-files -z -- '*.csproj' '*.vbproj' '*.fsproj')
+          
+          if [ "$project_found" = false ]; then
+            echo "❌ No .NET projects found."
+            echo "This should not occur as detect-projects already verified project existence."
             exit 1
           fi
           
+          if [ ${#projects[@]} -eq 0 ]; then
+            echo "❌ No compatible .NET projects found."
+            echo "All projects lack .NET 6+ targets, which are required for macOS ARM64."
+            exit 1
+          fi
+          
+          echo ""
           echo "=========================================="
-          echo "Projects to build (excluding .NET Framework 4.x):"
+          echo "Projects to build (excluding .NET Framework-only projects):"
           echo "=========================================="
-          echo "$projects"
+          printf '%s\n' "${projects[@]}"
           echo ""
           
           # Restore each project
           echo "Restoring projects..."
-          for proj in $projects; do
+          for proj in "${projects[@]}"; do
             echo "Restoring: $proj"
             dotnet restore "$proj" || exit 1
           done
           
           echo ""
           echo "Building projects..."
-          # Build each project
-          for proj in $projects; do
+          # Build each project, handling multi-targeting projects
+          # For multi-targeting projects, build only macOS ARM64-compatible frameworks (net6.0-10.0)
+          for proj in "${projects[@]}"; do
             echo "Building: $proj"
-            dotnet build "$proj" --no-restore --configuration Release || exit 1
+            
+            # Extract target frameworks from the project file
+            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
+            # Trim whitespace from each framework before filtering
+            frameworks=$(sed -n -E 's/.*<TargetFrameworks?>[[:space:]]*>([^<]+)<\/TargetFrameworks?>.*/\1/p' "$proj" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            
+            if [ -z "$frameworks" ]; then
+              echo "⚠️  No macOS ARM64-compatible frameworks found in $proj"
+              continue
+            fi
+            
+            # Check if this is a multi-targeting project
+            framework_count=$(echo "$frameworks" | wc -l)
+            
+            if [ "$framework_count" -eq 1 ]; then
+              # Single target framework - build normally
+              echo "  Target framework: $frameworks"
+              dotnet build "$proj" --no-restore --configuration Release || exit 1
+            else
+              # Multi-targeting project - build each compatible framework separately
+              echo "  Target frameworks (multi-targeting): $(echo "$frameworks" | tr '\n' ' ')"
+              while IFS= read -r fw; do
+                [ -z "$fw" ] && continue
+                echo "  Building framework: $fw"
+                dotnet build "$proj" --no-restore --configuration Release --framework "$fw" || exit 1
+              done <<< "$frameworks"
+            fi
           done
           
           echo ""
@@ -376,10 +500,10 @@ jobs:
 
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
         run: |
-          # Find all test projects
-          test_projects=$(find ./tests -type f -name "*.csproj")
+          # Find all test projects (C#, VB.NET, F#)
+          mapfile -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
           
-          if [ -z "$test_projects" ]; then
+          if [ ${#test_projects[@]} -eq 0 ]; then
             echo "❌ No test projects found in ./tests directory!"
             exit 1
           fi
@@ -387,25 +511,38 @@ jobs:
           echo "=========================================="
           echo "Found test projects:"
           echo "=========================================="
-          echo "$test_projects"
+          printf '%s\n' "${test_projects[@]}"
           echo ""
           
-          # Skip .NET Core 5.0 and .NET 5.0 - no ARM64 support on macOS
-          frameworks=(net6.0 net7.0 net8.0 net9.0 net10.0)
-          
-          for test_proj in $test_projects; do
+          for test_proj in "${test_projects[@]}"; do
             echo "=========================================="
             echo "Testing project: $test_proj"
             echo "=========================================="
             
-            for fw in "${frameworks[@]}"; do
+            # Extract target frameworks from the project file
+            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
+            # Only include .NET 6.0+ (ARM64 compatible on macOS)
+            frameworks=$(grep -Eo '<TargetFrameworks?>[^<]+' "$test_proj" | sed -E 's/<TargetFrameworks?>//' | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            
+            if [ -z "$frameworks" ]; then
+              echo "⊘ Skipping: No compatible .NET 6.0-10.0 target frameworks found (ARM64 required)"
+              echo ""
+              continue
+            fi
+            
+            echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
+            echo ""
+            
+            # Test each framework that the project actually targets
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
               echo "Testing framework: $fw"
               
               dotnet test "$test_proj" \
                 --configuration Release \
                 --framework "$fw" \
                 --logger "console;verbosity=normal" || exit 1
-            done
+            done <<< "$frameworks"
             echo ""
           done
 
