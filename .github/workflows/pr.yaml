@@ -157,15 +157,27 @@ jobs:
           printf '%s\n' "${test_projects[@]}"
           echo ""
           
-          # Test each framework individually to ensure all are tested
-          frameworks=(net5.0 net6.0 net7.0 net8.0 net9.0 net10.0)
-          
           for test_proj in "${test_projects[@]}"; do
             echo "=========================================="
             echo "Testing project: $test_proj"
             echo "=========================================="
             
-            for fw in "${frameworks[@]}"; do
+            # Extract target frameworks from the project file
+            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
+            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$test_proj" | tr ';' '\n' | grep -E '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            
+            if [ -z "$frameworks" ]; then
+              echo "⊘ Skipping: No compatible .NET 5.0-10.0 target frameworks found"
+              echo ""
+              continue
+            fi
+            
+            echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
+            echo ""
+            
+            # Test each framework that the project actually targets
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
               echo "Testing framework: $fw"
               
               dotnet test "$test_proj" \
@@ -174,7 +186,7 @@ jobs:
                 --collect:"XPlat Code Coverage" \
                 --results-directory "./TestResults" \
                 --logger "console;verbosity=minimal" || exit 1
-            done
+            done <<< "$frameworks"
             echo ""
           done
 
@@ -305,14 +317,35 @@ jobs:
           $testProjects | ForEach-Object { Write-Host $_.FullName -ForegroundColor White }
           Write-Host ""
           
-          # Combined frameworks: .NET 5.0-10.0 and .NET Framework 4.6.2-4.8.1
-          $frameworks = @('net5.0', 'net6.0', 'net7.0', 'net8.0', 'net9.0', 'net10.0', 'net462', 'net472', 'net48', 'net481')
-          
           foreach ($testProj in $testProjects) {
             Write-Host "==========================================" -ForegroundColor Cyan
             Write-Host "Testing project: $($testProj.FullName)" -ForegroundColor Cyan
             Write-Host "==========================================" -ForegroundColor Cyan
             
+            # Extract target frameworks from the project file
+            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
+            $content = Get-Content $testProj.FullName -Raw
+            $tfmMatch = [regex]::Match($content, '<TargetFramework[s]?>([^<]+)</TargetFramework[s]?>')
+            
+            if (-not $tfmMatch.Success) {
+              Write-Host "⊘ Skipping: No target frameworks found" -ForegroundColor Yellow
+              Write-Host ""
+              continue
+            }
+            
+            # Split by semicolon for multi-targeting projects
+            $frameworks = $tfmMatch.Groups[1].Value -split ';' | Where-Object { $_ -match '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0|462|472|48|481)$' }
+            
+            if ($frameworks.Count -eq 0) {
+              Write-Host "⊘ Skipping: No compatible .NET 5.0-10.0 or Framework 4.6.2-4.8.1 target frameworks found" -ForegroundColor Yellow
+              Write-Host ""
+              continue
+            }
+            
+            Write-Host "Target frameworks: $($frameworks -join ', ')" -ForegroundColor White
+            Write-Host ""
+            
+            # Test each framework that the project actually targets
             foreach ($fw in $frameworks) {
               Write-Host "Testing framework: $fw" -ForegroundColor Yellow
               
@@ -430,22 +463,35 @@ jobs:
           printf '%s\n' "${test_projects[@]}"
           echo ""
           
-          # Skip .NET Core 5.0 and .NET 5.0 - no ARM64 support on macOS
-          frameworks=(net6.0 net7.0 net8.0 net9.0 net10.0)
-          
           for test_proj in "${test_projects[@]}"; do
             echo "=========================================="
             echo "Testing project: $test_proj"
             echo "=========================================="
             
-            for fw in "${frameworks[@]}"; do
+            # Extract target frameworks from the project file
+            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
+            # Only include .NET 6.0+ (ARM64 compatible on macOS)
+            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$test_proj" | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            
+            if [ -z "$frameworks" ]; then
+              echo "⊘ Skipping: No compatible .NET 6.0-10.0 target frameworks found (ARM64 required)"
+              echo ""
+              continue
+            fi
+            
+            echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
+            echo ""
+            
+            # Test each framework that the project actually targets
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
               echo "Testing framework: $fw"
               
               dotnet test "$test_proj" \
                 --configuration Release \
                 --framework "$fw" \
                 --logger "console;verbosity=normal" || exit 1
-            done
+            done <<< "$frameworks"
             echo ""
           done
 
