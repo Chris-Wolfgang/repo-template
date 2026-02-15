@@ -269,14 +269,10 @@ jobs:
             10.0.x
 
       - name: Restore dependencies
-        shell: pwsh
-        run: |
-          dotnet restore
+        run: dotnet restore
 
       - name: Build solution
-        shell: pwsh
-        run: |
-          dotnet build --no-restore --configuration Release
+        run: dotnet build --no-restore --configuration Release
 
       - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
