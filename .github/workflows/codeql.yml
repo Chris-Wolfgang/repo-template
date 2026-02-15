@@ -34,7 +34,22 @@ jobs:
         Write-Host "Searching for C# source files using git index..." -ForegroundColor Cyan
         
         # Use git ls-files to efficiently find C# files (respects .gitignore and doesn't traverse excluded dirs)
-        $csharpFiles = @(git ls-files '*.cs' '*.csproj' 2>$null | Where-Object { $_ })
+        $csharpFiles = @()
+        try {
+          $gitOutput = git ls-files '*.cs' '*.csproj' 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            $csharpFiles = @($gitOutput | Where-Object { $_ })
+          } else {
+            Write-Warning "git ls-files failed with exit code $LASTEXITCODE. Falling back to filesystem search for C# files."
+          }
+        } catch {
+          Write-Warning "Exception while running git ls-files: $($_.Exception.Message). Falling back to filesystem search for C# files."
+        }
+
+        if (-not $csharpFiles -or $csharpFiles.Count -eq 0) {
+          Write-Host "git ls-files did not return any C# files. Scanning the filesystem for *.cs and *.csproj files..." -ForegroundColor Cyan
+          $csharpFiles = @(Get-ChildItem -Path . -Recurse -Include *.cs,*.csproj -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
+        }
         $csharpFileCount = $csharpFiles.Count
         
         Write-Host "" -ForegroundColor Cyan
