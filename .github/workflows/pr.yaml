@@ -82,30 +82,23 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Restore and build (exclude .NET Framework 4.x projects)
+      - name: Restore and build
         run: |
           echo "Finding all projects in solution..."
           
-          # Get list of all projects from solution file
-          if [ -f "*.sln" ]; then
-            sln_file=$(ls *.sln | head -n 1)
-            echo "Using solution file: $sln_file"
-          fi
-          
           # Find all .csproj, .vbproj, and .fsproj files
-          # Exclude those with 'dotnet4' or 'DotNet4' in the path (case-insensitive)
-          projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4")
+          # Note: Multi-targeting projects (e.g., net8.0;net48) will automatically build
+          # only their compatible target frameworks on Linux (net8.0 in this example)
+          projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
           
           if [ -z "$projects" ]; then
-            echo "❌ No compatible .NET projects found after excluding .NET Framework 4.x projects."
-            echo "This indicates a configuration issue: detect-projects reported projects present,"
-            echo "but none remain after filtering out .NET Framework 4.x (e.g., only .NET 4.x projects exist)."
-            echo "Update the repository to include supported .NET (5.0+) projects for this stage."
+            echo "❌ No .NET projects found."
+            echo "This should not occur as detect-projects already verified project existence."
             exit 1
           fi
           
           echo "=========================================="
-          echo "Projects to build (excluding .NET Framework 4.x):"
+          echo "Projects to build:"
           echo "=========================================="
           echo "$projects"
           echo ""
@@ -120,13 +113,14 @@ jobs:
           echo ""
           echo "Building projects..."
           # Build each project
+          # For multi-targeting projects, dotnet build automatically selects compatible TFMs
           for proj in $projects; do
             echo "Building: $proj"
             dotnet build "$proj" --no-restore --configuration Release || exit 1
           done
           
           echo ""
-          echo "✅ All compatible projects built successfully"
+          echo "✅ All projects built successfully"
 
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
         run: |
@@ -340,21 +334,23 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Restore and build (exclude .NET Framework 4.x projects)
+      - name: Restore and build
         run: |
           echo "Finding all projects in solution..."
           
           # Find all .csproj, .vbproj, and .fsproj files
-          # Exclude those with 'dotnet4' or 'DotNet4' in the path (case-insensitive)
-          projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4")
+          # Note: Multi-targeting projects (e.g., net8.0;net48) will automatically build
+          # only their compatible target frameworks on macOS (net8.0 in this example)
+          projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
           
           if [ -z "$projects" ]; then
-            echo "No projects found!"
+            echo "❌ No .NET projects found."
+            echo "This should not occur as detect-projects already verified project existence."
             exit 1
           fi
           
           echo "=========================================="
-          echo "Projects to build (excluding .NET Framework 4.x):"
+          echo "Projects to build:"
           echo "=========================================="
           echo "$projects"
           echo ""
@@ -369,13 +365,14 @@ jobs:
           echo ""
           echo "Building projects..."
           # Build each project
+          # For multi-targeting projects, dotnet build automatically selects compatible TFMs
           for proj in $projects; do
             echo "Building: $proj"
             dotnet build "$proj" --no-restore --configuration Release || exit 1
           done
           
           echo ""
-          echo "✅ All compatible projects built successfully"
+          echo "✅ All projects built successfully"
 
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
         run: |
