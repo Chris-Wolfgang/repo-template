@@ -393,7 +393,7 @@ jobs:
           printf '%s\n' "${projects[@]}"
           echo ""
           
-          # Restore each project using null-delimited iteration to safely handle paths with spaces
+          # Restore each project, iterating over the array with proper quoting to safely handle paths with spaces
           echo "Restoring projects..."
           for proj in "${projects[@]}"; do
             echo "Restoring: $proj"
