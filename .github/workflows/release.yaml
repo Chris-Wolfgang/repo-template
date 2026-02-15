@@ -408,20 +408,22 @@ jobs:
 
           # Restrict NuGet restores in this directory to the local package source only
           $nugetConfigPath = Join-Path $testDir 'NuGet.config'
-          @"
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <packageSources>
-    <clear />
-    <add key="local" value="../nuget-packages" />
-  </packageSources>
-  <packageSourceMapping>
-    <packageSource key="local">
-      <package pattern="*" />
-    </packageSource>
-  </packageSourceMapping>
-</configuration>
-"@ | Set-Content -Path $nugetConfigPath -Encoding UTF8
+          # Build NuGet.config content as array to avoid YAML parsing issues with here-strings
+          $nugetConfigContent = @(
+            '<?xml version="1.0" encoding="utf-8"?>'
+            '<configuration>'
+            '  <packageSources>'
+            '    <clear />'
+            '    <add key="local" value="../nuget-packages" />'
+            '  </packageSources>'
+            '  <packageSourceMapping>'
+            '    <packageSource key="local">'
+            '      <package pattern="*" />'
+            '    </packageSource>'
+            '  </packageSourceMapping>'
+            '</configuration>'
+          )
+          $nugetConfigContent | Set-Content -Path $nugetConfigPath -Encoding UTF8
           
           Push-Location $testDir
           try {
