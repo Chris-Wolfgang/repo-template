@@ -118,7 +118,7 @@ jobs:
         $checkCsharpOutcome = "${{ steps.check-csharp.outcome }}"
         $hasCsharp = "${{ steps.check-csharp.outputs.has-csharp }}"
         $buildOutcome = "${{ steps.build.outcome }}"
-        $codeqlOutcome = "${{ steps.perform-codeql-analysis.conclusion }}"
+        $codeqlOutcome = "${{ steps.perform-codeql-analysis.outcome }}"
         
         # Determine overall status
         $hasFailure = $false
