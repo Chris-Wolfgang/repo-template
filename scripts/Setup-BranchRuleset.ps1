@@ -161,16 +161,8 @@ $rulesetConfig = @{
             exclude = @()
         }
     }
-    # Allow repository admins to bypass branch protection rules
-    # Repository role IDs: 1 = read, 2 = write, 5 = admin
-    # Using 5 (admin) ensures only users with admin permissions can bypass
-    bypass_actors = @(
-        @{
-            actor_id = 5
-            actor_type = "RepositoryRole"
-            bypass_mode = "always"
-        }
-    )
+    # No bypass actors allowed - all users (including admins) must follow branch protection rules
+    bypass_actors = @()
     rules = @(
         @{
             type = "pull_request"
@@ -292,7 +284,7 @@ try {
         Write-Host "      - Static analysis tools: CodeQL (standard queries)" -ForegroundColor DarkGray
         Write-Host "   ✅ Force pushes blocked on $BranchName branch" -ForegroundColor Gray
         Write-Host "   ✅ Branch deletion prevented for $BranchName" -ForegroundColor Gray
-        Write-Host "   ✅ Repository admins can bypass these rules" -ForegroundColor Gray
+        Write-Host "   ✅ No bypass allowed - all users must follow these rules" -ForegroundColor Gray
         
         Write-Host "`n🔗 View ruleset at:" -ForegroundColor Cyan
         Write-Host "   https://github.com/$Repository/settings/rules" -ForegroundColor Blue
