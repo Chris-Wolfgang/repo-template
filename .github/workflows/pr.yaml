@@ -327,6 +327,7 @@ jobs:
           Write-Host "The workflow will automatically:"
           Write-Host "  - Build all projects"
           Write-Host "  - Run tests with code coverage"
+          Write-Host "  - Enforce 90% coverage threshold"
           Write-Host "  - Run security scans"
           Write-Host ""
           Write-Host "Workflow completed successfully! ✅" -ForegroundColor Green
@@ -456,6 +457,7 @@ jobs:
           echo "The workflow will automatically:"
           echo "  - Build all projects"
           echo "  - Run tests with code coverage"
+          echo "  - Enforce 90% coverage threshold"
           echo "  - Run security scans"
           echo ""
           echo "Workflow completed successfully! ✅"
