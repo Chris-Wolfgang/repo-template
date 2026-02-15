@@ -97,8 +97,10 @@ jobs:
           projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4")
           
           if [ -z "$projects" ]; then
-            echo "No projects found!"
-            exit 1
+            echo "⚠️ No .NET projects found in repository"
+            echo "This is expected for a new repository. Skipping build step."
+            echo "Add .NET projects to enable build validation."
+            exit 0
           fi
           
           echo "=========================================="
@@ -266,10 +268,34 @@ jobs:
             10.0.x
 
       - name: Restore dependencies
-        run: dotnet restore
+        shell: pwsh
+        run: |
+          # Check if there are any .NET projects
+          $projects = Get-ChildItem -Path . -Recurse -Include *.csproj,*.vbproj,*.fsproj
+          
+          if ($projects.Count -eq 0) {
+            Write-Host "⚠️ No .NET projects found in repository"
+            Write-Host "This is expected for a new repository. Skipping restore step."
+            Write-Host "Add .NET projects to enable build validation."
+            exit 0
+          }
+          
+          dotnet restore
 
       - name: Build solution
-        run: dotnet build --no-restore --configuration Release
+        shell: pwsh
+        run: |
+          # Check if there are any .NET projects
+          $projects = Get-ChildItem -Path . -Recurse -Include *.csproj,*.vbproj,*.fsproj
+          
+          if ($projects.Count -eq 0) {
+            Write-Host "⚠️ No .NET projects found in repository"
+            Write-Host "This is expected for a new repository. Skipping build step."
+            Write-Host "Add .NET projects to enable build validation."
+            exit 0
+          }
+          
+          dotnet build --no-restore --configuration Release
 
       - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
