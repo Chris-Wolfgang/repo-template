@@ -107,7 +107,7 @@ jobs:
             else
               echo "⊘ Excluding: $proj (Framework-only, incompatible with Linux)"
             fi
-          done < <(printf '%s\0' $all_projects)
+          done < <(printf '%s\0' "$all_projects")
           
           if [ ${#projects[@]} -eq 0 ]; then
             echo "❌ No compatible .NET projects found."
@@ -143,8 +143,8 @@ jobs:
 
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
         run: |
-          # Find all test projects
-          mapfile -t test_projects < <(find ./tests -type f -name "*.csproj")
+          # Find all test projects (C#, VB.NET, F#)
+          mapfile -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
           
           if [ ${#test_projects[@]} -eq 0 ]; then
             echo "❌ No test projects found in ./tests directory!"
@@ -290,6 +290,8 @@ jobs:
       - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          
           $testProjects = @(Get-ChildItem -Path './tests' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj')
           
           if (@($testProjects).Count -eq 0) {
@@ -378,7 +380,7 @@ jobs:
             else
               echo "⊘ Excluding: $proj (no .NET 6+ target, incompatible with macOS ARM64)"
             fi
-          done < <(printf '%s\0' $all_projects)
+          done < <(printf '%s\0' "$all_projects")
           
           if [ ${#projects[@]} -eq 0 ]; then
             echo "❌ No compatible .NET projects found."
@@ -414,8 +416,8 @@ jobs:
 
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
         run: |
-          # Find all test projects
-          mapfile -t test_projects < <(find ./tests -type f -name "*.csproj")
+          # Find all test projects (C#, VB.NET, F#)
+          mapfile -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
           
           if [ ${#test_projects[@]} -eq 0 ]; then
             echo "❌ No test projects found in ./tests directory!"
