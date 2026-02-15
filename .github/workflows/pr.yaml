@@ -290,7 +290,7 @@ jobs:
       - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
         run: |
-          $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
+          $testProjects = @(Get-ChildItem -Path './tests/*' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj')
           
           if (@($testProjects).Count -eq 0) {
             Write-Error "❌ No test projects found in ./tests directory!"
@@ -388,17 +388,17 @@ jobs:
           
           echo ""
           echo "=========================================="
-          echo "Projects to build:"
+          echo "Projects to build (excluding .NET Framework 4.x):"
           echo "=========================================="
           echo "$projects"
           echo ""
           
-          # Restore each project
+          # Restore each project using null-delimited iteration to safely handle paths with spaces
           echo "Restoring projects..."
           for proj in $projects; do
             echo "Restoring: $proj"
             dotnet restore "$proj" || exit 1
-          done
+          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4")
           
           echo ""
           echo "Building projects..."
@@ -425,7 +425,7 @@ jobs:
           echo "=========================================="
           echo "Found test projects:"
           echo "=========================================="
-          echo "$test_projects"
+          find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \)
           echo ""
           
           # Skip .NET Core 5.0 and .NET 5.0 - no ARM64 support on macOS
