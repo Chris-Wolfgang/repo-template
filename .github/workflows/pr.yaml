@@ -53,7 +53,39 @@ jobs:
             9.0.x
             10.0.x
 
+      - name: Detect projects
+        id: detect-projects
+        run: |
+          # Find all .csproj, .vbproj, and .fsproj files
+          # Exclude those with 'dotnet4' or 'DotNet4' in the path (case-insensitive)
+          projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4")
+          
+          if [ -z "$projects" ]; then
+            echo "⚠️ No .NET projects found in repository"
+            echo "This is expected for a new repository."
+            echo "has-projects=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Found .NET projects"
+            echo "has-projects=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Detect test projects
+        id: detect-tests
+        run: |
+          # Find all test projects
+          test_projects=$(find ./tests -type f -name "*.csproj" 2>/dev/null)
+          
+          if [ -z "$test_projects" ]; then
+            echo "⚠️ No test projects found in ./tests directory"
+            echo "This is expected for a new repository."
+            echo "has-tests=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Found test projects"
+            echo "has-tests=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Restore and build (exclude .NET Framework 4.x projects)
+        if: steps.detect-projects.outputs.has-projects == 'true'
         run: |
           echo "Finding all projects in solution..."
           
@@ -66,13 +98,6 @@ jobs:
           # Find all .csproj, .vbproj, and .fsproj files
           # Exclude those with 'dotnet4' or 'DotNet4' in the path (case-insensitive)
           projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4")
-          
-          if [ -z "$projects" ]; then
-            echo "⚠️ No .NET projects found in repository"
-            echo "This is expected for a new repository. Skipping build step."
-            echo "Add .NET projects to enable build validation."
-            exit 0
-          fi
           
           echo "=========================================="
           echo "Projects to build (excluding .NET Framework 4.x):"
@@ -99,16 +124,10 @@ jobs:
           echo "✅ All compatible projects built successfully"
 
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
+        if: steps.detect-tests.outputs.has-tests == 'true'
         run: |
           # Find all test projects
           test_projects=$(find ./tests -type f -name "*.csproj")
-          
-          if [ -z "$test_projects" ]; then
-            echo "⚠️ No test projects found in ./tests directory"
-            echo "This is expected for a new repository. Skipping tests."
-            echo "Add test projects to enable test execution."
-            exit 0
-          fi
           
           echo "=========================================="
           echo "Found test projects:"
@@ -138,31 +157,20 @@ jobs:
           done
 
       - name: Install ReportGenerator
+        if: steps.detect-tests.outputs.has-tests == 'true'
         run: dotnet tool install -g dotnet-reportgenerator-globaltool
 
       - name: Generate coverage report
+        if: steps.detect-tests.outputs.has-tests == 'true'
         run: |
-          # Check if TestResults directory exists and has coverage files
-          if [ ! -d "TestResults" ] || [ -z "$(find TestResults -name 'coverage.cobertura.xml' 2>/dev/null)" ]; then
-            echo "⚠️ No test results found - skipping coverage report generation"
-            echo "This is expected when no test projects exist in the repository."
-            exit 0
-          fi
-          
           reportgenerator \
             -reports:"TestResults/**/coverage.cobertura.xml" \
             -targetdir:"CoverageReport" \
             -reporttypes:"Html;TextSummary;MarkdownSummaryGithub;CsvSummary"
 
       - name: Enforce 90% coverage threshold
+        if: steps.detect-tests.outputs.has-tests == 'true'
         run: |
-          if [ ! -f CoverageReport/Summary.txt ]; then
-            echo "⚠️ Coverage report not found - skipping coverage threshold check"
-            echo "This is expected when no test projects exist in the repository."
-            echo "Add test projects to enable coverage validation."
-            exit 0
-          fi
-
           echo "Coverage Summary:"
           cat CoverageReport/Summary.txt
           echo ""
@@ -249,50 +257,56 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Restore dependencies
+      - name: Detect projects
+        id: detect-projects
         shell: pwsh
         run: |
-          # Check if there are any .NET projects
           $projects = Get-ChildItem -Path . -Recurse -Include *.csproj,*.vbproj,*.fsproj
           
           if ($projects.Count -eq 0) {
             Write-Host "⚠️ No .NET projects found in repository"
-            Write-Host "This is expected for a new repository. Skipping restore step."
-            Write-Host "Add .NET projects to enable build validation."
-            exit 0
+            Write-Host "This is expected for a new repository."
+            "has-projects=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } else {
+            Write-Host "✅ Found .NET projects"
+            "has-projects=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           }
+
+      - name: Detect test projects
+        id: detect-tests
+        shell: pwsh
+        run: |
+          $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj' -ErrorAction SilentlyContinue
           
+          if ($testProjects.Count -eq 0) {
+            Write-Host "⚠️ No test projects found in ./tests directory"
+            Write-Host "This is expected for a new repository."
+            "has-tests=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } else {
+            Write-Host "✅ Found test projects"
+            "has-tests=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          }
+
+      - name: Restore dependencies
+        if: steps.detect-projects.outputs.has-projects == 'true'
+        shell: pwsh
+        run: |
           dotnet restore
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build solution
+        if: steps.detect-projects.outputs.has-projects == 'true'
         shell: pwsh
         run: |
-          # Check if there are any .NET projects
-          $projects = Get-ChildItem -Path . -Recurse -Include *.csproj,*.vbproj,*.fsproj
-          
-          if ($projects.Count -eq 0) {
-            Write-Host "⚠️ No .NET projects found in repository"
-            Write-Host "This is expected for a new repository. Skipping build step."
-            Write-Host "Add .NET projects to enable build validation."
-            exit 0
-          }
-          
           dotnet build --no-restore --configuration Release
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
       - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
+        if: steps.detect-tests.outputs.has-tests == 'true'
         shell: pwsh
         run: |
           $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
-          
-          if ($testProjects.Count -eq 0) {
-            Write-Host "⚠️ No test projects found in ./tests directory"
-            Write-Host "This is expected for a new repository. Skipping tests."
-            Write-Host "Add test projects to enable test execution."
-            exit 0
-          }
           
           Write-Host "==========================================" -ForegroundColor Cyan
           Write-Host "Found test projects:" -ForegroundColor Cyan
@@ -350,20 +364,45 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Restore and build (exclude .NET Framework 4.x projects)
+      - name: Detect projects
+        id: detect-projects
         run: |
-          echo "Finding all projects in solution..."
-          
           # Find all .csproj, .vbproj, and .fsproj files
           # Exclude those with 'dotnet4' or 'DotNet4' in the path (case-insensitive)
           projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4")
           
           if [ -z "$projects" ]; then
             echo "⚠️ No .NET projects found in repository"
-            echo "This is expected for a new repository. Skipping build step."
-            echo "Add .NET projects to enable build validation."
-            exit 0
+            echo "This is expected for a new repository."
+            echo "has-projects=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Found .NET projects"
+            echo "has-projects=true" >> $GITHUB_OUTPUT
           fi
+
+      - name: Detect test projects
+        id: detect-tests
+        run: |
+          # Find all test projects
+          test_projects=$(find ./tests -type f -name "*.csproj" 2>/dev/null)
+          
+          if [ -z "$test_projects" ]; then
+            echo "⚠️ No test projects found in ./tests directory"
+            echo "This is expected for a new repository."
+            echo "has-tests=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Found test projects"
+            echo "has-tests=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Restore and build (exclude .NET Framework 4.x projects)
+        if: steps.detect-projects.outputs.has-projects == 'true'
+        run: |
+          echo "Finding all projects in solution..."
+          
+          # Find all .csproj, .vbproj, and .fsproj files
+          # Exclude those with 'dotnet4' or 'DotNet4' in the path (case-insensitive)
+          projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4")
           
           echo "=========================================="
           echo "Projects to build (excluding .NET Framework 4.x):"
@@ -390,16 +429,10 @@ jobs:
           echo "✅ All compatible projects built successfully"
 
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
+        if: steps.detect-tests.outputs.has-tests == 'true'
         run: |
           # Find all test projects
           test_projects=$(find ./tests -type f -name "*.csproj")
-          
-          if [ -z "$test_projects" ]; then
-            echo "⚠️ No test projects found in ./tests directory"
-            echo "This is expected for a new repository. Skipping tests."
-            echo "Add test projects to enable test execution."
-            exit 0
-          fi
           
           echo "=========================================="
           echo "Found test projects:"
