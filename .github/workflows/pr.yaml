@@ -69,7 +69,7 @@ jobs:
           
           if [ -z "$projects" ]; then
             echo "⚠️ No .NET projects found in repository"
-            echo "This is expected for a template repository. Skipping build step."
+            echo "This is expected for a new repository. Skipping build step."
             echo "Add .NET projects to enable build validation."
             exit 0
           fi
@@ -303,7 +303,7 @@ jobs:
           
           if ($projects.Count -eq 0) {
             Write-Host "⚠️ No .NET projects found in repository"
-            Write-Host "This is expected for a template repository. Skipping restore step."
+            Write-Host "This is expected for a new repository. Skipping restore step."
             Write-Host "Add .NET projects to enable build validation."
             exit 0
           }
@@ -319,7 +319,7 @@ jobs:
           
           if ($projects.Count -eq 0) {
             Write-Host "⚠️ No .NET projects found in repository"
-            Write-Host "This is expected for a template repository. Skipping build step."
+            Write-Host "This is expected for a new repository. Skipping build step."
             Write-Host "Add .NET projects to enable build validation."
             exit 0
           }
@@ -422,7 +422,7 @@ jobs:
           
           if [ -z "$projects" ]; then
             echo "⚠️ No .NET projects found in repository"
-            echo "This is expected for a template repository. Skipping build step."
+            echo "This is expected for a new repository. Skipping build step."
             echo "Add .NET projects to enable build validation."
             exit 0
           fi
