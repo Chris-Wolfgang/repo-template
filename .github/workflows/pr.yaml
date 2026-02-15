@@ -101,7 +101,13 @@ jobs:
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
         run: |
           # Find all .NET projects (to determine if this is an empty template)
-          all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
+          # Exclude common directories that shouldn't contain project files
+          all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.git/*" \
+            -not -path "*/bin/*" \
+            -not -path "*/obj/*" \
+            -not -path "*/packages/*")
           
           # Find all test projects
           test_projects=$(find ./tests -type f -name "*.csproj")
@@ -158,7 +164,12 @@ jobs:
           # Check if TestResults directory exists and has coverage files
           if [ ! -d "TestResults" ] || [ -z "$(find TestResults -name 'coverage.cobertura.xml' 2>/dev/null)" ]; then
             # Find all .NET projects to determine if this is an empty template
-            all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
+            all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) \
+              -not -path "*/node_modules/*" \
+              -not -path "*/.git/*" \
+              -not -path "*/bin/*" \
+              -not -path "*/obj/*" \
+              -not -path "*/packages/*")
             
             if [ -z "$all_projects" ]; then
               echo "⚠️ No test results found - skipping coverage report generation"
@@ -180,7 +191,12 @@ jobs:
         run: |
           if [ ! -f CoverageReport/Summary.txt ]; then
             # Find all .NET projects to determine if this is an empty template
-            all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
+            all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) \
+              -not -path "*/node_modules/*" \
+              -not -path "*/.git/*" \
+              -not -path "*/bin/*" \
+              -not -path "*/obj/*" \
+              -not -path "*/packages/*")
             
             if [ -z "$all_projects" ]; then
               echo "⚠️ Coverage report not found - skipping coverage threshold check"
@@ -316,7 +332,9 @@ jobs:
         shell: pwsh
         run: |
           # Find all .NET projects (to determine if this is an empty template)
-          $allProjects = Get-ChildItem -Path . -Recurse -Include *.csproj,*.vbproj,*.fsproj
+          # Exclude common directories that shouldn't contain project files
+          $allProjects = Get-ChildItem -Path . -Recurse -Include *.csproj,*.vbproj,*.fsproj |
+            Where-Object { $_.FullName -notmatch '\\(node_modules|\.git|bin|obj|packages)\\' }
           
           # Find test projects
           $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
@@ -436,7 +454,13 @@ jobs:
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
         run: |
           # Find all .NET projects (to determine if this is an empty template)
-          all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
+          # Exclude common directories that shouldn't contain project files
+          all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.git/*" \
+            -not -path "*/bin/*" \
+            -not -path "*/obj/*" \
+            -not -path "*/packages/*")
           
           # Find all test projects
           test_projects=$(find ./tests -type f -name "*.csproj")
