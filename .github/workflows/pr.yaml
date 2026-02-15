@@ -84,6 +84,28 @@ jobs:
             echo "has-tests=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Report success for new repository
+        if: steps.detect-projects.outputs.has-projects == 'false'
+        run: |
+          echo "=========================================="
+          echo "✅ SUCCESS - New Repository Detected"
+          echo "=========================================="
+          echo "No .NET projects found in this repository."
+          echo "This is expected for a new repository created from the template."
+          echo ""
+          echo "To enable CI/CD validation:"
+          echo "  1. Add your .NET projects to the 'src/' directory"
+          echo "  2. Add test projects to the 'tests/' directory"
+          echo "  3. Push your changes to trigger the full workflow"
+          echo ""
+          echo "The workflow will automatically:"
+          echo "  - Build all projects"
+          echo "  - Run tests with code coverage"
+          echo "  - Enforce 90% coverage threshold"
+          echo "  - Run security scans"
+          echo ""
+          echo "Workflow completed successfully! ✅"
+
       - name: Restore and build (exclude .NET Framework 4.x projects)
         if: steps.detect-projects.outputs.has-projects == 'true'
         run: |
@@ -287,6 +309,28 @@ jobs:
             "has-tests=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           }
 
+      - name: Report success for new repository
+        if: steps.detect-projects.outputs.has-projects == 'false'
+        shell: pwsh
+        run: |
+          Write-Host "==========================================" -ForegroundColor Green
+          Write-Host "✅ SUCCESS - New Repository Detected" -ForegroundColor Green
+          Write-Host "==========================================" -ForegroundColor Green
+          Write-Host "No .NET projects found in this repository."
+          Write-Host "This is expected for a new repository created from the template."
+          Write-Host ""
+          Write-Host "To enable CI/CD validation:"
+          Write-Host "  1. Add your .NET projects to the 'src/' directory"
+          Write-Host "  2. Add test projects to the 'tests/' directory"
+          Write-Host "  3. Push your changes to trigger the full workflow"
+          Write-Host ""
+          Write-Host "The workflow will automatically:"
+          Write-Host "  - Build all projects"
+          Write-Host "  - Run tests with code coverage"
+          Write-Host "  - Run security scans"
+          Write-Host ""
+          Write-Host "Workflow completed successfully! ✅" -ForegroundColor Green
+
       - name: Restore dependencies
         if: steps.detect-projects.outputs.has-projects == 'true'
         shell: pwsh
@@ -394,6 +438,27 @@ jobs:
             echo "✅ Found test projects"
             echo "has-tests=true" >> $GITHUB_OUTPUT
           fi
+
+      - name: Report success for new repository
+        if: steps.detect-projects.outputs.has-projects == 'false'
+        run: |
+          echo "=========================================="
+          echo "✅ SUCCESS - New Repository Detected"
+          echo "=========================================="
+          echo "No .NET projects found in this repository."
+          echo "This is expected for a new repository created from the template."
+          echo ""
+          echo "To enable CI/CD validation:"
+          echo "  1. Add your .NET projects to the 'src/' directory"
+          echo "  2. Add test projects to the 'tests/' directory"
+          echo "  3. Push your changes to trigger the full workflow"
+          echo ""
+          echo "The workflow will automatically:"
+          echo "  - Build all projects"
+          echo "  - Run tests with code coverage"
+          echo "  - Run security scans"
+          echo ""
+          echo "Workflow completed successfully! ✅"
 
       - name: Restore and build (exclude .NET Framework 4.x projects)
         if: steps.detect-projects.outputs.has-projects == 'true'
