@@ -344,7 +344,9 @@ jobs:
           # Find all .csproj, .vbproj, and .fsproj files using null-delimited output for safe path handling
           # Exclude those with 'dotnet4' or 'DotNet4' in the path (case-insensitive)
           if ! find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4" | grep -zq .; then
-            echo "No projects found!"
+            echo "❌ Configuration issue: detect-projects reported .NET projects present, but none remain after macOS filtering."
+            echo "   This usually means all projects are excluded by the '.NET Framework 4.x' (dotnet4) filter for this stage."
+            echo "   Ensure at least one non-.NET Framework 4.x project exists, or update the filtering rules for macOS."
             exit 1
           fi
           
