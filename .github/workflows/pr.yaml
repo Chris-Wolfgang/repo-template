@@ -290,7 +290,7 @@ jobs:
       - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
         run: |
-          $testProjects = @(Get-ChildItem -Path './tests/*' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj')
+          $testProjects = @(Get-ChildItem -Path './tests' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj')
           
           if (@($testProjects).Count -eq 0) {
             Write-Error "❌ No test projects found in ./tests directory!"
