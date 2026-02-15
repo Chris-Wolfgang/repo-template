@@ -162,7 +162,7 @@ jobs:
         run: |
           if [ ! -f CoverageReport/Summary.txt ]; then
             # Check if tests were intentionally skipped
-            if [ "${{ steps.run-tests.outputs.tests-skipped }}" == "true" ]; then
+            if [ "${{ steps.run-tests.outputs.tests-skipped }}" = "true" ]; then
               echo "⚠️ Coverage report not found - skipping coverage threshold check"
               echo "This is expected when no test projects exist in the repository."
               echo "Add test projects to enable coverage validation."
