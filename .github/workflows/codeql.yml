@@ -174,4 +174,4 @@ jobs:
           Write-Host "✅ Security scan job completed." -ForegroundColor Green
           Write-Host "   Job status reported to branch protection." -ForegroundColor Green
         }
-        Write-Host "=======================================" -ForegroundColor Cyan
+        Write-Host "========================================" -ForegroundColor Cyan
