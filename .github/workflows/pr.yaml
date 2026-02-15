@@ -84,7 +84,7 @@ jobs:
 
       - name: Restore and build (exclude .NET Framework-only projects)
         run: |
-          echo "Scanning repository for .NET project files..."
+          echo "Finding .NET project files in repository (via find command)..."
           
           # Filter out projects that ONLY target .NET Framework 4.x
           # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
