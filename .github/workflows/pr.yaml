@@ -101,7 +101,7 @@ jobs:
           for proj in $all_projects; do
             # Check if project has any .NET 5+ target framework
             # Look for: net5.0, net6.0, net7.0, net8.0, net9.0, net10.0, or netcoreapp, netstandard
-            if grep -qE '<TargetFramework[s]?>.*\b(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp|netstandard)' "$proj"; then
+            if grep -qE '<TargetFramework[s]?>.*(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp|netstandard)' "$proj"; then
               projects="$projects $proj"
               echo "✓ Including: $proj (has .NET 5+ or .NET Core target)"
             else
