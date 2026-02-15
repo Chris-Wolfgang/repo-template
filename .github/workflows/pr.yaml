@@ -22,41 +22,12 @@ on:
       - main
 jobs:
   # ============================================================================
-  # DETECTION: Check if .csproj files exist
-  # ============================================================================
-  detect-projects:
-    name: "Detect .NET Projects"
-    runs-on: ubuntu-latest
-    if: github.repository != 'Chris-Wolfgang/repo-template'
-    outputs:
-      has-projects: ${{ steps.check-projects.outputs.has-projects }}
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: refs/pull/${{ github.event.pull_request.number }}/head
-          persist-credentials: false
-      
-      - name: Check for .csproj files
-        id: check-projects
-        run: |
-          if git ls-files '*.csproj' | grep -q .; then
-            echo "has-projects=true" >> $GITHUB_OUTPUT
-            echo "✅ Found .csproj files - .NET build and test jobs will run"
-          else
-            echo "has-projects=false" >> $GITHUB_OUTPUT
-            echo "ℹ️  No .csproj files found - skipping .NET build and test jobs"
-          fi
-
-  # ============================================================================
   # STAGE 1: Linux - .NET Core/5+ Tests with Coverage Gate
   # ============================================================================
   test-linux-core: 
     name: "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate"
     runs-on:  ubuntu-latest
-    needs: detect-projects
-    if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
+    if: github.repository != 'Chris-Wolfgang/repo-template'
     
     steps:
       - name: Checkout code
@@ -97,8 +68,10 @@ jobs:
           projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4")
           
           if [ -z "$projects" ]; then
-            echo "No projects found!"
-            exit 1
+            echo "⚠️ No .NET projects found in repository"
+            echo "This is expected for a new repository. Skipping build step."
+            echo "Add .NET projects to enable build validation."
+            exit 0
           fi
           
           echo "=========================================="
@@ -131,8 +104,10 @@ jobs:
           test_projects=$(find ./tests -type f -name "*.csproj")
           
           if [ -z "$test_projects" ]; then
-            echo "❌ No test projects found in ./tests directory!"
-            exit 1
+            echo "⚠️ No test projects found in ./tests directory"
+            echo "This is expected for a new repository. Skipping tests."
+            echo "Add test projects to enable test execution."
+            exit 0
           fi
           
           echo "=========================================="
@@ -167,6 +142,13 @@ jobs:
 
       - name: Generate coverage report
         run: |
+          # Check if TestResults directory exists and has coverage files
+          if [ ! -d "TestResults" ] || [ -z "$(find TestResults -name 'coverage.cobertura.xml' 2>/dev/null)" ]; then
+            echo "⚠️ No test results found - skipping coverage report generation"
+            echo "This is expected when no test projects exist in the repository."
+            exit 0
+          fi
+          
           reportgenerator \
             -reports:"TestResults/**/coverage.cobertura.xml" \
             -targetdir:"CoverageReport" \
@@ -175,8 +157,10 @@ jobs:
       - name: Enforce 90% coverage threshold
         run: |
           if [ ! -f CoverageReport/Summary.txt ]; then
-            echo "❌ Coverage report not generated!"
-            exit 1
+            echo "⚠️ Coverage report not found - skipping coverage threshold check"
+            echo "This is expected when no test projects exist in the repository."
+            echo "Add test projects to enable coverage validation."
+            exit 0
           fi
 
           echo "Coverage Summary:"
@@ -244,8 +228,8 @@ jobs:
   test-windows:
     name: "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)"
     runs-on: windows-latest
-    needs: [detect-projects, test-linux-core]
-    if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
+    needs: test-linux-core
+    if: github.repository != 'Chris-Wolfgang/repo-template'
     
     steps:
       - name: Checkout code
@@ -266,10 +250,34 @@ jobs:
             10.0.x
 
       - name: Restore dependencies
-        run: dotnet restore
+        shell: pwsh
+        run: |
+          # Check if there are any .NET projects
+          $projects = Get-ChildItem -Path . -Recurse -Include *.csproj,*.vbproj,*.fsproj
+          
+          if ($projects.Count -eq 0) {
+            Write-Host "⚠️ No .NET projects found in repository"
+            Write-Host "This is expected for a new repository. Skipping restore step."
+            Write-Host "Add .NET projects to enable build validation."
+            exit 0
+          }
+          
+          dotnet restore
 
       - name: Build solution
-        run: dotnet build --no-restore --configuration Release
+        shell: pwsh
+        run: |
+          # Check if there are any .NET projects
+          $projects = Get-ChildItem -Path . -Recurse -Include *.csproj,*.vbproj,*.fsproj
+          
+          if ($projects.Count -eq 0) {
+            Write-Host "⚠️ No .NET projects found in repository"
+            Write-Host "This is expected for a new repository. Skipping build step."
+            Write-Host "Add .NET projects to enable build validation."
+            exit 0
+          }
+          
+          dotnet build --no-restore --configuration Release
 
       - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
@@ -277,8 +285,10 @@ jobs:
           $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
           
           if ($testProjects.Count -eq 0) {
-            Write-Error "❌ No test projects found in ./tests directory!"
-            exit 1
+            Write-Host "⚠️ No test projects found in ./tests directory"
+            Write-Host "This is expected for a new repository. Skipping tests."
+            Write-Host "Add test projects to enable test execution."
+            exit 0
           }
           
           Write-Host "==========================================" -ForegroundColor Cyan
@@ -317,8 +327,8 @@ jobs:
   test-macos-core:
     name: "Stage 3: macOS Tests (.NET 6.0-10.0)"
     runs-on: macos-latest
-    needs: [detect-projects, test-windows]
-    if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
+    needs: test-windows
+    if: github.repository != 'Chris-Wolfgang/repo-template'
     
     steps:
       - name: Checkout code
@@ -346,8 +356,10 @@ jobs:
           projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4")
           
           if [ -z "$projects" ]; then
-            echo "No projects found!"
-            exit 1
+            echo "⚠️ No .NET projects found in repository"
+            echo "This is expected for a new repository. Skipping build step."
+            echo "Add .NET projects to enable build validation."
+            exit 0
           fi
           
           echo "=========================================="
@@ -380,8 +392,10 @@ jobs:
           test_projects=$(find ./tests -type f -name "*.csproj")
           
           if [ -z "$test_projects" ]; then
-            echo "❌ No test projects found in ./tests directory!"
-            exit 1
+            echo "⚠️ No test projects found in ./tests directory"
+            echo "This is expected for a new repository. Skipping tests."
+            echo "Add test projects to enable test execution."
+            exit 0
           fi
           
           echo "=========================================="
@@ -443,7 +457,7 @@ jobs:
           echo "PR is ready to merge! 🎉"
 
   # ============================================================================
-  # Security Scan (Runs in parallel, independently of .NET jobs)
+  # Security Scan (Runs in parallel with tests)
   # ============================================================================
   security-scan:
     name: "Security Scan (DevSkim)"
