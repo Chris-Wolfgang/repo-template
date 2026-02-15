@@ -82,54 +82,71 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Restore and build (exclude .NET Framework 4.x projects)
+      - name: Restore and build (exclude .NET Framework-only projects)
         run: |
           echo "Finding all projects in solution..."
           
-          # Get list of all projects from solution file
-          if [ -f "*.sln" ]; then
-            sln_file=$(ls *.sln | head -n 1)
-            echo "Using solution file: $sln_file"
-          fi
+          # Find all .csproj, .vbproj, and .fsproj files
+          all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
           
-          # Find all .csproj, .vbproj, and .fsproj files using null-delimited output for safe path handling
-          # Exclude those with 'dotnet4' or 'DotNet4' in the path (case-insensitive)
-          if ! find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4" | grep -zq .; then
-            echo "❌ No compatible .NET projects found after excluding .NET Framework 4.x projects."
-            echo "This indicates a configuration issue: detect-projects reported projects present,"
-            echo "but none remain after filtering out .NET Framework 4.x (e.g., only .NET 4.x projects exist)."
-            echo "Update the repository to include supported .NET (5.0+) projects for this stage."
+          if [ -z "$all_projects" ]; then
+            echo "❌ No .NET projects found."
+            echo "This should not occur as detect-projects already verified project existence."
             exit 1
           fi
           
+          # Filter out projects that ONLY target .NET Framework 4.x
+          # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
+          projects=()
+          while IFS= read -r -d '' proj; do
+            # Check if project has any .NET 5+ target framework
+            # Look for: net5.0, net6.0, net7.0, net8.0, net9.0, net10.0, or netcoreapp, netstandard
+            if grep -qE '<TargetFramework[s]?>.*(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp|netstandard)' "$proj"; then
+              projects+=("$proj")
+              echo "✓ Including: $proj (has .NET 5+ or .NET Core target)"
+            else
+              echo "⊘ Excluding: $proj (Framework-only, incompatible with Linux)"
+            fi
+          done < <(printf '%s\0' $all_projects)
+          
+          if [ ${#projects[@]} -eq 0 ]; then
+            echo "❌ No compatible .NET projects found."
+            echo "All projects target only .NET Framework 4.x, which is incompatible with Linux."
+            exit 1
+          fi
+          
+          echo ""
           echo "=========================================="
-          echo "Projects to build (excluding .NET Framework 4.x):"
+          echo "Projects to build:"
           echo "=========================================="
-          find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4"
+          printf '%s\n' "${projects[@]}"
           echo ""
           
-          # Restore each project using null-delimited iteration to safely handle paths with spaces
+          # Restore each project
           echo "Restoring projects..."
-          while IFS= read -r -d '' proj; do
+          for proj in "${projects[@]}"; do
             echo "Restoring: $proj"
             dotnet restore "$proj" || exit 1
-          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4")
+          done
           
           echo ""
           echo "Building projects..."
-          # Build each project using null-delimited iteration to safely handle paths with spaces
-          while IFS= read -r -d '' proj; do
+          # Build each project
+          # Multi-targeting projects will build only compatible target frameworks on Linux
+          for proj in "${projects[@]}"; do
             echo "Building: $proj"
             dotnet build "$proj" --no-restore --configuration Release || exit 1
-          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4")
+          done
           
           echo ""
           echo "✅ All compatible projects built successfully"
 
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
         run: |
-          # Find all test projects using null-delimited output for safe path handling
-          if ! find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -zq .; then
+          # Find all test projects
+          mapfile -t test_projects < <(find ./tests -type f -name "*.csproj")
+          
+          if [ ${#test_projects[@]} -eq 0 ]; then
             echo "❌ No test projects found in ./tests directory!"
             exit 1
           fi
@@ -137,14 +154,13 @@ jobs:
           echo "=========================================="
           echo "Found test projects:"
           echo "=========================================="
-          find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \)
+          printf '%s\n' "${test_projects[@]}"
           echo ""
           
           # Test each framework individually to ensure all are tested
           frameworks=(net5.0 net6.0 net7.0 net8.0 net9.0 net10.0)
           
-          # Use null-delimited iteration to safely handle paths with spaces
-          while IFS= read -r -d '' test_proj; do
+          for test_proj in "${test_projects[@]}"; do
             echo "=========================================="
             echo "Testing project: $test_proj"
             echo "=========================================="
@@ -160,7 +176,7 @@ jobs:
                 --logger "console;verbosity=minimal" || exit 1
             done
             echo ""
-          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
+          done
 
       - name: Install ReportGenerator
         run: dotnet tool install -g dotnet-reportgenerator-globaltool
@@ -337,47 +353,71 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Restore and build (exclude .NET Framework 4.x projects)
+      - name: Restore and build (exclude .NET Framework-only projects)
         run: |
           echo "Finding all projects in solution..."
           
-          # Find all .csproj, .vbproj, and .fsproj files using null-delimited output for safe path handling
-          # Exclude those with 'dotnet4' or 'DotNet4' in the path (case-insensitive)
-          if ! find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4" | grep -zq .; then
-            echo "❌ Configuration issue: detect-projects reported .NET projects present, but none remain after macOS filtering."
-            echo "   This usually means all projects are excluded by the '.NET Framework 4.x' (dotnet4) filter for this stage."
-            echo "   Ensure at least one non-.NET Framework 4.x project exists, or update the filtering rules for macOS."
+          # Find all .csproj, .vbproj, and .fsproj files
+          all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
+          
+          if [ -z "$all_projects" ]; then
+            echo "❌ No .NET projects found."
+            echo "This should not occur as detect-projects already verified project existence."
             exit 1
           fi
           
+          # Filter out projects that ONLY target .NET Framework 4.x
+          # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
+          projects=()
+          while IFS= read -r -d '' proj; do
+            # Check if project has any .NET 6+ target framework (macOS ARM64 compatible)
+            # Look for: net6.0, net7.0, net8.0, net9.0, net10.0
+            if grep -qE '<TargetFramework[s]?>.*net(6\.0|7\.0|8\.0|9\.0|10\.0)' "$proj"; then
+              projects+=("$proj")
+              echo "✓ Including: $proj (has .NET 6+ target)"
+            else
+              echo "⊘ Excluding: $proj (no .NET 6+ target, incompatible with macOS ARM64)"
+            fi
+          done < <(printf '%s\0' $all_projects)
+          
+          if [ ${#projects[@]} -eq 0 ]; then
+            echo "❌ No compatible .NET projects found."
+            echo "All projects lack .NET 6+ targets, which are required for macOS ARM64."
+            exit 1
+          fi
+          
+          echo ""
           echo "=========================================="
           echo "Projects to build (excluding .NET Framework 4.x):"
           echo "=========================================="
-          find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4"
+          printf '%s\n' "${projects[@]}"
           echo ""
           
           # Restore each project using null-delimited iteration to safely handle paths with spaces
           echo "Restoring projects..."
-          while IFS= read -r -d '' proj; do
+          for proj in "${projects[@]}"; do
             echo "Restoring: $proj"
             dotnet restore "$proj" || exit 1
-          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4")
+          done
           
           echo ""
           echo "Building projects..."
-          # Build each project using null-delimited iteration to safely handle paths with spaces
-          while IFS= read -r -d '' proj; do
+          # Build each project
+          # Multi-targeting projects will build only compatible target frameworks on macOS
+          for proj in "${projects[@]}"; do
             echo "Building: $proj"
             dotnet build "$proj" --no-restore --configuration Release || exit 1
-          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4")
+          done
           
           echo ""
           echo "✅ All compatible projects built successfully"
 
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
         run: |
-          # Find all test projects using null-delimited output for safe path handling
-          if ! find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -zq .; then
+          # Find all test projects
+          mapfile -t test_projects < <(find ./tests -type f -name "*.csproj")
+          
+          if [ ${#test_projects[@]} -eq 0 ]; then
             echo "❌ No test projects found in ./tests directory!"
             exit 1
           fi
@@ -385,14 +425,13 @@ jobs:
           echo "=========================================="
           echo "Found test projects:"
           echo "=========================================="
-          find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \)
+          printf '%s\n' "${test_projects[@]}"
           echo ""
           
           # Skip .NET Core 5.0 and .NET 5.0 - no ARM64 support on macOS
           frameworks=(net6.0 net7.0 net8.0 net9.0 net10.0)
           
-          # Use null-delimited iteration to safely handle paths with spaces
-          while IFS= read -r -d '' test_proj; do
+          for test_proj in "${test_projects[@]}"; do
             echo "=========================================="
             echo "Testing project: $test_proj"
             echo "=========================================="
@@ -406,7 +445,7 @@ jobs:
                 --logger "console;verbosity=normal" || exit 1
             done
             echo ""
-          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
+          done
 
       - name: Display macOS architecture info
         if: always()
