@@ -522,7 +522,7 @@ jobs:
             # Extract target frameworks from the project file
             # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
             # Only include .NET 6.0+ (ARM64 compatible on macOS)
-            frameworks=$(grep -Eo '<TargetFrameworks?>[^<]+' "$test_proj" | sed -E 's/<TargetFrameworks?>//' | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            frameworks=$(grep -Eo '<TargetFrameworks?>[^<]+' "$test_proj" | sed -E 's/<TargetFrameworks?>//' | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⊘ Skipping: No compatible .NET 6.0-10.0 target frameworks found (ARM64 required)"
