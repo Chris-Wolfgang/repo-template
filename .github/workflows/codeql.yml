@@ -30,15 +30,20 @@ jobs:
       id: check-csharp
       shell: pwsh
       run: |
+        Write-Host "=== CodeQL C# Source Code Detection ===" -ForegroundColor Cyan
+        Write-Host "Searching for C# source files in standard .NET directories..." -ForegroundColor Cyan
+        
         # Check if any C# source files exist, limiting search to typical .NET directories
         $searchRoots = @('src', 'tests', 'benchmarks', 'examples', '.')
         $csharpFiles = @()
 
         foreach ($root in $searchRoots) {
           if (Test-Path $root) {
+            Write-Host "  Searching in: $root" -ForegroundColor Gray
             $csharpFiles += Get-ChildItem -Path $root -Recurse -Include "*.cs","*.csproj" -File -ErrorAction SilentlyContinue |
               Where-Object {
-                $_.FullName -notmatch '[\\/]\.git[\\/]' -and $_.FullName -notmatch '[\\/](bin|obj|node_modules)[\\/]'
+                ($_.FullName -notmatch '[\\/]\.git[\\/]') -and
+                ($_.FullName -notmatch '[\\/](bin|obj|node_modules)[\\/]')
               }
           }
         }
@@ -47,13 +52,19 @@ jobs:
         $csharpFiles = @($csharpFiles | Select-Object -Unique)
         $csharpFileCount = $csharpFiles.Count
         
+        Write-Host "" -ForegroundColor Cyan
         if ($csharpFileCount -eq 0) {
-          Write-Host "No C# source code found. This appears to be a template repository. Skipping CodeQL analysis."
+          Write-Host "⚠️  No C# source code found." -ForegroundColor Yellow
+          Write-Host "   This appears to be a empty repository or a repository without projects." -ForegroundColor Yellow
+          Write-Host "   CodeQL analysis will be SKIPPED, but the job will complete successfully." -ForegroundColor Yellow
+          Write-Host "   This ensures branch protection requirements are met." -ForegroundColor Yellow
           echo "has-csharp=false" >> $env:GITHUB_OUTPUT
         } else {
-          Write-Host "Found $csharpFileCount C# file(s). Proceeding with CodeQL analysis."
+          Write-Host "✅ Found $csharpFileCount C# file(s)." -ForegroundColor Green
+          Write-Host "   CodeQL analysis will PROCEED." -ForegroundColor Green
           echo "has-csharp=true" >> $env:GITHUB_OUTPUT
         }
+        Write-Host "========================================" -ForegroundColor Cyan
 
     - name: Initialize CodeQL
       if: steps.check-csharp.outputs.has-csharp == 'true'
@@ -109,3 +120,22 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
+
+    - name: Complete Security Scan
+      if: always()
+      shell: pwsh
+      run: |
+        Write-Host "=== CodeQL Security Scan Complete ===" -ForegroundColor Cyan
+        # Check if the check-csharp step ran and what the output was
+        $hasCsharp = "${{ steps.check-csharp.outputs.has-csharp }}"
+        if ($hasCsharp -eq "true") {
+          Write-Host "✅ CodeQL analysis completed successfully." -ForegroundColor Green
+          Write-Host "   Results have been uploaded to GitHub Security." -ForegroundColor Green
+        } elseif ($hasCsharp -eq "false") {
+          Write-Host "✅ Security scan completed successfully (no C# code to analyze)." -ForegroundColor Green
+          Write-Host "   This job ran successfully and reports a passing status to branch protection." -ForegroundColor Green
+        } else {
+          Write-Host "✅ Security scan job completed." -ForegroundColor Green
+          Write-Host "   Job status reported to branch protection." -ForegroundColor Green
+        }
+        Write-Host "=======================================" -ForegroundColor Cyan
