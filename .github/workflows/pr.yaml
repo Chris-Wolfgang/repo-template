@@ -474,10 +474,39 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
 
+      - name: Check for source code files
+        id: check-code
+        run: |
+          echo "=== DevSkim Source Code Detection ===" 
+          echo "Searching for source code files..."
+          
+          # Check for common source code file extensions
+          code_files=$(find . -type f \( \
+            -name "*.cs" -o -name "*.csproj" -o -name "*.vb" -o -name "*.vbproj" -o \
+            -name "*.fs" -o -name "*.fsproj" -o -name "*.cpp" -o -name "*.c" -o \
+            -name "*.h" -o -name "*.hpp" -o -name "*.js" -o -name "*.ts" -o \
+            -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" \
+            \) ! -path "*/.git/*" ! -path "*/bin/*" ! -path "*/obj/*" ! -path "*/node_modules/*" 2>/dev/null | head -1)
+          
+          if [ -z "$code_files" ]; then
+            echo "⚠️ No source code files found."
+            echo "   This appears to be a template repository or a repository without code."
+            echo "   Security scan will be SKIPPED, but the job will complete successfully."
+            echo "   This ensures branch protection requirements are met."
+            echo "has-code=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Found source code files."
+            echo "   Security scan will PROCEED."
+            echo "has-code=true" >> $GITHUB_OUTPUT
+          fi
+          echo "=========================================="
+
       - name: Install DevSkim CLI
+        if: steps.check-code.outputs.has-code == 'true'
         run: dotnet tool install --global Microsoft.CST.DevSkim.CLI
 
       - name: Run DevSkim security scan
+        if: steps.check-code.outputs.has-code == 'true'
         continue-on-error: true
         run: |
           devskim analyze \
@@ -491,7 +520,16 @@ jobs:
       - name: Display security scan results
         if: always()
         run: |
-          if [ -f devskim-results.txt ]; then
+          has_code="${{ steps.check-code.outputs.has-code }}"
+          
+          if [ "$has_code" = "false" ]; then
+            echo "=========================================="
+            echo "DevSkim Security Scan Complete"
+            echo "=========================================="
+            echo "✅ Security scan completed successfully (no code to scan)."
+            echo "   This job ran successfully and reports a passing status to branch protection."
+            echo "=========================================="
+          elif [ -f devskim-results.txt ]; then
             echo "=========================================="
             echo "DevSkim Security Scan Results"
             echo "=========================================="
@@ -508,7 +546,7 @@ jobs:
           fi
 
       - name: Upload security scan results
-        if: always()
+        if: always() && steps.check-code.outputs.has-code == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: devskim-results
