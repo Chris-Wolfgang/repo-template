@@ -469,7 +469,8 @@ jobs:
             
             # Extract target frameworks from the project file
             # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            frameworks=$(sed -n -E 's/.*<TargetFrameworks?>[[:space:]]*>([^<]+)<\/TargetFrameworks?>.*/\1/p' "$proj" | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            # Trim whitespace from each framework before filtering
+            frameworks=$(sed -n -E 's/.*<TargetFrameworks?>[[:space:]]*>([^<]+)<\/TargetFrameworks?>.*/\1/p' "$proj" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⚠️  No macOS ARM64-compatible frameworks found in $proj"
