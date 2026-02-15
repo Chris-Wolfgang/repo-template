@@ -38,15 +38,15 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
       
-      - name: Check for .csproj files
+      - name: Check for .NET project files
         id: check-projects
         run: |
-          if git ls-files '*.csproj' | grep -q .; then
+          if git ls-files '*.csproj' '*.vbproj' '*.fsproj' | grep -q .; then
             echo "has-projects=true" >> $GITHUB_OUTPUT
-            echo "✅ Found .csproj files - .NET build and test jobs will run"
+            echo "✅ Found .NET project files - .NET build and test jobs will run"
           else
             echo "has-projects=false" >> $GITHUB_OUTPUT
-            echo "ℹ️  No .csproj files found - skipping .NET build and test jobs"
+            echo "ℹ️  No .NET project files found - skipping .NET build and test jobs"
           fi
 
   # ============================================================================
