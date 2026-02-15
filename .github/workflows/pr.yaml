@@ -164,7 +164,7 @@ jobs:
             
             # Extract target frameworks from the project file
             # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$test_proj" | tr ';' '\n' | grep -E '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$test_proj" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⊘ Skipping: No compatible .NET 5.0-10.0 target frameworks found"
@@ -334,7 +334,7 @@ jobs:
             }
             
             # Split by semicolon for multi-targeting projects
-            $frameworks = $tfmMatch.Groups[1].Value -split ';' | Where-Object { $_ -match '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0|462|472|48|481)$' }
+            $frameworks = $tfmMatch.Groups[1].Value -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0|462|472|48|481)$' }
             
             if ($frameworks.Count -eq 0) {
               Write-Host "⊘ Skipping: No compatible .NET 5.0-10.0 or Framework 4.6.2-4.8.1 target frameworks found" -ForegroundColor Yellow
@@ -471,7 +471,7 @@ jobs:
             # Extract target frameworks from the project file
             # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
             # Only include .NET 6.0+ (ARM64 compatible on macOS)
-            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$test_proj" | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            frameworks=$(grep -Eo '<TargetFrameworks?>[^<]+' "$test_proj" | sed -E 's/<TargetFrameworks?>//' | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⊘ Skipping: No compatible .NET 6.0-10.0 target frameworks found (ARM64 required)"
