@@ -130,10 +130,8 @@ jobs:
 
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
         run: |
-          # Find all test projects
-          test_projects=$(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
-          
-          if [ -z "$test_projects" ]; then
+          # Find all test projects using null-delimited output for safe path handling
+          if ! find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -zq .; then
             echo "❌ No test projects found in ./tests directory!"
             exit 1
           fi
@@ -141,13 +139,14 @@ jobs:
           echo "=========================================="
           echo "Found test projects:"
           echo "=========================================="
-          echo "$test_projects"
+          find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \)
           echo ""
           
           # Test each framework individually to ensure all are tested
           frameworks=(net5.0 net6.0 net7.0 net8.0 net9.0 net10.0)
           
-          for test_proj in $test_projects; do
+          # Use null-delimited iteration to safely handle paths with spaces
+          while IFS= read -r -d '' test_proj; do
             echo "=========================================="
             echo "Testing project: $test_proj"
             echo "=========================================="
@@ -163,7 +162,7 @@ jobs:
                 --logger "console;verbosity=minimal" || exit 1
             done
             echo ""
-          done
+          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
 
       - name: Install ReportGenerator
         run: dotnet tool install -g dotnet-reportgenerator-globaltool
@@ -379,10 +378,8 @@ jobs:
 
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
         run: |
-          # Find all test projects
-          test_projects=$(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
-          
-          if [ -z "$test_projects" ]; then
+          # Find all test projects using null-delimited output for safe path handling
+          if ! find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -zq .; then
             echo "❌ No test projects found in ./tests directory!"
             exit 1
           fi
@@ -390,13 +387,14 @@ jobs:
           echo "=========================================="
           echo "Found test projects:"
           echo "=========================================="
-          echo "$test_projects"
+          find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \)
           echo ""
           
           # Skip .NET Core 5.0 and .NET 5.0 - no ARM64 support on macOS
           frameworks=(net6.0 net7.0 net8.0 net9.0 net10.0)
           
-          for test_proj in $test_projects; do
+          # Use null-delimited iteration to safely handle paths with spaces
+          while IFS= read -r -d '' test_proj; do
             echo "=========================================="
             echo "Testing project: $test_proj"
             echo "=========================================="
@@ -410,7 +408,7 @@ jobs:
                 --logger "console;verbosity=normal" || exit 1
             done
             echo ""
-          done
+          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
 
       - name: Display macOS architecture info
         if: always()
