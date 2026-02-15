@@ -160,7 +160,7 @@ jobs:
           # Check if TestResults directory exists and has coverage files
           if [ ! -d "TestResults" ] || [ -z "$(find TestResults -name 'coverage.cobertura.xml' 2>/dev/null)" ]; then
             echo "⚠️ No test results found - skipping coverage report generation"
-            echo "This is expected when no test projects exist in the repository."
+            echo "This is expected when no source projects exist in the ./src directory."
             exit 0
           fi
           
