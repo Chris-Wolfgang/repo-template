@@ -131,11 +131,36 @@ jobs:
           
           echo ""
           echo "Building projects..."
-          # Build each project
-          # Multi-targeting projects will build only compatible target frameworks on Linux
+          # Build each project, handling multi-targeting projects
+          # For multi-targeting projects, build only Linux-compatible frameworks (.NET 5.0+, .NET Core, .NET Standard)
           for proj in "${projects[@]}"; do
             echo "Building: $proj"
-            dotnet build "$proj" --no-restore --configuration Release || exit 1
+            
+            # Extract target frameworks from the project file
+            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
+            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$proj" | tr ';' '\n' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp[0-9.]+|netstandard[0-9.]+)$' || true)
+            
+            if [ -z "$frameworks" ]; then
+              echo "⚠️  No Linux-compatible frameworks found in $proj"
+              continue
+            fi
+            
+            # Check if this is a multi-targeting project
+            framework_count=$(echo "$frameworks" | wc -l)
+            
+            if [ "$framework_count" -eq 1 ]; then
+              # Single target framework - build normally
+              echo "  Target framework: $frameworks"
+              dotnet build "$proj" --no-restore --configuration Release || exit 1
+            else
+              # Multi-targeting project - build each compatible framework separately
+              echo "  Target frameworks (multi-targeting): $(echo "$frameworks" | tr '\n' ' ')"
+              while IFS= read -r fw; do
+                [ -z "$fw" ] && continue
+                echo "  Building framework: $fw"
+                dotnet build "$proj" --no-restore --configuration Release --framework "$fw" || exit 1
+              done <<< "$frameworks"
+            fi
           done
           
           echo ""
@@ -437,11 +462,36 @@ jobs:
           
           echo ""
           echo "Building projects..."
-          # Build each project
-          # Multi-targeting projects will build only compatible target frameworks on macOS
+          # Build each project, handling multi-targeting projects
+          # For multi-targeting projects, build only macOS ARM64-compatible frameworks (net6.0-10.0)
           for proj in "${projects[@]}"; do
             echo "Building: $proj"
-            dotnet build "$proj" --no-restore --configuration Release || exit 1
+            
+            # Extract target frameworks from the project file
+            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
+            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$proj" | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            
+            if [ -z "$frameworks" ]; then
+              echo "⚠️  No macOS ARM64-compatible frameworks found in $proj"
+              continue
+            fi
+            
+            # Check if this is a multi-targeting project
+            framework_count=$(echo "$frameworks" | wc -l)
+            
+            if [ "$framework_count" -eq 1 ]; then
+              # Single target framework - build normally
+              echo "  Target framework: $frameworks"
+              dotnet build "$proj" --no-restore --configuration Release || exit 1
+            else
+              # Multi-targeting project - build each compatible framework separately
+              echo "  Target frameworks (multi-targeting): $(echo "$frameworks" | tr '\n' ' ')"
+              while IFS= read -r fw; do
+                [ -z "$fw" ] && continue
+                echo "  Building framework: $fw"
+                dotnet build "$proj" --no-restore --configuration Release --framework "$fw" || exit 1
+              done <<< "$frameworks"
+            fi
           done
           
           echo ""
