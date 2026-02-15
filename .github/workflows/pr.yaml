@@ -443,13 +443,12 @@ jobs:
           echo "PR is ready to merge! 🎉"
 
   # ============================================================================
-  # Security Scan (Runs in parallel with tests, always runs)
+  # Security Scan (Runs in parallel, independently of .NET jobs)
   # ============================================================================
   security-scan:
     name: "Security Scan (DevSkim)"
     runs-on: ubuntu-latest
-    needs: detect-projects
-    if: github.repository != 'Chris-Wolfgang/repo-template' && always()
+    if: github.repository != 'Chris-Wolfgang/repo-template'
     
     steps:
       - name: Checkout code
