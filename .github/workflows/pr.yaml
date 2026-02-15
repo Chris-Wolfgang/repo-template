@@ -269,34 +269,10 @@ jobs:
             10.0.x
 
       - name: Restore dependencies
-        shell: pwsh
-        run: |
-          # Check if there are any .NET projects
-          $projects = Get-ChildItem -Path . -Recurse -Include *.csproj,*.vbproj,*.fsproj
-          
-          if ($projects.Count -eq 0) {
-            Write-Host "⚠️ No .NET projects found in repository"
-            Write-Host "This is expected for a new repository. Skipping restore step."
-            Write-Host "Add .NET projects to enable build validation."
-            exit 0
-          }
-          
-          dotnet restore
+        run: dotnet restore
 
       - name: Build solution
-        shell: pwsh
-        run: |
-          # Check if there are any .NET projects
-          $projects = Get-ChildItem -Path . -Recurse -Include *.csproj,*.vbproj,*.fsproj
-          
-          if ($projects.Count -eq 0) {
-            Write-Host "⚠️ No .NET projects found in repository"
-            Write-Host "This is expected for a new repository. Skipping build step."
-            Write-Host "Add .NET projects to enable build validation."
-            exit 0
-          }
-          
-          dotnet build --no-restore --configuration Release
+        run: dotnet build --no-restore --configuration Release
 
       - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
