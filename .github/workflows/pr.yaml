@@ -97,19 +97,19 @@ jobs:
           
           # Filter out projects that ONLY target .NET Framework 4.x
           # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
-          projects=""
-          for proj in $all_projects; do
+          projects=()
+          while IFS= read -r -d '' proj; do
             # Check if project has any .NET 5+ target framework
             # Look for: net5.0, net6.0, net7.0, net8.0, net9.0, net10.0, or netcoreapp, netstandard
             if grep -qE '<TargetFramework[s]?>.*(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp|netstandard)' "$proj"; then
-              projects="$projects $proj"
+              projects+=("$proj")
               echo "✓ Including: $proj (has .NET 5+ or .NET Core target)"
             else
               echo "⊘ Excluding: $proj (Framework-only, incompatible with Linux)"
             fi
-          done
+          done < <(printf '%s\0' $all_projects)
           
-          if [ -z "$projects" ]; then
+          if [ ${#projects[@]} -eq 0 ]; then
             echo "❌ No compatible .NET projects found."
             echo "All projects target only .NET Framework 4.x, which is incompatible with Linux."
             exit 1
@@ -119,12 +119,12 @@ jobs:
           echo "=========================================="
           echo "Projects to build:"
           echo "=========================================="
-          echo "$projects"
+          printf '%s\n' "${projects[@]}"
           echo ""
           
           # Restore each project
           echo "Restoring projects..."
-          for proj in $projects; do
+          for proj in "${projects[@]}"; do
             echo "Restoring: $proj"
             dotnet restore "$proj" || exit 1
           done
@@ -133,7 +133,7 @@ jobs:
           echo "Building projects..."
           # Build each project
           # Multi-targeting projects will build only compatible target frameworks on Linux
-          for proj in $projects; do
+          for proj in "${projects[@]}"; do
             echo "Building: $proj"
             dotnet build "$proj" --no-restore --configuration Release || exit 1
           done
@@ -144,9 +144,9 @@ jobs:
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
         run: |
           # Find all test projects
-          test_projects=$(find ./tests -type f -name "*.csproj")
+          mapfile -t test_projects < <(find ./tests -type f -name "*.csproj")
           
-          if [ -z "$test_projects" ]; then
+          if [ ${#test_projects[@]} -eq 0 ]; then
             echo "❌ No test projects found in ./tests directory!"
             exit 1
           fi
@@ -154,13 +154,13 @@ jobs:
           echo "=========================================="
           echo "Found test projects:"
           echo "=========================================="
-          echo "$test_projects"
+          printf '%s\n' "${test_projects[@]}"
           echo ""
           
           # Test each framework individually to ensure all are tested
           frameworks=(net5.0 net6.0 net7.0 net8.0 net9.0 net10.0)
           
-          for test_proj in $test_projects; do
+          for test_proj in "${test_projects[@]}"; do
             echo "=========================================="
             echo "Testing project: $test_proj"
             echo "=========================================="
@@ -368,19 +368,19 @@ jobs:
           
           # Filter out projects that ONLY target .NET Framework 4.x
           # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
-          projects=""
-          for proj in $all_projects; do
+          projects=()
+          while IFS= read -r -d '' proj; do
             # Check if project has any .NET 6+ target framework (macOS ARM64 compatible)
             # Look for: net6.0, net7.0, net8.0, net9.0, net10.0
             if grep -qE '<TargetFramework[s]?>.*net(6\.0|7\.0|8\.0|9\.0|10\.0)' "$proj"; then
-              projects="$projects $proj"
+              projects+=("$proj")
               echo "✓ Including: $proj (has .NET 6+ target)"
             else
               echo "⊘ Excluding: $proj (no .NET 6+ target, incompatible with macOS ARM64)"
             fi
-          done
+          done < <(printf '%s\0' $all_projects)
           
-          if [ -z "$projects" ]; then
+          if [ ${#projects[@]} -eq 0 ]; then
             echo "❌ No compatible .NET projects found."
             echo "All projects lack .NET 6+ targets, which are required for macOS ARM64."
             exit 1
@@ -390,12 +390,12 @@ jobs:
           echo "=========================================="
           echo "Projects to build (excluding .NET Framework 4.x):"
           echo "=========================================="
-          echo "$projects"
+          printf '%s\n' "${projects[@]}"
           echo ""
           
           # Restore each project using null-delimited iteration to safely handle paths with spaces
           echo "Restoring projects..."
-          for proj in $projects; do
+          for proj in "${projects[@]}"; do
             echo "Restoring: $proj"
             dotnet restore "$proj" || exit 1
           done
@@ -404,7 +404,7 @@ jobs:
           echo "Building projects..."
           # Build each project
           # Multi-targeting projects will build only compatible target frameworks on macOS
-          for proj in $projects; do
+          for proj in "${projects[@]}"; do
             echo "Building: $proj"
             dotnet build "$proj" --no-restore --configuration Release || exit 1
           done
@@ -415,9 +415,9 @@ jobs:
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
         run: |
           # Find all test projects
-          test_projects=$(find ./tests -type f -name "*.csproj")
+          mapfile -t test_projects < <(find ./tests -type f -name "*.csproj")
           
-          if [ -z "$test_projects" ]; then
+          if [ ${#test_projects[@]} -eq 0 ]; then
             echo "❌ No test projects found in ./tests directory!"
             exit 1
           fi
@@ -425,13 +425,13 @@ jobs:
           echo "=========================================="
           echo "Found test projects:"
           echo "=========================================="
-          find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \)
+          printf '%s\n' "${test_projects[@]}"
           echo ""
           
           # Skip .NET Core 5.0 and .NET 5.0 - no ARM64 support on macOS
           frameworks=(net6.0 net7.0 net8.0 net9.0 net10.0)
           
-          for test_proj in $test_projects; do
+          for test_proj in "${test_projects[@]}"; do
             echo "=========================================="
             echo "Testing project: $test_proj"
             echo "=========================================="
