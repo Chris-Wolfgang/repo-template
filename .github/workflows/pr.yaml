@@ -398,7 +398,7 @@ jobs:
           for proj in $projects; do
             echo "Restoring: $proj"
             dotnet restore "$proj" || exit 1
-          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4")
+          done
           
           echo ""
           echo "Building projects..."
