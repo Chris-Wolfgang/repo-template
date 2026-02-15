@@ -131,7 +131,7 @@ jobs:
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
         run: |
           # Find all test projects
-          test_projects=$(find ./tests -type f -name "*.csproj")
+          test_projects=$(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
           
           if [ -z "$test_projects" ]; then
             echo "❌ No test projects found in ./tests directory!"
@@ -277,7 +277,7 @@ jobs:
       - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
         run: |
-          $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
+          $testProjects = @(Get-ChildItem -Path './tests' -Recurse -Include '*.csproj','*.vbproj','*.fsproj')
           
           if (@($testProjects).Count -eq 0) {
             Write-Error "❌ No test projects found in ./tests directory!"
@@ -380,7 +380,7 @@ jobs:
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
         run: |
           # Find all test projects
-          test_projects=$(find ./tests -type f -name "*.csproj")
+          test_projects=$(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
           
           if [ -z "$test_projects" ]; then
             echo "❌ No test projects found in ./tests directory!"
