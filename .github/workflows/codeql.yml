@@ -79,6 +79,7 @@ jobs:
         dotnet-version: '10.0.x'
 
     - name: Build for CodeQL Analysis
+      id: build
       if: steps.check-csharp.outputs.has-csharp == 'true'
       shell: pwsh
       run: |
@@ -116,6 +117,7 @@ jobs:
         Write-Host "✅ Build completed for CodeQL analysis"
 
     - name: Perform CodeQL Analysis
+      id: perform-codeql-analysis
       if: steps.check-csharp.outputs.has-csharp == 'true'
       uses: github/codeql-action/analyze@v3
       with:
@@ -126,9 +128,43 @@ jobs:
       shell: pwsh
       run: |
         Write-Host "=== CodeQL Security Scan Complete ===" -ForegroundColor Cyan
-        # Check if the check-csharp step ran and what the output was
+        
+        # Check the outcome of previous steps
+        $checkCsharpOutcome = "${{ steps.check-csharp.outcome }}"
         $hasCsharp = "${{ steps.check-csharp.outputs.has-csharp }}"
-        if ($hasCsharp -eq "true") {
+        $buildOutcome = "${{ steps.build.outcome }}"
+        $codeqlOutcome = "${{ steps.perform-codeql-analysis.conclusion }}"
+        
+        # Determine overall status
+        $hasFailure = $false
+        $failureMessages = @()
+        
+        # Check if check-csharp step failed
+        if ($checkCsharpOutcome -eq "failure") {
+          $hasFailure = $true
+          $failureMessages += "❌ C# source code detection failed"
+        }
+        
+        # Check if build step failed (only relevant if C# code exists)
+        if ($hasCsharp -eq "true" -and $buildOutcome -eq "failure") {
+          $hasFailure = $true
+          $failureMessages += "❌ Build failed during CodeQL analysis"
+        }
+        
+        # Check if CodeQL analysis step failed (only relevant if C# code exists)
+        if ($hasCsharp -eq "true" -and $codeqlOutcome -eq "failure") {
+          $hasFailure = $true
+          $failureMessages += "❌ CodeQL analysis failed"
+        }
+        
+        # Display results based on actual step outcomes
+        if ($hasFailure) {
+          Write-Host "❌ Security scan completed with errors:" -ForegroundColor Red
+          foreach ($msg in $failureMessages) {
+            Write-Host "   $msg" -ForegroundColor Red
+          }
+          exit 1
+        } elseif ($hasCsharp -eq "true") {
           Write-Host "✅ CodeQL analysis completed successfully." -ForegroundColor Green
           Write-Host "   Results have been uploaded to GitHub Security." -ForegroundColor Green
         } elseif ($hasCsharp -eq "false") {
