@@ -99,6 +99,7 @@ jobs:
           echo "✅ All compatible projects built successfully"
 
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
+        id: run-tests
         run: |
           # Find all test projects
           test_projects=$(find ./tests -type f -name "*.csproj")
@@ -107,8 +108,11 @@ jobs:
             echo "⚠️ No test projects found in ./tests directory"
             echo "This is expected for a new repository. Skipping tests."
             echo "Add test projects to enable test execution."
+            echo "tests-skipped=true" >> $GITHUB_OUTPUT
             exit 0
           fi
+          
+          echo "tests-skipped=false" >> $GITHUB_OUTPUT
           
           echo "=========================================="
           echo "Found test projects:"
@@ -157,10 +161,23 @@ jobs:
       - name: Enforce 90% coverage threshold
         run: |
           if [ ! -f CoverageReport/Summary.txt ]; then
-            echo "⚠️ Coverage report not found - skipping coverage threshold check"
-            echo "This is expected when no test projects exist in the repository."
-            echo "Add test projects to enable coverage validation."
-            exit 0
+            # Check if tests were intentionally skipped
+            if [ "${{ steps.run-tests.outputs.tests-skipped }}" == "true" ]; then
+              echo "⚠️ Coverage report not found - skipping coverage threshold check"
+              echo "This is expected when no test projects exist in the repository."
+              echo "Add test projects to enable coverage validation."
+              exit 0
+            else
+              echo "❌ ERROR: Coverage report is missing but tests were expected to run"
+              echo "This indicates a failure in test execution or coverage generation."
+              echo "Possible causes:"
+              echo "  - ReportGenerator failed to generate the report"
+              echo "  - Tests did not produce coverage data"
+              echo "  - Coverage collection was not properly configured"
+              echo ""
+              echo "Please review the previous steps for errors."
+              exit 1
+            fi
           fi
 
           echo "Coverage Summary:"
