@@ -86,19 +86,13 @@ jobs:
         run: |
           echo "Finding all projects in solution..."
           
-          # Find all .csproj, .vbproj, and .fsproj files
-          all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
-          
-          if [ -z "$all_projects" ]; then
-            echo "❌ No .NET projects found."
-            echo "This should not occur as detect-projects already verified project existence."
-            exit 1
-          fi
-          
           # Filter out projects that ONLY target .NET Framework 4.x
           # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
           projects=()
+          project_found=false
+          
           while IFS= read -r -d '' proj; do
+            project_found=true
             # Check if project has any .NET 5+ target framework
             # Look for: net5.0, net6.0, net7.0, net8.0, net9.0, net10.0, or netcoreapp, netstandard
             if grep -qE '<TargetFramework[s]?>.*(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp|netstandard)' "$proj"; then
@@ -107,7 +101,13 @@ jobs:
             else
               echo "⊘ Excluding: $proj (Framework-only, incompatible with Linux)"
             fi
-          done < <(printf '%s\0' "$all_projects")
+          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
+          
+          if [ "$project_found" = false ]; then
+            echo "❌ No .NET projects found."
+            echo "This should not occur as detect-projects already verified project existence."
+            exit 1
+          fi
           
           if [ ${#projects[@]} -eq 0 ]; then
             echo "❌ No compatible .NET projects found."
@@ -359,19 +359,13 @@ jobs:
         run: |
           echo "Finding all projects in solution..."
           
-          # Find all .csproj, .vbproj, and .fsproj files
-          all_projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
-          
-          if [ -z "$all_projects" ]; then
-            echo "❌ No .NET projects found."
-            echo "This should not occur as detect-projects already verified project existence."
-            exit 1
-          fi
-          
           # Filter out projects that ONLY target .NET Framework 4.x
           # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
           projects=()
+          project_found=false
+          
           while IFS= read -r -d '' proj; do
+            project_found=true
             # Check if project has any .NET 6+ target framework (macOS ARM64 compatible)
             # Look for: net6/net6.0, net7/net7.0, net8/net8.0, net9/net9.0, net10/net10.0
             if grep -qE '<TargetFramework[s]?>.*net(6|7|8|9|10)(\.0)?' "$proj"; then
@@ -380,7 +374,13 @@ jobs:
             else
               echo "⊘ Excluding: $proj (no .NET 6+ target, incompatible with macOS ARM64)"
             fi
-          done < <(printf '%s\0' "$all_projects")
+          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
+          
+          if [ "$project_found" = false ]; then
+            echo "❌ No .NET projects found."
+            echo "This should not occur as detect-projects already verified project existence."
+            exit 1
+          fi
           
           if [ ${#projects[@]} -eq 0 ]; then
             echo "❌ No compatible .NET projects found."
