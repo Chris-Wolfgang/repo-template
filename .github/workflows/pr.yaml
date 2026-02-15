@@ -279,7 +279,7 @@ jobs:
         run: |
           $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
           
-          if ($testProjects.Count -eq 0) {
+          if (@($testProjects).Count -eq 0) {
             Write-Error "❌ No test projects found in ./tests directory!"
             exit 1
           }
