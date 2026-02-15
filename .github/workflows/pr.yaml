@@ -92,11 +92,9 @@ jobs:
             echo "Using solution file: $sln_file"
           fi
           
-          # Find all .csproj, .vbproj, and .fsproj files
+          # Find all .csproj, .vbproj, and .fsproj files using null-delimited output for safe path handling
           # Exclude those with 'dotnet4' or 'DotNet4' in the path (case-insensitive)
-          projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4")
-          
-          if [ -z "$projects" ]; then
+          if ! find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4" | grep -zq .; then
             echo "❌ No compatible .NET projects found after excluding .NET Framework 4.x projects."
             echo "This indicates a configuration issue: detect-projects reported projects present,"
             echo "but none remain after filtering out .NET Framework 4.x (e.g., only .NET 4.x projects exist)."
@@ -107,23 +105,23 @@ jobs:
           echo "=========================================="
           echo "Projects to build (excluding .NET Framework 4.x):"
           echo "=========================================="
-          echo "$projects"
+          find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4"
           echo ""
           
-          # Restore each project
+          # Restore each project using null-delimited iteration to safely handle paths with spaces
           echo "Restoring projects..."
-          for proj in $projects; do
+          while IFS= read -r -d '' proj; do
             echo "Restoring: $proj"
             dotnet restore "$proj" || exit 1
-          done
+          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4")
           
           echo ""
           echo "Building projects..."
-          # Build each project
-          for proj in $projects; do
+          # Build each project using null-delimited iteration to safely handle paths with spaces
+          while IFS= read -r -d '' proj; do
             echo "Building: $proj"
             dotnet build "$proj" --no-restore --configuration Release || exit 1
-          done
+          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4")
           
           echo ""
           echo "✅ All compatible projects built successfully"
@@ -343,11 +341,9 @@ jobs:
         run: |
           echo "Finding all projects in solution..."
           
-          # Find all .csproj, .vbproj, and .fsproj files
+          # Find all .csproj, .vbproj, and .fsproj files using null-delimited output for safe path handling
           # Exclude those with 'dotnet4' or 'DotNet4' in the path (case-insensitive)
-          projects=$(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4")
-          
-          if [ -z "$projects" ]; then
+          if ! find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4" | grep -zq .; then
             echo "No projects found!"
             exit 1
           fi
@@ -355,23 +351,23 @@ jobs:
           echo "=========================================="
           echo "Projects to build (excluding .NET Framework 4.x):"
           echo "=========================================="
-          echo "$projects"
+          find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) | grep -iv "dotnet4"
           echo ""
           
-          # Restore each project
+          # Restore each project using null-delimited iteration to safely handle paths with spaces
           echo "Restoring projects..."
-          for proj in $projects; do
+          while IFS= read -r -d '' proj; do
             echo "Restoring: $proj"
             dotnet restore "$proj" || exit 1
-          done
+          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4")
           
           echo ""
           echo "Building projects..."
-          # Build each project
-          for proj in $projects; do
+          # Build each project using null-delimited iteration to safely handle paths with spaces
+          while IFS= read -r -d '' proj; do
             echo "Building: $proj"
             dotnet build "$proj" --no-restore --configuration Release || exit 1
-          done
+          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0 | grep -ziv "dotnet4")
           
           echo ""
           echo "✅ All compatible projects built successfully"
