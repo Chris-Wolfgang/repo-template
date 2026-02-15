@@ -22,12 +22,41 @@ on:
       - main
 jobs:
   # ============================================================================
+  # DETECTION: Check if .csproj files exist
+  # ============================================================================
+  detect-projects:
+    name: "Detect .NET Projects"
+    runs-on: ubuntu-latest
+    if: github.repository != 'Chris-Wolfgang/repo-template'
+    outputs:
+      has-projects: ${{ steps.check-projects.outputs.has-projects }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/head
+          persist-credentials: false
+      
+      - name: Check for .csproj files
+        id: check-projects
+        run: |
+          if git ls-files '*.csproj' | grep -q .; then
+            echo "has-projects=true" >> $GITHUB_OUTPUT
+            echo "✅ Found .csproj files - .NET build and test jobs will run"
+          else
+            echo "has-projects=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  No .csproj files found - skipping .NET build and test jobs"
+          fi
+
+  # ============================================================================
   # STAGE 1: Linux - .NET Core/5+ Tests with Coverage Gate
   # ============================================================================
   test-linux-core: 
     name: "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate"
     runs-on:  ubuntu-latest
-    if: github.repository != 'Chris-Wolfgang/repo-template'
+    needs: detect-projects
+    if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
     
     steps:
       - name: Checkout code
@@ -215,8 +244,8 @@ jobs:
   test-windows:
     name: "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)"
     runs-on: windows-latest
-    needs: test-linux-core
-    if: github.repository != 'Chris-Wolfgang/repo-template'
+    needs: [detect-projects, test-linux-core]
+    if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
     
     steps:
       - name: Checkout code
@@ -288,8 +317,8 @@ jobs:
   test-macos-core:
     name: "Stage 3: macOS Tests (.NET 6.0-10.0)"
     runs-on: macos-latest
-    needs: test-windows
-    if: github.repository != 'Chris-Wolfgang/repo-template'
+    needs: [detect-projects, test-windows]
+    if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
     
     steps:
       - name: Checkout code
@@ -414,7 +443,7 @@ jobs:
           echo "PR is ready to merge! 🎉"
 
   # ============================================================================
-  # Security Scan (Runs in parallel with tests)
+  # Security Scan (Runs in parallel, independently of .NET jobs)
   # ============================================================================
   security-scan:
     name: "Security Scan (DevSkim)"
