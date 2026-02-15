@@ -31,25 +31,10 @@ jobs:
       shell: pwsh
       run: |
         Write-Host "=== CodeQL C# Source Code Detection ===" -ForegroundColor Cyan
-        Write-Host "Searching for C# source files in standard .NET directories..." -ForegroundColor Cyan
+        Write-Host "Searching for C# source files using git index..." -ForegroundColor Cyan
         
-        # Check if any C# source files exist, limiting search to typical .NET directories
-        $searchRoots = @('src', 'tests', 'benchmarks', 'examples', '.')
-        $csharpFiles = @()
-
-        foreach ($root in $searchRoots) {
-          if (Test-Path $root) {
-            Write-Host "  Searching in: $root" -ForegroundColor Gray
-            $csharpFiles += Get-ChildItem -Path $root -Recurse -Include "*.cs","*.csproj" -File -ErrorAction SilentlyContinue |
-              Where-Object {
-                ($_.FullName -notmatch '[\\/]\.git[\\/]') -and
-                ($_.FullName -notmatch '[\\/](bin|obj|node_modules)[\\/]')
-              }
-          }
-        }
-
-        # Remove any duplicate entries
-        $csharpFiles = @($csharpFiles | Select-Object -Unique)
+        # Use git ls-files to efficiently find C# files (respects .gitignore and doesn't traverse excluded dirs)
+        $csharpFiles = @(git ls-files '*.cs' '*.csproj' 2>$null | Where-Object { $_ })
         $csharpFileCount = $csharpFiles.Count
         
         Write-Host "" -ForegroundColor Cyan
