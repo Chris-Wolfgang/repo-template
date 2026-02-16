@@ -818,8 +818,6 @@ function Start-Setup {
     Write-Host "    - scripts/setup.ps1 (this script)" -ForegroundColor Gray
     Write-Host "    - scripts/setup.sh" -ForegroundColor Gray
     Write-Host "    - LICENSE-SELECTION.md" -ForegroundColor Gray
-    Write-Host "    - README-FORMATTING.md" -ForegroundColor Gray
-    Write-Host "    - REPO-INSTRUCTIONS.md" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Note: TEMPLATE-PLACEHOLDERS.md will remain for your reference." -ForegroundColor Cyan
     Write-Host "        Delete it manually when you've reviewed it and no longer need it." -ForegroundColor Cyan
@@ -831,9 +829,7 @@ function Start-Setup {
         $filesToRemove = @(
             'scripts/setup.ps1',
             'scripts/setup.sh',
-            'LICENSE-SELECTION.md',
-            'README-FORMATTING.md',
-            'REPO-INSTRUCTIONS.md'
+            'LICENSE-SELECTION.md'
         )
         
         foreach ($file in $filesToRemove) {
