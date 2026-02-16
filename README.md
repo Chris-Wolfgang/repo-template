@@ -29,9 +29,9 @@ Before using this template, ensure you have the following installed:
    ./scripts/setup.sh
    ```
    - The script will ask you for required values and read other details from your git configuration and repository,
-   - Replace all placeholders with your project information,
-   - Create a branch, commit the changes and push it to your repository
-   - Create a pull request for you to review and merge if approved
+   - Replaces all placeholders with your project information,
+   - Creates a branch, commits the changes and pushes it to your repository
+   - Creates a pull request for you to review and merge if approved
 4. **Merge your changes** - Review the pull request created in the previous step and merge it into `main`
 5. **Authenticate with GitHub CLI** - Required for branch protection setup:
    ```bash
