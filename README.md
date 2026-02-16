@@ -31,7 +31,7 @@ Before using this template, ensure you have the following installed:
    - The script will ask you for required values and read other details from your git configuration and repository,
    - Replace all placeholders with your project information,
    - Create a branch, commit the changes and push it to your repository
-   - Create a pull request for you to review and merge if appoved
+   - Create a pull request for you to review and merge if approved
 5. **Merge your changes** - Review the pull request created in the previous step and merge it into `main`
 6. **Authenticate with GitHub CLI** - Required for branch protection setup:
    ```bash
