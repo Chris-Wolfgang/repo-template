@@ -32,7 +32,7 @@ Before using this template, ensure you have the following installed:
    - Replace all placeholders with your project information,
    - Create a branch, commit the changes and push it to your repository
    - Create a pull request for you to review and merge if appoved
-5. **Merge your changes** - Review the pull request in your repository and merge it into `main`
+5. **Merge your changes** - Review the pull request created in the previous step and merge it into `main`
 6. **Authenticate with GitHub CLI** - Required for branch protection setup:
    ```bash
    gh auth login
