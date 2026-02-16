@@ -213,18 +213,19 @@ $rulesetConfig = @{
         },
         @{
             type = "copilot_code_review"
-            parameters = @{
+	    # Not yet supported through API, must be set via UI
+            # <-- parameters = @{
                 # Automatically request Copilot code review for new pull requests
                 # if the author has Copilot access and hasn't reached their review request limit
-                auto_request_copilot_review = $true
+                # <-- auto_request_copilot_review = $true
                 # Review new pushes to the pull request automatically
-                review_new_pushes = $true
+                # <-- review_new_pushes = $true
                 # Review draft pull requests before they are marked as ready
-                review_draft_pull_requests = $true
+                # <-- review_draft_pull_requests = $true
                 # Static analysis tools to include in Copilot code review
-                static_analysis_tools = @("CodeQL")
+                # <-- static_analysis_tools = @("CodeQL")
                 # Query suite for CodeQL
-                codeql_query_suite = "standard"
+                # <-- codeql_query_suite = "standard"
             }
         },
         @{
