@@ -19,7 +19,7 @@ Before using this template, ensure you have the following installed:
 
 1. **Create repository from template** - Click "Use this template" on GitHub
 2. **Clone your new repository** - Clone to your local computer
-3. **Run the automated setup and follow the prompts** - The script will ask you for required values and read other details from your git configuration and repository, then replace all placeholders with your project information:
+3. **Run the automated setup and follow the prompts**
    ```bash
    # PowerShell (Windows/macOS/Linux)
    pwsh ./scripts/setup.ps1
@@ -28,13 +28,18 @@ Before using this template, ensure you have the following installed:
    chmod +x scripts/setup.sh
    ./scripts/setup.sh
    ```
-4. **Commit and push** - Push your changes to the repository
-5. **Authenticate with GitHub CLI** - Required for branch protection setup:
+   - The script will ask you for required values and read other details from your git configuration and repository,
+   - Replace all placeholders with your project information,
+   - Create a branch, commit the changes and push it to your repository
+   - Create a pull request for you to review and merge if appoved
+
+5. **Commit and push** - Push your changes to the repository
+6. **Authenticate with GitHub CLI** - Required for branch protection setup:
    ```bash
    gh auth login
    ```
    Follow the prompts to authenticate. You only need to do this once per machine.
-6. **Set up branch protection** - Configure branch protection rules:
+7. **Set up branch protection** - Configure branch protection rules:
    ```powershell
    pwsh ./scripts/Setup-BranchRuleset.ps1
    ```
@@ -42,7 +47,7 @@ Before using this template, ensure you have the following installed:
    The script will ask if you want:
    - **Single Developer**: No PR approvals required (you can merge your own PRs)
    - **Multi-Developer**: Requires 1+ approval and code owner review
-7. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
+8. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
 
 The setup script automatically:
 - ✅ Replaces all placeholders with your project information
