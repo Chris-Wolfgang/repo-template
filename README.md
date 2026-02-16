@@ -32,13 +32,13 @@ Before using this template, ensure you have the following installed:
    - Replace all placeholders with your project information,
    - Create a branch, commit the changes and push it to your repository
    - Create a pull request for you to review and merge if approved
-5. **Merge your changes** - Review the pull request created in the previous step and merge it into `main`
-6. **Authenticate with GitHub CLI** - Required for branch protection setup:
+4. **Merge your changes** - Review the pull request created in the previous step and merge it into `main`
+5. **Authenticate with GitHub CLI** - Required for branch protection setup:
    ```bash
    gh auth login
    ```
    Follow the prompts to authenticate. You only need to do this once per machine.
-7. **Set up branch protection** - Configure branch protection rules:
+6. **Set up branch protection** - Configure branch protection rules:
    ```powershell
    pwsh ./scripts/Setup-BranchRuleset.ps1
    ```
@@ -46,7 +46,7 @@ Before using this template, ensure you have the following installed:
    The script will ask if you want:
    - **Single Developer**: No PR approvals required (you can merge your own PRs)
    - **Multi-Developer**: Requires 1+ approval and code owner review
-8. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
+7. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
 
 The setup script automatically:
 - ✅ Replaces all placeholders with your project information
