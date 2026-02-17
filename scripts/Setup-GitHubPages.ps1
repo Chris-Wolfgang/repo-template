@@ -293,7 +293,7 @@ try {
             } | ConvertTo-Json
             
             $tempFile = [System.IO.Path]::GetTempFileName()
-            $pagesConfig | Out-File -FilePath $tempFile -Encoding UTF8
+            $pagesConfig | Out-File -FilePath $tempFile -Encoding utf8NoBOM
             
             try {
                 gh api --method POST "/repos/$Repository/pages" --input $tempFile 2>&1 | Out-Null
