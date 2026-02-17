@@ -10,7 +10,7 @@
     It performs the following tasks:
     1. Creates a gh-pages branch if it doesn't already exist
     2. Configures GitHub Pages settings to serve from the gh-pages branch
-    3. Ensures the DocFX workflow is configured to trigger on tag pushes (v.#.#.# pattern)
+    3. Ensures the DocFX workflow is configured to trigger on tag pushes (v*.*.* pattern)
     
     Run this script locally after creating a new repository from the template.
 
@@ -325,11 +325,11 @@ if (Test-Path $workflowPath) {
     
     # Check if workflow triggers on tags
     if ($workflowContent -match 'on:\s*\n\s*push:\s*\n\s*tags:\s*\n\s*-\s*[''"]?v\d+\.\d+\.\d+' -or
-        $workflowContent -match 'on:\s*\n\s*push:\s*\n.*tags:.*\n.*-.*v\.\*\.\*\.\*' -or
+        $workflowContent -match 'on:\s*\n\s*push:\s*\n.*tags:.*\n.*-.*v\*\.\*\.\*' -or
         $workflowContent -match 'tags:\s*\n\s*-\s*[''"]?v\*\.\*\.\*') {
         Write-Success "DocFX workflow is configured to trigger on version tags"
     } else {
-        Write-Warning-Custom "DocFX workflow may not be configured to trigger on version tags (v.#.#.#)"
+        Write-Warning-Custom "DocFX workflow may not be configured to trigger on version tags (v*.*.*)"
         Write-Info "The workflow currently triggers on:"
         if ($workflowContent -match 'on:\s*\n\s*push:\s*\n\s*branches:') {
             Write-Info "   - Push to branches"
