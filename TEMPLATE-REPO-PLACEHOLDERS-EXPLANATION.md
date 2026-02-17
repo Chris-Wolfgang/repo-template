@@ -6,9 +6,9 @@ The questions **"Template Repository Owner"** and **"Template Repository Name"**
 
 ## Where These Questions Appear
 
-### 1. Interactive Setup Scripts
+### 1. Interactive Setup Script
 
-Both setup scripts (`scripts/setup.ps1` and `scripts/setup.sh`) prompt users for this information:
+The setup script (`pwsh ./scripts/setup.ps1`) prompts users for this information:
 
 **PowerShell (setup.ps1):**
 ```powershell
@@ -21,21 +21,6 @@ $templateRepoName = Read-Input `
     -Prompt "Template Repository Name" `
     -Default "repo-template" `
     -Example "my-template"
-```
-
-**Bash (setup.sh):**
-```bash
-TEMPLATE_REPO_OWNER=$(read_input \
-    "Template Repository Owner" \
-    "Chris-Wolfgang" \
-    "YourUsername" \
-    "false")
-
-TEMPLATE_REPO_NAME=$(read_input \
-    "Template Repository Name" \
-    "repo-template" \
-    "my-template" \
-    "false")
 ```
 
 ### 2. GitHub Actions Workflow
@@ -84,13 +69,12 @@ The setup instructions should reference the **actual template they used**, not t
 ## Files That Process These Placeholders
 
 1. **scripts/setup.ps1** - PowerShell setup script (prompts: lines 341-349; replacements hashtable: lines 390-391)
-2. **scripts/setup.sh** - Bash setup script (prompts: lines 361-371; replacements array: lines 412-413)
-3. **.github/workflows/setup-template.yml** - GitHub Actions workflow (variable extraction: lines 133-134; sed replacements: lines 147-148)
-4. **REPO-INSTRUCTIONS.md** - Target file where replacement occurs (line 46)
+2. **.github/workflows/setup-template.yml** - GitHub Actions workflow (variable extraction: lines 133-134; sed replacements: lines 147-148)
+3. **REPO-INSTRUCTIONS.md** - Target file where replacement occurs (line 46)
 
 ## Validation
 
-The setup scripts validate that these placeholders are properly replaced (along with other core placeholders) before completing:
+The setup script validates that these placeholders are properly replaced (along with other core placeholders) before completing:
 
 **PowerShell (setup.ps1, lines 475-479):**
 ```powershell
@@ -99,16 +83,6 @@ $corePlaceholders = @(
     'GITHUB_REPO_URL', 'REPO_NAME', 'GITHUB_USERNAME',
     'DOCS_URL', 'LICENSE_TYPE',
     'NUGET_STATUS', 'TEMPLATE_REPO_OWNER', 'TEMPLATE_REPO_NAME'
-)
-```
-
-**Bash (setup.sh, lines 486-491):**
-```bash
-local core_placeholders=(
-    "PROJECT_NAME" "PROJECT_DESCRIPTION" "PACKAGE_NAME"
-    "GITHUB_REPO_URL" "REPO_NAME" "GITHUB_USERNAME"
-    "DOCS_URL" "LICENSE_TYPE"
-    "NUGET_STATUS" "TEMPLATE_REPO_OWNER" "TEMPLATE_REPO_NAME"
 )
 ```
 

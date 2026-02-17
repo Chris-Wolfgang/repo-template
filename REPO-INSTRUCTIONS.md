@@ -2,20 +2,15 @@
 
 ## Automated Setup (Recommended)
 
-**NEW:** This template now includes automated setup scripts that handle all configuration for you!
+**NEW:** This template now includes an automated setup script that handles all configuration for you!
 
 ### Quick Setup
 
-```bash
-# PowerShell (Windows/macOS/Linux)
+```powershell
 pwsh ./scripts/setup.ps1
-
-# Or Bash (macOS/Linux)
-chmod +x scripts/setup.sh
-./scripts/setup.sh
 ```
 
-The automated scripts will:
+The automated script will:
 1. ✅ Prompt for all required information (with examples and defaults)
 2. ✅ Auto-detect git repository information where possible
 3. ✅ Replace placeholders in core template files (see TEMPLATE-PLACEHOLDERS.md for details and any manual steps, including DocFX docs)

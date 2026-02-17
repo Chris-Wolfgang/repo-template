@@ -816,7 +816,6 @@ function Start-Setup {
     Write-Host "Remove template-specific files? (y/N)" -ForegroundColor Yellow
     Write-Host "  Files to remove:" -ForegroundColor Gray
     Write-Host "    - scripts/setup.ps1 (this script)" -ForegroundColor Gray
-    Write-Host "    - scripts/setup.sh" -ForegroundColor Gray
     Write-Host "    - LICENSE-SELECTION.md" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Note: TEMPLATE-PLACEHOLDERS.md will remain for your reference." -ForegroundColor Cyan
@@ -828,7 +827,6 @@ function Start-Setup {
     if ($cleanup -eq 'y' -or $cleanup -eq 'Y') {
         $filesToRemove = @(
             'scripts/setup.ps1',
-            'scripts/setup.sh',
             'LICENSE-SELECTION.md'
         )
         
