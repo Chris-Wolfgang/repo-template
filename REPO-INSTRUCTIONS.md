@@ -2,7 +2,7 @@
 
 ## Automated Setup (Recommended)
 
-**NEW:** This template now includes an automated setup script that handles all configuration for you!
+**NEW:** This template now includes automated setup scripts that handle configuration for you!
 
 ### Quick Setup
 
@@ -10,7 +10,12 @@
 pwsh ./scripts/setup.ps1
 ```
 
-The automated script will:
+**Note:** There are multiple scripts in this template:
+- `scripts/setup.ps1` - Main repository setup (replaces placeholders, configures license)
+- `scripts/Setup-BranchRuleset.ps1` - Branch protection configuration (run after setup)
+- `.github/workflows/setup-template.yml` - Optional GitHub Actions-based setup alternative
+
+The main setup script will:
 1. ✅ Prompt for all required information (with examples and defaults)
 2. ✅ Auto-detect git repository information where possible
 3. ✅ Replace placeholders in core template files (see TEMPLATE-PLACEHOLDERS.md for details and any manual steps, including DocFX docs)
