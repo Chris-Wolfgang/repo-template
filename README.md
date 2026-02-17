@@ -167,7 +167,7 @@ Choose from three popular open-source licenses or add your own during setup:
 | **MPL 2.0** | File-level copyleft | Weak copyleft, file-based |
 
 See [LICENSE-SELECTION.md](LICENSE-SELECTION.md) for detailed comparison and guidance.
-> **Note:** You will be prompted for a license when you run the setup (scripts/setup.ps1 or scripts/setup.sh)
+> **Note:** You will be prompted for a license when you run the setup script (`scripts/setup.ps1`)
 
 ---
 
@@ -175,24 +175,20 @@ See [LICENSE-SELECTION.md](LICENSE-SELECTION.md) for detailed comparison and gui
 
 ### Automated Setup (Recommended)
 
-The template includes automated setup scripts that handle all configuration:
+The template includes an automated PowerShell setup script that handles all configuration:
 
-#### PowerShell (Cross-platform - Windows/macOS/Linux)
+#### PowerShell 7+ (Cross-platform - Windows/macOS/Linux)
 
-> **Note:** If you don't have `pwsh` installed, you can install it using `winget install Microsoft.PowerShell`
+> **Note:** This script requires PowerShell 7+ (PowerShell Core). If you don't have `pwsh` installed:
+> - **Windows:** `winget install Microsoft.PowerShell`
+> - **macOS:** `brew install powershell`
+> - **Linux:** See [PowerShell installation guide](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell)
 
 ```powershell
 pwsh ./scripts/setup.ps1
 ```
 
-#### Bash (macOS/Linux)
-
-```bash
-chmod +x scripts/setup.sh
-./scripts/setup.sh
-```
-
-The scripts will:
+The script will:
 1. Prompt for project information (with examples and defaults)
 2. Auto-detect git repository details where possible
 3. Replace all placeholders in template files

@@ -299,14 +299,12 @@ Start Here
 
 ### Using the Automated Setup Script
 
-The setup scripts will prompt you to choose a license:
+The PowerShell setup script will prompt you to choose a license:
 
-```bash
-# PowerShell
+> **Note:** Requires PowerShell 7+ (PowerShell Core). See installation instructions in REPO-INSTRUCTIONS.md.
+
+```powershell
 pwsh ./scripts/setup.ps1
-
-# Bash
-./scripts/setup.sh
 ```
 
 You'll be asked:

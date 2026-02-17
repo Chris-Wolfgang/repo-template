@@ -2,20 +2,20 @@
 
 ## Automated Setup (Recommended)
 
-**NEW:** This template now includes automated setup scripts that handle all configuration for you!
+**NEW:** This template now includes an automated PowerShell setup script that handles all configuration for you!
 
 ### Quick Setup
 
-```bash
-# PowerShell (Windows/macOS/Linux)
-pwsh ./scripts/setup.ps1
+> **Note:** This script requires PowerShell 7+ (PowerShell Core). If you don't have `pwsh` installed:
+> - **Windows:** `winget install Microsoft.PowerShell`
+> - **macOS:** `brew install powershell`
+> - **Linux:** See [PowerShell installation guide](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell)
 
-# Or Bash (macOS/Linux)
-chmod +x scripts/setup.sh
-./scripts/setup.sh
+```powershell
+pwsh ./scripts/setup.ps1
 ```
 
-The automated scripts will:
+The automated script will:
 1. ✅ Prompt for all required information (with examples and defaults)
 2. ✅ Auto-detect git repository information where possible
 3. ✅ Replace placeholders in core template files (see TEMPLATE-PLACEHOLDERS.md for details and any manual steps, including DocFX docs)
