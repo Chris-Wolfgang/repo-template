@@ -178,6 +178,10 @@ try {
         
         # Store the current branch name before switching
         $originalBranch = git rev-parse --abbrev-ref HEAD 2>&1
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($originalBranch) -or $originalBranch -like "*fatal*") {
+            Write-Warning-Custom "Could not determine current branch name. Will attempt to return to 'main' after creating gh-pages."
+            $originalBranch = "main"  # Default fallback
+        }
         
         # Create gh-pages branch
         Write-Step "Creating gh-pages branch..."
@@ -450,9 +454,12 @@ Write-Host "   • Settings → Pages: https://github.com/$Repository/settings/p
 
 # Get Pages URL if available
 try {
-    $pagesInfo = gh api "/repos/$Repository/pages" 2>&1 | ConvertFrom-Json
-    if ($pagesInfo.html_url) {
-        Write-Host "   • Documentation: $($pagesInfo.html_url)" -ForegroundColor Blue
+    $pagesUrlOutput = gh api "/repos/$Repository/pages" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        $pagesUrlInfo = $pagesUrlOutput | ConvertFrom-Json
+        if ($pagesUrlInfo.html_url) {
+            Write-Host "   • Documentation: $($pagesUrlInfo.html_url)" -ForegroundColor Blue
+        }
     }
 } catch {
     # Silently ignore if we can't get the URL
