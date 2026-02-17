@@ -188,23 +188,20 @@ try {
         git commit -m "Initialize gh-pages branch" 2>&1 | Out-Null
         git push origin gh-pages 2>&1 | Out-Null
         
-        # Switch back to main/master branch
-        $currentBranch = git rev-parse --abbrev-ref HEAD 2>&1
-        if ($currentBranch -ne "main" -and $currentBranch -ne "master") {
-            # Try to detect the default branch
+        # Switch back to default branch
+        # Try to detect the default branch from origin/HEAD
+        try {
+            $defaultBranch = git symbolic-ref refs/remotes/origin/HEAD 2>&1 | ForEach-Object { $_ -replace '^refs/remotes/origin/', '' }
+            git checkout $defaultBranch 2>&1 | Out-Null
+        } catch {
+            # If that fails, try main then master
             try {
-                $defaultBranch = git symbolic-ref refs/remotes/origin/HEAD 2>&1 | ForEach-Object { $_ -replace '^refs/remotes/origin/', '' }
-                git checkout $defaultBranch 2>&1 | Out-Null
+                git checkout main 2>&1 | Out-Null
             } catch {
-                # If that fails, try main then master
                 try {
-                    git checkout main 2>&1 | Out-Null
+                    git checkout master 2>&1 | Out-Null
                 } catch {
-                    try {
-                        git checkout master 2>&1 | Out-Null
-                    } catch {
-                        Write-Warning-Custom "Could not switch back to default branch. You may need to manually switch branches."
-                    }
+                    Write-Warning-Custom "Could not switch back to default branch. You may need to manually switch branches."
                 }
             }
         }
