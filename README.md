@@ -20,13 +20,8 @@ Before using this template, ensure you have the following installed:
 1. **Create repository from template** - Click "Use this template" on GitHub
 2. **Clone your new repository** - Clone to your local computer
 3. **Run the automated setup and follow the prompts**
-   ```bash
-   # PowerShell (Windows/macOS/Linux)
+   ```powershell
    pwsh ./scripts/setup.ps1
-   
-   # Or Bash (macOS/Linux)
-   chmod +x scripts/setup.sh
-   ./scripts/setup.sh
    ```
    - The script will ask you for required values and read other details from your git configuration and repository,
    - Replaces all placeholders with your project information,
@@ -171,7 +166,7 @@ Choose from three popular open-source licenses or add your own during setup:
 | **MPL 2.0** | File-level copyleft | Weak copyleft, file-based |
 
 See [LICENSE-SELECTION.md](LICENSE-SELECTION.md) for detailed comparison and guidance.
-> **Note:** You will be prompted for a license when you run the setup (scripts/setup.ps1 or scripts/setup.sh)
+> **Note:** You will be prompted for a license when you run the setup script (`pwsh ./scripts/setup.ps1`)
 
 ---
 
@@ -179,24 +174,20 @@ See [LICENSE-SELECTION.md](LICENSE-SELECTION.md) for detailed comparison and gui
 
 ### Automated Setup (Recommended)
 
-The template includes automated setup scripts that handle all configuration:
+The template includes an automated setup script that handles all configuration:
 
 #### PowerShell (Cross-platform - Windows/macOS/Linux)
 
-> **Note:** If you don't have `pwsh` installed, you can install it using `winget install Microsoft.PowerShell`
+> **Note:** PowerShell Core 7.0+ is required. If you don't have `pwsh` installed:
+> - Windows: `winget install Microsoft.PowerShell`
+> - macOS: `brew install powershell`
+> - Linux: See [PowerShell installation guide](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell)
 
 ```powershell
 pwsh ./scripts/setup.ps1
 ```
 
-#### Bash (macOS/Linux)
-
-```bash
-chmod +x scripts/setup.sh
-./scripts/setup.sh
-```
-
-The scripts will:
+The script will:
 1. Prompt for project information (with examples and defaults)
 2. Auto-detect git repository details where possible
 3. Replace all placeholders in template files
@@ -267,11 +258,10 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 | `LICENSE-SELECTION.md` | License comparison and selection guide |
 | `REPO-INSTRUCTIONS.md` | Manual setup instructions |
 | `scripts/setup.ps1` | PowerShell setup automation |
-| `scripts/setup.sh` | Bash setup automation |
 
 [^1]: Modified during setup process
 
-> **Note:** During setup (scripts/setup.ps1 or scripts/setup.sh), the template README.md (this file) is deleted and README-TEMPLATE.md is renamed to README.md. The new README.md file will be a customized starter README for your repository, with placeholders replaced by the values you define.
+> **Note:** During setup (`pwsh ./scripts/setup.ps1`), the template README.md (this file) is deleted and README-TEMPLATE.md is renamed to README.md. The new README.md file will be a customized starter README for your repository, with placeholders replaced by the values you define.
 
 ### License Templates
 
