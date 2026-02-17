@@ -226,7 +226,7 @@ $rulesetConfig = @{
                 # <-- static_analysis_tools = @("CodeQL")
                 # Query suite for CodeQL
                 # <-- codeql_query_suite = "standard"
-            }
+            # }
         },
         @{
             type = "non_fast_forward"
