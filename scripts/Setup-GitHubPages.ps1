@@ -173,10 +173,11 @@ try {
 <head>
     <meta charset="utf-8">
     <title>Documentation</title>
-    <meta http-equiv="refresh" content="0; url=./index.html">
 </head>
 <body>
-    <p>Documentation is being generated. Please wait...</p>
+    <h1>Documentation Coming Soon</h1>
+    <p>This site will contain the project documentation once it is generated.</p>
+    <p>Documentation is automatically published when you push a version tag (e.g., v1.0.0).</p>
 </body>
 </html>
 "@
@@ -324,8 +325,11 @@ if (Test-Path $workflowPath) {
     $workflowContent = Get-Content $workflowPath -Raw
     
     # Check if workflow triggers on tags (looking for tag patterns like v*.*.* or v1.0.0)
-    # Uses a simple pattern that works with various YAML formats
-    $hasTagTrigger = $workflowContent -match 'tags:.*\n.*-.*v[\d\*]' -or
+    # Uses simple patterns that work with various YAML formats
+    # Pattern 1: Matches 'v' followed by digits or asterisks in version format
+    # Pattern 2: Matches the specific glob pattern v*.*.*
+    # Pattern 3: Matches specific version numbers like v1.0.0
+    $hasTagTrigger = $workflowContent -match 'tags:.*\n.*-.*v[0-9*]' -or
                      $workflowContent -match 'tags:.*v\*\.\*\.\*' -or
                      $workflowContent -match 'tags:.*v\d+\.\d+\.\d+'
     
