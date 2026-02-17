@@ -348,7 +348,7 @@ if (Test-Path $workflowPath) {
       on:
         push:
           tags:
-            - 'v*.*.*'  # Glob pattern: matches v1.0.0, v2.1.3, etc.
+            - 'v*.*.*'  # GitHub Actions tag pattern: matches v1.0.0, v2.1.3, etc.
           branches:
             - main
 "@ -ForegroundColor DarkGray
