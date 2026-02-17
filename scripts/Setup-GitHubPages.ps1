@@ -178,7 +178,8 @@ try {
         
         # Store the current branch name before switching
         $originalBranch = git rev-parse --abbrev-ref HEAD 2>&1
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($originalBranch) -or $originalBranch -like "*fatal*") {
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($originalBranch) -or 
+            $originalBranch -match '(fatal|error|warning|usage:)') {
             Write-Warning-Custom "Could not determine current branch name. Will attempt to return to 'main' after creating gh-pages."
             $originalBranch = "main"  # Default fallback
         }
@@ -243,7 +244,8 @@ try {
                 Write-Warning-Custom "Failed to switch back to original branch '$originalBranch'. Git output:`n$checkoutBackOutput"
                 # Try to detect the default branch as fallback
                 $defaultBranchOutput = git symbolic-ref refs/remotes/origin/HEAD 2>&1
-                if ($LASTEXITCODE -eq 0 -and $defaultBranchOutput) {
+                if ($LASTEXITCODE -eq 0 -and $defaultBranchOutput -and 
+                    $defaultBranchOutput -notmatch '(fatal|error|warning|usage:)') {
                     $defaultBranch = $defaultBranchOutput | ForEach-Object { $_ -replace '^refs/remotes/origin/', '' }
                     $checkoutDefaultOutput = git checkout $defaultBranch 2>&1
                     if ($LASTEXITCODE -ne 0) {
