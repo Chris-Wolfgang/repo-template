@@ -163,14 +163,38 @@ try {
     } else {
         Write-Info "gh-pages branch does not exist yet"
         
+        # Check for uncommitted changes before creating gh-pages branch
+        $gitStatus = git status --porcelain 2>&1
+        if (-not [string]::IsNullOrWhiteSpace($gitStatus)) {
+            Write-Warning-Custom "You have uncommitted changes in your working directory."
+            Write-Info "Please commit or stash your changes before proceeding."
+            Write-Info "Uncommitted changes:`n$gitStatus"
+            $response = Read-Host "Do you want to continue anyway? This may cause data loss. (y/N)"
+            if ($response -ne 'y' -and $response -ne 'Y') {
+                Write-Info "Aborting gh-pages branch creation."
+                exit 0
+            }
+        }
+        
+        # Store the current branch name before switching
+        $originalBranch = git rev-parse --abbrev-ref HEAD 2>&1
+        
         # Create gh-pages branch
         Write-Step "Creating gh-pages branch..."
         
         # Create an orphan branch (no history)
-        git checkout --orphan gh-pages 2>&1 | Out-Null
+        $checkoutOutput = git checkout --orphan gh-pages 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error-Custom "Failed to create orphan gh-pages branch. Git output:`n$checkoutOutput"
+            throw "Git checkout --orphan failed"
+        }
         
         # Remove all files from staging
-        git rm -rf . 2>&1 | Out-Null
+        $rmOutput = git rm -rf . 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error-Custom "Failed to remove files from staging. Git output:`n$rmOutput"
+            throw "Git rm failed"
+        }
         
         # Create a placeholder index.html
         $placeholderHtml = @"
@@ -190,26 +214,50 @@ try {
         Set-Content -Path "index.html" -Value $placeholderHtml -Encoding UTF8
         
         # Commit and push
-        git add index.html 2>&1 | Out-Null
-        git commit -m "Initialize gh-pages branch" 2>&1 | Out-Null
-        git push origin gh-pages 2>&1 | Out-Null
+        $addOutput = git add index.html 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error-Custom "Failed to stage index.html. Git output:`n$addOutput"
+            throw "Git add failed"
+        }
         
-        # Switch back to default branch
-        # Try to detect the default branch from origin/HEAD
+        $commitOutput = git commit -m "Initialize gh-pages branch" 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error-Custom "Failed to commit gh-pages branch. Git output:`n$commitOutput"
+            throw "Git commit failed"
+        }
+        
+        $pushOutput = git push origin gh-pages 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error-Custom "Failed to push gh-pages branch. Git output:`n$pushOutput"
+            throw "Git push failed"
+        }
+        
+        # Switch back to original branch
         try {
-            $defaultBranch = git symbolic-ref refs/remotes/origin/HEAD 2>&1 | ForEach-Object { $_ -replace '^refs/remotes/origin/', '' }
-            git checkout $defaultBranch 2>&1 | Out-Null
-        } catch {
-            # If that fails, try main then master
-            try {
-                git checkout main 2>&1 | Out-Null
-            } catch {
-                try {
-                    git checkout master 2>&1 | Out-Null
-                } catch {
-                    Write-Warning-Custom "Could not switch back to default branch. You may need to manually switch branches."
+            $checkoutBackOutput = git checkout $originalBranch 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning-Custom "Failed to switch back to original branch '$originalBranch'. Git output:`n$checkoutBackOutput"
+                # Try to detect the default branch as fallback
+                $defaultBranchOutput = git symbolic-ref refs/remotes/origin/HEAD 2>&1
+                if ($LASTEXITCODE -eq 0 -and $defaultBranchOutput) {
+                    $defaultBranch = $defaultBranchOutput | ForEach-Object { $_ -replace '^refs/remotes/origin/', '' }
+                    $checkoutDefaultOutput = git checkout $defaultBranch 2>&1
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Warning-Custom "Failed to checkout default branch '$defaultBranch'. Git output:`n$checkoutDefaultOutput"
+                    }
+                } else {
+                    # Try main then master as last resort
+                    $checkoutMainOutput = git checkout main 2>&1
+                    if ($LASTEXITCODE -ne 0) {
+                        $checkoutMasterOutput = git checkout master 2>&1
+                        if ($LASTEXITCODE -ne 0) {
+                            Write-Warning-Custom "Could not switch back to any default branch. You may need to manually switch branches."
+                        }
+                    }
                 }
             }
+        } catch {
+            Write-Warning-Custom "Could not switch back to original branch. You may need to manually switch branches."
         }
         
         Write-Success "Created and pushed gh-pages branch"
@@ -258,8 +306,12 @@ try {
                 $pagesConfigUpdate | Out-File -FilePath $tempFile -Encoding UTF8
                 
                 try {
-                    gh api --method PUT "/repos/$Repository/pages" --input $tempFile 2>&1 | Out-Null
-                    Write-Success "Updated GitHub Pages to use gh-pages branch"
+                    $updateOutput = gh api --method PUT "/repos/$Repository/pages" --input $tempFile 2>&1
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Error-Custom "Failed to update GitHub Pages configuration. GitHub CLI output:`n$updateOutput"
+                    } else {
+                        Write-Success "Updated GitHub Pages to use gh-pages branch"
+                    }
                 } catch {
                     Write-Error-Custom "Failed to update GitHub Pages configuration: $_"
                 } finally {
@@ -296,14 +348,22 @@ try {
             $pagesConfig | Out-File -FilePath $tempFile -Encoding utf8NoBOM
             
             try {
-                gh api --method POST "/repos/$Repository/pages" --input $tempFile 2>&1 | Out-Null
-                Write-Success "Enabled GitHub Pages with gh-pages branch"
-                
-                # Get the Pages URL
-                Start-Sleep -Seconds 2
-                $pagesInfo = gh api "/repos/$Repository/pages" 2>&1 | ConvertFrom-Json
-                if ($pagesInfo.html_url) {
-                    Write-Info "   URL: $($pagesInfo.html_url)"
+                $enableOutput = gh api --method POST "/repos/$Repository/pages" --input $tempFile 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Error-Custom "Failed to enable GitHub Pages. GitHub CLI output:`n$enableOutput"
+                    Write-Host "You may need to enable it manually in: Settings → Pages" -ForegroundColor Yellow
+                } else {
+                    Write-Success "Enabled GitHub Pages with gh-pages branch"
+                    
+                    # Get the Pages URL
+                    Start-Sleep -Seconds 2
+                    $pagesUrlInfo = gh api "/repos/$Repository/pages" 2>&1
+                    if ($LASTEXITCODE -eq 0) {
+                        $pagesUrlData = $pagesUrlInfo | ConvertFrom-Json
+                        if ($pagesUrlData.html_url) {
+                            Write-Info "   URL: $($pagesUrlData.html_url)"
+                        }
+                    }
                 }
             } catch {
                 Write-Error-Custom "Failed to enable GitHub Pages: $_"
