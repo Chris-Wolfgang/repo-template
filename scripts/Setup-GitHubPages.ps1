@@ -150,7 +150,13 @@ Write-Host "`n📚 Setting up GitHub Pages for: $Repository" -ForegroundColor Cy
 Write-Step "Checking for gh-pages branch..."
 try {
     $branches = git ls-remote --heads origin gh-pages 2>&1
-    $ghPagesBranchExists = $branches -and ($branches -notlike "*fatal*")
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error-Custom "Error checking for gh-pages branch. Git exited with code $LASTEXITCODE.`nOutput:`n$branches"
+        exit 1
+    }
+    
+    $ghPagesBranchExists = -not [string]::IsNullOrWhiteSpace($branches)
     
     if ($ghPagesBranchExists) {
         Write-Success "gh-pages branch already exists"
