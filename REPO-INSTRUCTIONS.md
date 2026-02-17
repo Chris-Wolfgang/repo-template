@@ -196,6 +196,32 @@ After creating your repository from the template, update the following files wit
 
 **Note:** The CODEOWNERS file determines who is automatically requested for review when someone opens a pull request.
 
+### Setup GitHub Pages for Documentation (Optional)
+
+If you want to publish your DocFX documentation to GitHub Pages automatically when you create version tags:
+
+1. Run the GitHub Pages setup script:
+   ```powershell
+   pwsh ./scripts/Setup-GitHubPages.ps1
+   ```
+
+   The script will:
+   - Create a `gh-pages` branch if it doesn't exist
+   - Configure GitHub Pages to serve from the `gh-pages` branch
+   - Verify that the DocFX workflow is configured to trigger on version tags
+
+2. After setup, documentation will be automatically published when you push a version tag:
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+3. The documentation will be available at: `https://[username].github.io/[repo-name]/`
+
+**Note:** The DocFX workflow (`.github/workflows/docfx.yaml`) is configured to trigger on:
+- Push to the `main` branch (for testing/preview)
+- Version tags in the format `v*.*.*` (e.g., v1.0.0, v2.1.3)
+
 ### Update Documentation (Optional)
 
 If you're using DocFX for documentation:
