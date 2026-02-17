@@ -2,6 +2,8 @@ name: Deploy DocFX Pages
 
 on:
   push:
+    tags:
+      - 'v*.*.*' # Trigger on version tags (e.g., v1.0.0)
     branches:
       - main # Your primary branch
 
