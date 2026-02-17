@@ -19,14 +19,9 @@ Before using this template, ensure you have the following installed:
 
 1. **Create repository from template** - Click "Use this template" on GitHub
 2. **Clone your new repository** - Clone to your local computer
-3. **Run the automated setup and follow the prompts** - The script will ask you for required values and read other details from your git configuration and repository, then replace all placeholders with your project information:
-   ```bash
-   # PowerShell (Windows/macOS/Linux)
+3. **Run the automated setup and follow the prompts** - The PowerShell script will ask you for required values and read other details from your git configuration and repository, then replace all placeholders with your project information:
+   ```powershell
    pwsh ./scripts/setup.ps1
-   
-   # Or Bash (macOS/Linux)
-   chmod +x scripts/setup.sh
-   ./scripts/setup.sh
    ```
 4. **Commit and push** - Push your changes to the repository
 5. **Authenticate with GitHub CLI** - Required for branch protection setup:
@@ -259,11 +254,10 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 | `LICENSE-SELECTION.md` | License comparison and selection guide |
 | `REPO-INSTRUCTIONS.md` | Manual setup instructions |
 | `scripts/setup.ps1` | PowerShell setup automation |
-| `scripts/setup.sh` | Bash setup automation |
 
 [^1]: Modified during setup process
 
-> **Note:** During setup (scripts/setup.ps1 or scripts/setup.sh), the template README.md (this file) is deleted and README-TEMPLATE.md is renamed to README.md. The new README.md file will be a customized starter README for your repository, with placeholders replaced by the values you define.
+> **Note:** During setup (`scripts/setup.ps1`), the template README.md (this file) is deleted and README-TEMPLATE.md is renamed to README.md. The new README.md file will be a customized starter README for your repository, with placeholders replaced by the values you define.
 
 ### License Templates
 

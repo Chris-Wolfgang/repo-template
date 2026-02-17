@@ -322,7 +322,7 @@ After replacement, verify:
 
 ## Additional Resources
 
-- **Setup Scripts:** `scripts/setup.ps1`, `scripts/setup.sh`
+- **Setup Script:** `scripts/setup.ps1`
 - **License Selection Guide:** [LICENSE-SELECTION.md](LICENSE-SELECTION.md)
 - **Repository Instructions:** [REPO-INSTRUCTIONS.md](REPO-INSTRUCTIONS.md)
 - **Template README:** [README.md](README.md) (describes template)
