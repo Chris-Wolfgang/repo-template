@@ -320,22 +320,23 @@ $workflowPath = ".github/workflows/docfx.yaml"
 
 if (Test-Path $workflowPath) {
     $workflowContent = Get-Content $workflowPath -Raw
+    $normalizedWorkflowContent = $workflowContent -replace "`r`n", "`n"
     
     # Check if workflow triggers on tags (looking for tag patterns like v*.*.* or v1.0.0)
     # Uses simple patterns that work with various YAML formats
     # Pattern 1: Matches 'v' followed by digits or asterisks in version format
     # Pattern 2: Matches the specific glob pattern v*.*.*
     # Pattern 3: Matches specific version numbers like v1.0.0
-    $hasTagTrigger = $workflowContent -match 'tags:.*\n.*-.*v[0-9*]' -or
-                     $workflowContent -match 'tags:.*v\*\.\*\.\*' -or
-                     $workflowContent -match 'tags:.*v\d+\.\d+\.\d+'
+    $hasTagTrigger = $normalizedWorkflowContent -match 'tags:.*\n.*-.*v[0-9*]' -or
+                     $normalizedWorkflowContent -match 'tags:.*v\*\.\*\.\*' -or
+                     $normalizedWorkflowContent -match 'tags:.*v\d+\.\d+\.\d+'
     
     if ($hasTagTrigger) {
         Write-Success "DocFX workflow is configured to trigger on version tags"
     } else {
         Write-Warning-Custom "DocFX workflow may not be configured to trigger on version tags (v*.*.*)"
         Write-Info "The workflow currently triggers on:"
-        if ($workflowContent -match 'on:\s*\n\s*push:\s*\n\s*branches:') {
+        if ($normalizedWorkflowContent -match 'on:\s*\n\s*push:\s*\n\s*branches:') {
             Write-Info "   - Push to branches"
         }
         Write-Info ""
