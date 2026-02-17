@@ -19,11 +19,15 @@ Before using this template, ensure you have the following installed:
 
 1. **Create repository from template** - Click "Use this template" on GitHub
 2. **Clone your new repository** - Clone to your local computer
-3. **Run the automated setup and follow the prompts** - The script will ask you for required values and read other details from your git configuration and repository, then replace all placeholders with your project information:
+3. **Run the automated setup and follow the prompts**
    ```powershell
    pwsh ./scripts/setup.ps1
    ```
-4. **Commit and push** - Push your changes to the repository
+   - The script will ask you for required values and read other details from your git configuration and repository,
+   - Replaces all placeholders with your project information,
+   - Creates a branch, commits the changes and pushes it to your repository
+   - Creates a pull request for you to review and merge if approved
+4. **Merge your changes** - Review the pull request created in the previous step and merge it into `main`
 5. **Authenticate with GitHub CLI** - Required for branch protection setup:
    ```bash
    gh auth login
