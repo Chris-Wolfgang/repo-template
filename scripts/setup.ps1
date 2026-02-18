@@ -428,7 +428,7 @@ function Start-Setup {
     $totalSteps = if ($solutionName) { 5 } else { 4 }
     
     # Step 1: README swap
-    Write-Info "Step 1/$totalSteps: Swapping README files..."
+    Write-Info "Step 1/${totalSteps}: Swapping README files..."
     if (Test-Path 'README.md') {
         Remove-Item 'README.md' -Force
         Write-Success "Deleted template README.md"
@@ -444,7 +444,7 @@ function Start-Setup {
     }
     
     # Step 2: Replace placeholders
-    Write-Info "Step 2/$totalSteps: Replacing placeholders in files..."
+    Write-Info "Step 2/${totalSteps}: Replacing placeholders in files..."
     
     $filesToUpdate = @(
         'README.md',
@@ -466,7 +466,7 @@ function Start-Setup {
     }
     
     # Step 3: Set up LICENSE
-    Write-Info "Step 3/$totalSteps: Setting up LICENSE file..."
+    Write-Info "Step 3/${totalSteps}: Setting up LICENSE file..."
     
     if (Test-Path $licenseFile) {
         # Read license template
@@ -501,7 +501,7 @@ function Start-Setup {
     
     # Step 4: Create solution (if requested)
     if ($solutionName) {
-        Write-Info "Step 4/$totalSteps: Creating solution file..."
+        Write-Info "Step 4/${totalSteps}: Creating solution file..."
         
         # Create blank solution in .slnx format
         # Note: .slnx format requires Visual Studio 2022 version 17.10 or later
@@ -614,25 +614,13 @@ function Start-Setup {
                 }
                 # Treat as a path segment name and match against segments
                 else {
-            # Split the relative path into segments for precise matching
-            $pathSegments = $relativePath -split '[\\/]+'
-            foreach ($pattern in $excludePatterns) {
-                # Handle simple extension patterns like '*.user' or '*.suo'
-                if ($pattern.StartsWith('*.') -and -not ($pattern.Substring(1) -like '*[*?]*')) {
-                    $ext = [System.IO.Path]::GetExtension($relativePath)
-                    if ($ext -ieq $pattern.Substring(1)) {
-                        $shouldExclude = $true
-                        break
-                    }
-                }
-                else {
-                    # Treat the pattern as a path segment name and match against segments
                     if ($pathSegments -contains $pattern) {
                         $shouldExclude = $true
                         break
                     }
                 }
             }
+            
             -not $shouldExclude
         }
         
@@ -718,7 +706,7 @@ function Start-Setup {
     }
     
     # Step 5: Validation
-    Write-Info "Step $totalSteps/$totalSteps: Validating changes..."
+    Write-Info "Step ${totalSteps}/${totalSteps}: Validating changes..."
     
     # Core placeholders that should have been replaced by the script
     # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in FILES_TO_UPDATE
