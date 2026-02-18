@@ -84,7 +84,7 @@ function Set-RepositoryRoot {
     }
     
     # Verify we're in the repository root by checking for key marker files
-    $markerFiles = @('README.md', 'README-TEMPLATE.md', '.gitignore', 'REPO-INSTRUCTIONS.md')
+    $markerFiles = @('README.md', '.gitignore', 'CONTRIBUTING.md')
     $foundMarkers = @($markerFiles | Where-Object { Test-Path $_ })
     
     if ($foundMarkers.Count -lt 2) {
