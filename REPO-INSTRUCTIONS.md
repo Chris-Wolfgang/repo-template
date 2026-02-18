@@ -13,7 +13,6 @@ pwsh ./scripts/setup.ps1
 **Note:** There are multiple scripts in this template:
 - `scripts/setup.ps1` - Main repository setup (replaces placeholders, configures license)
 - `scripts/Setup-BranchRuleset.ps1` - Branch protection configuration (run after setup)
-- `.github/workflows/setup-template.yml` - Optional GitHub Actions-based setup alternative
 
 The main setup script will:
 1. ✅ Prompt for all required information (with examples and defaults)
