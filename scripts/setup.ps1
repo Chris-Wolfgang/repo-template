@@ -57,6 +57,33 @@ function Show-Banner {
 "@ -ForegroundColor Cyan
 }
 
+# Ensure script is running from repository root
+function Set-RepositoryRoot {
+    # Get the directory where the script is located
+    $scriptDir = Split-Path -Parent $PSCommandPath
+    
+    # If we're in the scripts directory, move up one level to the repository root
+    if ((Split-Path -Leaf $scriptDir) -eq 'scripts') {
+        $repoRoot = Split-Path -Parent $scriptDir
+        Set-Location $repoRoot
+        Write-Info "Changed working directory to repository root: $repoRoot"
+    }
+    
+    # Verify we're in the repository root by checking for key marker files
+    $markerFiles = @('README.md', 'README-TEMPLATE.md', '.gitignore', 'REPO-INSTRUCTIONS.md')
+    $foundMarkers = @($markerFiles | Where-Object { Test-Path $_ })
+    
+    if ($foundMarkers.Count -lt 2) {
+        Write-TemplateError "This script must be run from the repository root directory."
+        Write-Host "Expected to find key files like: $($markerFiles -join ', ')" -ForegroundColor Red
+        Write-Host "Current directory: $(Get-Location)" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "Please run the script from the repository root:" -ForegroundColor Yellow
+        Write-Host "  pwsh ./scripts/setup.ps1" -ForegroundColor Cyan
+        throw "Script not running from repository root"
+    }
+}
+
 # Auto-detect git information
 function Get-GitInfo {
     $gitInfo = @{
@@ -175,6 +202,9 @@ function Replace-Placeholders {
 # Main setup function
 function Start-Setup {
     Show-Banner
+    
+    # Ensure we're in the repository root
+    Set-RepositoryRoot
     
     Write-Info "This script will configure your new repository."
     Write-Info "It will prompt you for project information and replace all placeholders."
