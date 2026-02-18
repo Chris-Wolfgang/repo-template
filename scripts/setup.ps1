@@ -706,7 +706,7 @@ function Start-Setup {
     }
     
     # Step 5: Validation
-    Write-Info "Step $totalSteps/${totalSteps}: Validating changes..."
+    Write-Info "Step ${totalSteps}/${totalSteps}: Validating changes..."
     
     # Core placeholders that should have been replaced by the script
     # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in FILES_TO_UPDATE
