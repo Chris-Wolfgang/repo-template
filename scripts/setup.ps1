@@ -502,7 +502,8 @@ function Start-Setup {
         'docfx_project/api/README.md',
         'docfx_project/docs/toc.yml',
         'docfx_project/docs/introduction.md',
-        'docfx_project/docs/getting-started.md'
+        'docfx_project/docs/getting-started.md',
+        'BannedSymbols.txt'
     )
     
     foreach ($file in $filesToUpdate) {

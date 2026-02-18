@@ -1,4 +1,4 @@
-# BannedSymbols.txt - Async-First Enforcement for IAsyncEnumerable Extension Library
+# BannedSymbols.txt - Async-First Enforcement for {{PROJECT_NAME}}
 # Format: <API Documentation ID>; <Reason/Alternative>
 # T: = Type, M: = Method, P: = Property, F: = Field
 # Task.Wait() - All overloads - Absolutely NOT allowed in async code
