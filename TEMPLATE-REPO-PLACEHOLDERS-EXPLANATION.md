@@ -23,16 +23,7 @@ $templateRepoName = Read-Input `
     -Example "my-template"
 ```
 
-### 2. GitHub Actions Workflow
 
-The `setup-template.yml` workflow automatically detects the template repository:
-
-```yaml
-template_repo_owner=$(printf '%s\n' "${{ github.event.repository.template_repository.owner.login || 'Chris-Wolfgang' }}" | sed -e 's/[&|\\]/\\&/g')
-template_repo_name=$(printf '%s\n' "${{ github.event.repository.template_repository.name || 'repo-template' }}" | sed -e 's/[&|\\]/\\&/g')
-```
-
-This uses GitHub's API to automatically detect the source template repository when a repository is created from a template, falling back to defaults if unavailable.
 
 ## What These Placeholders Replace
 
@@ -69,8 +60,7 @@ The setup instructions should reference the **actual template they used**, not t
 ## Files That Process These Placeholders
 
 1. **scripts/setup.ps1** - PowerShell setup script (prompts: lines 341-349; replacements hashtable: lines 390-391)
-2. **.github/workflows/setup-template.yml** - Optional GitHub Actions workflow for setup automation (variable extraction: lines 133-134; sed replacements: lines 147-148). This workflow provides an alternative to running the local PowerShell script and is triggered via manual workflow dispatch in the GitHub UI.
-3. **REPO-INSTRUCTIONS.md** - Target file where replacement occurs (line 46)
+2. **REPO-INSTRUCTIONS.md** - Target file where replacement occurs (line 46)
 
 ## Validation
 
