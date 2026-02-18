@@ -20,30 +20,30 @@ This is a **repository template** for creating new .NET repositories. It provide
 **IMPORTANT**: This template has no buildable projects. These commands apply to repositories created FROM this template.
 
 1. **Restore Dependencies** (always run first):
-   ```bash
+   ```powershell
    dotnet restore
    ```
 
 2. **Build Solution**:
-   ```bash
+   ```powershell
    dotnet build --no-restore --configuration Release
    ```
 
 3. **Run Tests with Coverage**:
-   ```bash
+   ```powershell
    # Find and test all test projects
-   find ./tests -type f -name '*Test*.csproj' | while read proj; do
-     dotnet test "$proj" --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory "./TestResults"
-   done
+   Get-ChildItem -Path ./tests -Filter '*Test*.csproj' -Recurse | ForEach-Object {
+     dotnet test $_.FullName --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory "./TestResults"
+   }
    ```
 
 4. **Generate Coverage Reports**:
-   ```bash
+   ```powershell
    reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:"CoverageReport" -reporttypes:"Html;TextSummary;MarkdownSummaryGithub;CsvSummary"
    ```
 
 5. **Security Scanning**:
-   ```bash
+   ```powershell
    devskim analyze --source-code . -f text --output-file devskim-results.txt -E
    ```
 

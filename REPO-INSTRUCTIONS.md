@@ -2,20 +2,20 @@
 
 ## Automated Setup (Recommended)
 
-**NEW:** This template now includes automated setup scripts that handle all configuration for you!
+**NEW:** This template now includes automated setup scripts that handle configuration for you!
 
 ### Quick Setup
 
-```bash
-# PowerShell (Windows/macOS/Linux)
+```powershell
 pwsh ./scripts/setup.ps1
-
-# Or Bash (macOS/Linux)
-chmod +x scripts/setup.sh
-./scripts/setup.sh
 ```
 
-The automated scripts will:
+**Note:** There are multiple scripts in this template:
+- `scripts/setup.ps1` - Main repository setup (replaces placeholders, configures license)
+- `scripts/Setup-BranchRuleset.ps1` - Branch protection configuration (run after setup)
+- `.github/workflows/setup-template.yml` - Optional GitHub Actions-based setup alternative
+
+The main setup script will:
 1. ✅ Prompt for all required information (with examples and defaults)
 2. ✅ Auto-detect git repository information where possible
 3. ✅ Replace placeholders in core template files (see TEMPLATE-PLACEHOLDERS.md for details and any manual steps, including DocFX docs)
@@ -195,6 +195,32 @@ After creating your repository from the template, update the following files wit
 3. Uncomment and customize the example rules if you want different owners for specific directories
 
 **Note:** The CODEOWNERS file determines who is automatically requested for review when someone opens a pull request.
+
+### Setup GitHub Pages for Documentation (Optional)
+
+If you want to publish your DocFX documentation to GitHub Pages automatically when you create version tags:
+
+1. Run the GitHub Pages setup script:
+   ```powershell
+   pwsh ./scripts/Setup-GitHubPages.ps1
+   ```
+
+   The script will:
+   - Create a `gh-pages` branch if it doesn't exist
+   - Configure GitHub Pages to serve from the `gh-pages` branch
+   - Verify that the DocFX workflow is configured to trigger on version tags
+
+2. After setup, documentation will be automatically published when you push a version tag:
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+3. The documentation will be available at: `https://[username].github.io/[repo-name]/`
+
+**Note:** The DocFX workflow (`.github/workflows/docfx.yaml`) is configured to trigger on:
+- Push to the `main` branch (for testing/preview)
+- Version tags in the format `v*.*.*` (e.g., v1.0.0, v2.1.3)
 
 ### Update Documentation (Optional)
 

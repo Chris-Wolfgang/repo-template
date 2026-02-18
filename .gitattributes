@@ -9,7 +9,6 @@
 *.fsx text eol=lf
 
 # Scripts
-*.sh text eol=lf
 *.ps1 text eol=crlf
 
 

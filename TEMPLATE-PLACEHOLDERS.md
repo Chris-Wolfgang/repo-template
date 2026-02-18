@@ -4,7 +4,7 @@ This document provides comprehensive documentation of all placeholders used in t
 
 ## Overview
 
-The automated setup scripts (`scripts/setup.ps1` and `scripts/setup.sh`) handle all placeholder replacements automatically. This document is for reference or manual setup if needed.
+The automated setup script (`pwsh ./scripts/setup.ps1`) handles all placeholder replacements automatically. This document is for reference or manual setup if needed.
 
 ---
 
@@ -208,12 +208,8 @@ These placeholders represent sections that users should fill in later. They can 
 
 The setup scripts handle all replacements automatically:
 
-```bash
-# PowerShell
+```powershell
 pwsh ./scripts/setup.ps1
-
-# Bash
-./scripts/setup.sh
 ```
 
 ### Manual Replacement
@@ -324,7 +320,7 @@ After replacement, verify:
 
 ## Additional Resources
 
-- **Setup Scripts:** `scripts/setup.ps1`, `scripts/setup.sh`
+- **Setup Script:** `pwsh ./scripts/setup.ps1`
 - **License Selection Guide:** [LICENSE-SELECTION.md](LICENSE-SELECTION.md)
 - **Repository Instructions:** [REPO-INSTRUCTIONS.md](REPO-INSTRUCTIONS.md)
 - **Template README:** [README.md](README.md) (describes template)

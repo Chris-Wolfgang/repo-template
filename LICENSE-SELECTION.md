@@ -301,12 +301,8 @@ Start Here
 
 The setup scripts will prompt you to choose a license:
 
-```bash
-# PowerShell
+```powershell
 pwsh ./scripts/setup.ps1
-
-# Bash
-./scripts/setup.sh
 ```
 
 You'll be asked:

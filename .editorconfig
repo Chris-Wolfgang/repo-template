@@ -25,10 +25,6 @@ indent_size = 2
 [*.{yml,yaml}]
 indent_size = 2
 
-# Shell scripts
-[*.sh]
-end_of_line = lf
-
 # PowerShell files
 [*.ps1]
 indent_size = 4
