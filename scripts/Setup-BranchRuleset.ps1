@@ -213,7 +213,7 @@ $rulesetConfig = @{
         },
         @{
             type = "copilot_code_review"
-	    # Not yet supported through API, must be set via UI
+            # Not yet supported through API, must be set via UI
             # <-- parameters = @{
                 # Automatically request Copilot code review for new pull requests
                 # if the author has Copilot access and hasn't reached their review request limit
