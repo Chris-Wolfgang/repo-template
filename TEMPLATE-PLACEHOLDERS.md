@@ -33,8 +33,8 @@ These placeholders are **required** and must be replaced in every project:
 | `{{YEAR}}` | Copyright year | `2024` | Yes (current year) |
 | `{{COPYRIGHT_HOLDER}}` | Copyright owner name | `Chris Wolfgang` | Yes (from `git config`) |
 | `{{NUGET_STATUS}}` | NuGet availability message | `Coming soon to NuGet.org` or `Available on NuGet.org` | No |
-| `{{TEMPLATE_REPO_OWNER}}` | Template repository owner | `Chris-Wolfgang` | No |
-| `{{TEMPLATE_REPO_NAME}}` | Template repository name | `repo-template` | No |
+| `{{TEMPLATE_REPO_OWNER}}` | Template repository owner (used in setup docs) | `Chris-Wolfgang` | No (prompted during setup) |
+| `{{TEMPLATE_REPO_NAME}}` | Template repository name (used in setup docs) | `repo-template` | No (prompted during setup) |
 
 ---
 
@@ -51,6 +51,57 @@ These placeholders represent sections that users should fill in later. They can 
 | `{{ACKNOWLEDGMENTS}}` | Credits for libraries/tools used | README.md |
 
 **Note:** The automated setup scripts do NOT replace these - users fill them in as they develop their project.
+
+---
+
+## Template Identification Placeholders
+
+### Purpose of TEMPLATE_REPO_OWNER and TEMPLATE_REPO_NAME
+
+The `{{TEMPLATE_REPO_OWNER}}` and `{{TEMPLATE_REPO_NAME}}` placeholders identify the original template repository used to create a new project. These values are primarily used in setup documentation to ensure that instructions accurately reference the actual template source.
+
+### Why This Matters
+
+When users:
+1. Fork the template to customize it
+2. Create their own variant of this template
+3. Use a customized version within an organization
+
+The setup instructions should reference the **actual template they used**, not the original upstream template. This prevents confusion during onboarding and documentation.
+
+### Default Values
+
+- **TEMPLATE_REPO_OWNER**: `Chris-Wolfgang` (the original template owner)
+- **TEMPLATE_REPO_NAME**: `repo-template` (the original template name)
+
+These defaults work for most users creating repositories directly from the original template.
+
+### When to Use Custom Values
+
+Users should provide custom values when:
+- Using a forked version of the template
+- Using an organization-specific template variant
+- The template has been renamed or moved to a different owner
+- Creating documentation for a derivative template
+
+### Where These Are Used
+
+The primary usage is in `REPO-INSTRUCTIONS.md` where the setup instructions reference the template:
+
+**Before replacement (line 46):**
+```markdown
+1. `Start with a template` select `{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}`
+```
+
+**After replacement (using default values):**
+```markdown
+1. `Start with a template` select `Chris-Wolfgang/repo-template`
+```
+
+**After replacement (using custom values):**
+```markdown
+1. `Start with a template` select `YourUsername/my-template`
+```
 
 ---
 
