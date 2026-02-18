@@ -7,6 +7,20 @@
 .DESCRIPTION
     This script automates the process of configuring a new repository created from this template.
     It prompts for project information, replaces placeholders, sets up the license, and validates changes.
+    
+    The script automatically ensures it runs from the repository root directory:
+    - If run from the scripts/ directory, it will automatically change to the repository root
+    - If run from any other location, it will display an error and exit
+    
+.EXAMPLE
+    # Recommended: Run from repository root
+    pwsh ./scripts/setup.ps1
+    
+.EXAMPLE
+    # Also works: Run from scripts directory (auto-corrects to root)
+    cd scripts
+    pwsh ./setup.ps1
+    
 .NOTES
     Requires PowerShell Core 7.0 or later (cross-platform)
 #>
