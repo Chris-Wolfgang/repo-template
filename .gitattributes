@@ -9,6 +9,8 @@
 *.fsx text eol=lf
 
 # Scripts
+# PowerShell uses CRLF to maintain compatibility with Windows and PowerShell conventions
+# This overrides the global eol=lf setting and aligns with .editorconfig line 33
 *.ps1 text eol=crlf
 
 
