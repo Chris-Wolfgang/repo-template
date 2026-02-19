@@ -8,9 +8,13 @@
 .DESCRIPTION
     This script automates the setup of GitHub Pages for a .NET repository using DocFX.
     It performs the following tasks:
-    1. Creates a gh-pages branch if it doesn't already exist
-    2. Configures GitHub Pages settings to serve from the gh-pages branch
-    3. Ensures the DocFX workflow is configured to trigger on tag pushes (v*.*.* pattern)
+    1. Prompts if you want to set up GitHub Pages for documentation
+    2. Reads repository-specific information automatically where possible
+    3. Prompts for any missing information needed for DocFX configuration
+    4. Replaces placeholders in docfx.json and documentation markdown files
+    5. Creates a gh-pages branch if it doesn't already exist
+    6. Configures GitHub Pages settings to serve from the gh-pages branch
+    7. Ensures the DocFX workflow is configured to trigger on tag pushes (v*.*.* pattern)
     
     Run this script locally after creating a new repository from the template.
 
@@ -19,6 +23,9 @@
 
 .PARAMETER EnablePages
     If specified, automatically enables GitHub Pages without prompting.
+
+.PARAMETER SkipPrompt
+    If specified, skips the initial prompt asking if you want to set up GitHub Pages.
 
 .EXAMPLE
     .\Setup-GitHubPages.ps1
@@ -29,8 +36,8 @@
     Sets up GitHub Pages for a specific repository
 
 .EXAMPLE
-    .\Setup-GitHubPages.ps1 -EnablePages
-    Sets up GitHub Pages and automatically enables it without prompting
+    .\Setup-GitHubPages.ps1 -EnablePages -SkipPrompt
+    Sets up GitHub Pages and automatically enables it without any prompts
 
 .NOTES
     Requires: 
@@ -45,7 +52,10 @@ param(
     [string]$Repository = "{{GITHUB_USERNAME}}/{{REPO_NAME}}",
     
     [Parameter()]
-    [switch]$EnablePages
+    [switch]$EnablePages,
+    
+    [Parameter()]
+    [switch]$SkipPrompt
 )
 
 # Enable strict mode
@@ -78,6 +88,47 @@ function Write-Step {
     Write-Host "`n🔧 $Message" -ForegroundColor Magenta
 }
 
+# Helper function to read input with default value
+function Read-Input {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Prompt,
+        
+        [string]$Default = '',
+        
+        [string]$Example = '',
+        
+        [switch]$Required
+    )
+    
+    $displayPrompt = $Prompt
+    if ($Default) {
+        $displayPrompt += " [$Default]"
+    }
+    if ($Example -and $Example -ne $Default) {
+        $displayPrompt += " (e.g., $Example)"
+    }
+    $displayPrompt += ": "
+    
+    do {
+        Write-Host $displayPrompt -NoNewline -ForegroundColor Yellow
+        $input = Read-Host
+        
+        if ([string]::IsNullOrWhiteSpace($input)) {
+            if ($Default) {
+                return $Default
+            }
+            if ($Required) {
+                Write-Warning-Custom "This field is required. Please enter a value."
+                continue
+            }
+            return ''
+        }
+        
+        return $input.Trim()
+    } while ($true)
+}
+
 # Banner
 Write-Host @"
 
@@ -88,6 +139,26 @@ Write-Host @"
 ╚═══════════════════════════════════════════════════════════════════╝
 
 "@ -ForegroundColor Cyan
+
+# Initial prompt to confirm setup
+if (-not $SkipPrompt) {
+    Write-Host "`n📚 This script will set up GitHub Pages for your repository documentation." -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "The setup process will:" -ForegroundColor Gray
+    Write-Host "  • Configure DocFX documentation files with your project information" -ForegroundColor Gray
+    Write-Host "  • Create a gh-pages branch for hosting documentation" -ForegroundColor Gray
+    Write-Host "  • Enable GitHub Pages in repository settings" -ForegroundColor Gray
+    Write-Host "  • Verify the DocFX workflow configuration" -ForegroundColor Gray
+    Write-Host ""
+    
+    $response = Read-Host "Do you want to set up GitHub Pages for documentation? (y/N)"
+    if ($response -ne 'y' -and $response -ne 'Y') {
+        Write-Info "Setup cancelled. You can run this script again anytime."
+        exit 0
+    }
+    
+    Write-Host ""
+}
 
 # Check if gh CLI is installed
 Write-Step "Checking prerequisites..."
@@ -145,6 +216,146 @@ if ($Repository -eq "{{GITHUB_USERNAME}}/{{REPO_NAME}}" -or -not $Repository) {
 }
 
 Write-Host "`n📚 Setting up GitHub Pages for: $Repository" -ForegroundColor Cyan
+
+# Configure DocFX files
+Write-Step "Configuring DocFX documentation files..."
+
+# Check if docfx.json has placeholders that need to be replaced
+$docfxJsonPath = "docfx_project/docfx.json"
+$needsDocFxConfig = $false
+
+if (Test-Path $docfxJsonPath) {
+    $docfxContent = Get-Content $docfxJsonPath -Raw
+    if ($docfxContent -match '{{[^}]+}}') {
+        $needsDocFxConfig = $true
+        Write-Info "DocFX configuration files contain placeholders that need to be replaced"
+    } else {
+        Write-Success "DocFX configuration files are already configured"
+    }
+} else {
+    Write-Warning-Custom "docfx.json not found at $docfxJsonPath"
+    Write-Info "Skipping DocFX configuration"
+}
+
+if ($needsDocFxConfig) {
+    Write-Host ""
+    Write-Host "📝 Gathering project information for DocFX configuration..." -ForegroundColor Cyan
+    Write-Host ""
+    
+    # Parse repository information
+    $repoOwner = $Repository -split '/' | Select-Object -First 1
+    $repoName = $Repository -split '/' | Select-Object -Last 1
+    $githubRepoUrl = "https://github.com/$Repository"
+    
+    # Try to get repository description from GitHub
+    try {
+        $repoFullInfo = gh repo view --json description,nameWithOwner | ConvertFrom-Json
+        $autoDescription = $repoFullInfo.description
+        if ([string]::IsNullOrWhiteSpace($autoDescription)) {
+            $autoDescription = "A .NET library/application"
+        }
+    } catch {
+        $autoDescription = "A .NET library/application"
+    }
+    
+    # Calculate default documentation URL
+    $defaultDocsUrl = "https://$repoOwner.github.io/$repoName/"
+    
+    # Prompt for project information
+    $projectName = Read-Input `
+        -Prompt "Project Name" `
+        -Default $repoName `
+        -Example $repoName `
+        -Required
+    
+    $projectDescription = Read-Input `
+        -Prompt "Project Description" `
+        -Default $autoDescription `
+        -Example $autoDescription
+    
+    $packageName = Read-Input `
+        -Prompt "NuGet Package Name (if publishing to NuGet)" `
+        -Default $projectName `
+        -Example $projectName
+    
+    $docsUrl = Read-Input `
+        -Prompt "Documentation URL (GitHub Pages)" `
+        -Default $defaultDocsUrl `
+        -Example $defaultDocsUrl
+    
+    # Ensure docsUrl ends with /
+    if (-not $docsUrl.EndsWith('/')) {
+        $docsUrl += '/'
+    }
+    
+    # Summary
+    Write-Host ""
+    Write-Host "Configuration Summary:" -ForegroundColor Cyan
+    Write-Host "  Project Name:        $projectName" -ForegroundColor Gray
+    Write-Host "  Description:         $projectDescription" -ForegroundColor Gray
+    Write-Host "  Package Name:        $packageName" -ForegroundColor Gray
+    Write-Host "  Repository URL:      $githubRepoUrl" -ForegroundColor Gray
+    Write-Host "  Documentation URL:   $docsUrl" -ForegroundColor Gray
+    Write-Host ""
+    
+    $confirm = Read-Host "Proceed with this configuration? (Y/n)"
+    if ($confirm -and $confirm -ne 'Y' -and $confirm -ne 'y') {
+        Write-Warning-Custom "Configuration cancelled."
+        exit 0
+    }
+    
+    # Create replacements hashtable
+    $replacements = @{
+        '{{PROJECT_NAME}}' = $projectName
+        '{{PROJECT_DESCRIPTION}}' = $projectDescription
+        '{{PACKAGE_NAME}}' = $packageName
+        '{{GITHUB_REPO_URL}}' = $githubRepoUrl
+        '{{DOCS_URL}}' = $docsUrl
+    }
+    
+    # Files to update
+    $filesToUpdate = @(
+        'docfx_project/docfx.json',
+        'docfx_project/index.md',
+        'docfx_project/api/index.md',
+        'docfx_project/api/README.md',
+        'docfx_project/docs/toc.yml',
+        'docfx_project/docs/introduction.md',
+        'docfx_project/docs/getting-started.md'
+    )
+    
+    # Replace placeholders in files
+    Write-Host ""
+    Write-Info "Replacing placeholders in DocFX files..."
+    $filesUpdated = 0
+    
+    foreach ($file in $filesToUpdate) {
+        if (Test-Path $file) {
+            $content = Get-Content $file -Raw -ErrorAction SilentlyContinue
+            if ($content) {
+                $originalContent = $content
+                
+                foreach ($placeholder in $replacements.Keys) {
+                    $content = $content -replace [regex]::Escape($placeholder), $replacements[$placeholder]
+                }
+                
+                if ($content -ne $originalContent) {
+                    Set-Content -Path $file -Value $content -NoNewline -Encoding UTF8
+                    Write-Success "  Updated: $file"
+                    $filesUpdated++
+                }
+            }
+        }
+    }
+    
+    if ($filesUpdated -gt 0) {
+        Write-Success "Successfully updated $filesUpdated DocFX file(s)"
+    } else {
+        Write-Info "No files needed updating"
+    }
+    
+    Write-Host ""
+}
 
 # Check if gh-pages branch exists
 Write-Step "Checking for gh-pages branch..."
@@ -437,6 +648,9 @@ Write-Host "📋 Setup Summary" -ForegroundColor Cyan
 Write-Host ("=" * 70) -ForegroundColor Cyan
 
 Write-Host "`n✅ Completed Tasks:" -ForegroundColor Green
+if ($needsDocFxConfig -and $filesUpdated -gt 0) {
+    Write-Host "   • Configured DocFX files with project information" -ForegroundColor Gray
+}
 Write-Host "   • Verified/Created gh-pages branch" -ForegroundColor Gray
 if ($EnablePages) {
     Write-Host "   • Configured GitHub Pages settings" -ForegroundColor Gray
@@ -444,10 +658,17 @@ if ($EnablePages) {
 Write-Host "   • Verified DocFX workflow configuration" -ForegroundColor Gray
 
 Write-Host "`n📝 Next Steps:" -ForegroundColor Yellow
-Write-Host "   1. Ensure docfx_project/docfx.json is configured for your project" -ForegroundColor Gray
-Write-Host "   2. Update .github/workflows/docfx.yaml to trigger on tags if needed" -ForegroundColor Gray
-Write-Host "   3. Create a version tag to test: git tag v1.0.0 && git push origin v1.0.0" -ForegroundColor Gray
-Write-Host "   4. Check the Actions tab to see the documentation build" -ForegroundColor Gray
+if ($needsDocFxConfig -and $filesUpdated -gt 0) {
+    Write-Host "   1. Review and customize the generated documentation in docfx_project/" -ForegroundColor Gray
+    Write-Host "   2. Create a version tag to publish: git tag v1.0.0 && git push origin v1.0.0" -ForegroundColor Gray
+    Write-Host "   3. Check the Actions tab to see the documentation build" -ForegroundColor Gray
+    Write-Host "   4. Visit your documentation site once published" -ForegroundColor Gray
+} else {
+    Write-Host "   1. Ensure docfx_project/docfx.json is configured for your project" -ForegroundColor Gray
+    Write-Host "   2. Update .github/workflows/docfx.yaml to trigger on tags if needed" -ForegroundColor Gray
+    Write-Host "   3. Create a version tag to test: git tag v1.0.0 && git push origin v1.0.0" -ForegroundColor Gray
+    Write-Host "   4. Check the Actions tab to see the documentation build" -ForegroundColor Gray
+}
 
 Write-Host "`n🔗 Useful Links:" -ForegroundColor Cyan
 Write-Host "   • Repository: https://github.com/$Repository" -ForegroundColor Blue
