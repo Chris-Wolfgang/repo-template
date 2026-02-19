@@ -40,6 +40,12 @@
     Requires: GitHub CLI (gh) authenticated with sufficient permissions
     Install gh: https://cli.github.com/
     
+    Required Permissions:
+    - Admin access to the repository, OR
+    - Write access with "Administration" permission enabled
+    
+    These permissions are necessary to create and modify repository rulesets.
+    
     Note: The copilot_code_review ruleset type requires GitHub Copilot access
     and may require GitHub Enterprise or specific subscription plans. Verify your organization has the
     necessary subscriptions before running this script.

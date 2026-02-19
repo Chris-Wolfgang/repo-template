@@ -68,7 +68,6 @@ T:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter; Insecure and d
 T:System.Runtime.Serialization.Formatters.Soap.SoapFormatter; Insecure and deprecated - use System.Text.Json.JsonSerializer instead
 # DateTime Anti-patterns - Prefer DateTimeOffset for timezone safety
 P:System.DateTime.Now; Use 'DateTimeOffset.UtcNow' or 'DateTimeOffset.Now' for timezone-aware operations
-T:System.DateTime; Consider using 'DateTimeOffset' for timezone-safe date/time operations (especially in libraries)
 # Synchronous Parallel operations - Use async alternatives
 M:System.Threading.Tasks.Parallel.For(System.Int32,System.Int32,System.Action{System.Int32}); Synchronous - prefer async concurrency patterns (e.g., 'Task.WhenAll()', dataflow). On .NET 6+ targets, 'Parallel.ForEachAsync()' is also available.
 M:System.Threading.Tasks.Parallel.For(System.Int32,System.Int32,System.Threading.Tasks.ParallelOptions,System.Action{System.Int32}); Synchronous - prefer async concurrency patterns (e.g., 'Task.WhenAll()', dataflow). On .NET 6+ targets, 'Parallel.ForEachAsync()' is also available.
