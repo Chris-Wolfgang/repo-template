@@ -181,6 +181,21 @@ try {
     exit 1
 }
 
+# Check if we're in a git repository
+try {
+    $null = git rev-parse --git-dir 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error-Custom "Not in a git repository."
+        Write-Host "Please run this script from within a git repository." -ForegroundColor Yellow
+        exit 1
+    }
+    Write-Success "Running in a git repository"
+} catch {
+    Write-Error-Custom "Not in a git repository."
+    Write-Host "Please run this script from within a git repository." -ForegroundColor Yellow
+    exit 1
+}
+
 # Check if authenticated
 try {
     $null = gh auth status 2>&1
