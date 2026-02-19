@@ -50,7 +50,11 @@ This project is licensed under the **{{LICENSE_TYPE}} License**. See the [LICENS
 
 ## 🎯 Target Frameworks
 
-{{TARGET_FRAMEWORKS}}
+| Framework | Versions |
+|-----------|----------|
+| .Net Framework | .net 4.6.2, .net 4.7.0, .net 4.7.1, .net 4.7.2, .net 4.8, .net 4.8.1 | 
+| .Net Core | |
+| .Net | .net 5.0, .net 6.0, .net 7.0, .net 8.0, .net 9.0, .net 10.0
 
 ---
 
