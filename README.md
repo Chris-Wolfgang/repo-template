@@ -41,7 +41,17 @@ Before using this template, ensure you have the following installed:
    The script will ask if you want:
    - **Single Developer**: No PR approvals required (you can merge your own PRs)
    - **Multi-Developer**: Requires 1+ approval and code owner review
-7. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
+7. **(Optional) Set up GitHub Pages for documentation** - Configure DocFX and enable documentation:
+   ```powershell
+   pwsh ./scripts/Setup-GitHubPages.ps1
+   ```
+   
+   The script will:
+   - Configure DocFX documentation files with your project details
+   - Create a gh-pages branch for hosting documentation
+   - Enable GitHub Pages in repository settings
+   - Your docs will be live at `https://<username>.github.io/<repo>/`
+8. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
 
 The setup script automatically:
 - ✅ Replaces all placeholders with your project information
@@ -49,6 +59,9 @@ The setup script automatically:
 - ✅ Sets up your chosen license (MIT, Apache 2.0, or MPL 2.0)
 - ✅ Validates all changes
 - ✅ Optionally cleans up template files
+
+**Additional optional setup:**
+- 📚 Run `pwsh ./scripts/Setup-GitHubPages.ps1` to configure documentation and enable GitHub Pages
 
 ---
 

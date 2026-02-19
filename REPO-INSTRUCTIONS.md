@@ -13,6 +13,7 @@ pwsh ./scripts/setup.ps1
 **Note:** There are multiple scripts in this template:
 - `scripts/setup.ps1` - Main repository setup (replaces placeholders, configures license)
 - `scripts/Setup-BranchRuleset.ps1` - Branch protection configuration (run after setup)
+- `scripts/Setup-GitHubPages.ps1` - GitHub Pages and DocFX documentation setup (optional)
 
 The main setup script will:
 1. ✅ Prompt for all required information (with examples and defaults)
@@ -205,9 +206,15 @@ If you want to publish your DocFX documentation to GitHub Pages automatically wh
    ```
 
    The script will:
+   - **Prompt if you want to set up GitHub Pages** for documentation
+   - **Auto-detect repository information** (name, description, URLs)
+   - **Prompt for project details** needed for DocFX configuration
+   - **Replace placeholders** in DocFX files ({{PROJECT_NAME}}, {{DOCS_URL}}, etc.)
    - Create a `gh-pages` branch if it doesn't exist
    - Configure GitHub Pages to serve from the `gh-pages` branch
    - Verify that the DocFX workflow is configured to trigger on version tags
+
+   **Note:** If you've already run `scripts/setup.ps1`, the DocFX placeholders are already configured, and this script will skip the configuration step.
 
 2. After setup, documentation will be automatically published when you push a version tag:
    ```bash
@@ -220,6 +227,8 @@ If you want to publish your DocFX documentation to GitHub Pages automatically wh
 **Note:** The DocFX workflow (`.github/workflows/docfx.yaml`) is configured to trigger on:
 - Push to the `main` branch (for testing/preview)
 - Version tags in the format `v*.*.*` (e.g., v1.0.0, v2.1.3)
+
+**Alternative Approach:** If you prefer to configure DocFX placeholders separately from GitHub Pages setup, you can run `scripts/setup.ps1` first (which handles all template placeholders including DocFX), then run `scripts/Setup-GitHubPages.ps1` just to set up the gh-pages branch and GitHub Pages settings.
 
 ### Update Documentation (Optional)
 
