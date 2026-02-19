@@ -84,6 +84,25 @@ Users should provide custom values when:
 - The template has been renamed or moved to a different owner
 - Creating documentation for a derivative template
 
+### How These Values Are Collected
+
+The setup script (`pwsh ./scripts/setup.ps1`) prompts users for this information:
+
+**PowerShell (setup.ps1):**
+```powershell
+$templateRepoOwner = Read-Input `
+    -Prompt "Template Repository Owner" `
+    -Default "Chris-Wolfgang" `
+    -Example "YourUsername"
+
+$templateRepoName = Read-Input `
+    -Prompt "Template Repository Name" `
+    -Default "repo-template" `
+    -Example "my-template"
+```
+
+These values are collected during the interactive setup process (lines 341-349 in setup.ps1) and added to the replacements hashtable (lines 390-391).
+
 ### Where These Are Used
 
 The primary usage is in `REPO-INSTRUCTIONS.md` where the setup instructions reference the template:
@@ -102,6 +121,24 @@ The primary usage is in `REPO-INSTRUCTIONS.md` where the setup instructions refe
 ```markdown
 1. `Start with a template` select `YourUsername/my-template`
 ```
+
+### Validation
+
+The setup script validates that these placeholders are properly replaced (along with other core placeholders) before completing:
+
+**PowerShell (setup.ps1, lines 475-479):**
+```powershell
+$corePlaceholders = @(
+    'PROJECT_NAME', 'PROJECT_DESCRIPTION', 'PACKAGE_NAME',
+    'GITHUB_REPO_URL', 'REPO_NAME', 'GITHUB_USERNAME',
+    'DOCS_URL', 'LICENSE_TYPE',
+    'NUGET_STATUS', 'TEMPLATE_REPO_OWNER', 'TEMPLATE_REPO_NAME'
+)
+```
+
+**Files That Process These Placeholders:**
+1. **scripts/setup.ps1** - PowerShell setup script (prompts: lines 341-349; replacements hashtable: lines 390-391)
+2. **REPO-INSTRUCTIONS.md** - Target file where replacement occurs (line 46)
 
 ---
 
