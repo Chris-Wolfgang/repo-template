@@ -48,14 +48,14 @@ This is a **repository template** for creating new .NET repositories. It provide
    ```
 
 ### Critical Build Requirements
-- **Code Coverage**: Minimum 80% line coverage required for all projects
+- **Code Coverage**: Minimum 90% line coverage required for all projects
 - **Security Scanning**: DevSkim must pass with no errors
 - **Build Configuration**: Always use Release configuration for CI
 - **Test Pattern**: Test projects must match `*Test*.csproj` pattern in `/tests` folder
 
 ### Common Issues and Workarounds
 - **Timeout Issues**: Coverage and security scans can take 5-10 minutes for larger projects
-- **Coverage Threshold Failures**: If below 80%, the build will fail - this is by design
+- **Coverage Threshold Failures**: If below 90%, the build will fail - this is by design
 - **Missing Test Projects**: The workflow expects at least one test project in `/tests` folder
 - **DevSkim False Positives**: Review `devskim-results.txt` for any security findings
 
@@ -165,14 +165,14 @@ This information has been validated against the template structure and GitHub wo
 2. **Adding Dependencies**: Use `dotnet add package` commands
 3. **Code Style**: Follow `.editorconfig` rules (file-scoped namespaces, explicit typing)
 4. **Testing**: Ensure test projects follow `*Test*.csproj` naming convention
-5. **Coverage**: Aim for >80% code coverage to pass CI
+5. **Coverage**: Aim for >90% code coverage to pass CI
 6. **Security**: Review DevSkim findings and address security concerns
 
 ### Validation Steps
 Before submitting changes:
 1. Run `dotnet restore && dotnet build --configuration Release`
 2. Run tests with coverage collection
-3. Verify coverage meets 80% threshold
+3. Verify coverage meets 90% threshold
 4. Run DevSkim security scan
 5. Ensure all GitHub Actions checks pass
 
