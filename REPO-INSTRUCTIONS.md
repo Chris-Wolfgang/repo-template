@@ -213,7 +213,7 @@ If you want to publish your DocFX documentation to GitHub Pages automatically wh
    - **Replace placeholders** in DocFX files ({{PROJECT_NAME}}, {{DOCS_URL}}, etc.)
    - Create a `gh-pages` branch if it doesn't exist
    - Configure GitHub Pages to serve from the `gh-pages` branch
-   - Verify that the DocFX workflow is configured correctly
+   - Verify that the DocFX workflow is configured to trigger on version tags
 
    **Note:** If you've already run `scripts/setup.ps1`, the DocFX placeholders are already configured, and this script will skip the configuration step.
 
