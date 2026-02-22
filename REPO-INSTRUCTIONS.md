@@ -170,7 +170,7 @@ If you plan to publish NuGet packages using the automated release workflow, you 
    - Set expiration date (recommended: 1 year)
 5. Click **"Add secret"**
 
-**Note:** The release workflow automatically publishes packages to NuGet.org when you push a version tag (e.g., `v1.0.0`). See [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md) for detailed information about the release workflow, testing, and troubleshooting.
+**Note:** The release workflow automatically publishes packages to NuGet.org when you **publish a GitHub Release** (go to Releases → Draft a new release). See [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md) for detailed information about the release workflow, testing, and troubleshooting.
 
 
 ## Update Template Files
@@ -217,7 +217,11 @@ If you want to publish your DocFX documentation to GitHub Pages automatically wh
 
    **Note:** If you've already run `scripts/setup.ps1`, the DocFX placeholders are already configured, and this script will skip the configuration step.
 
-2. After setup, documentation will be automatically published when you publish a GitHub Release. The DocFX workflow is called automatically by `release.yaml` after a release is published — no manual tag push is required.
+2. After setup, documentation will be automatically published when you publish a GitHub Release:
+   1. Go to your repository's **Releases** page
+   2. Click **"Draft a new release"**
+   3. Choose or create a version tag (e.g., `v1.0.0`)
+   4. Click **"Publish release"**
 
 3. The documentation will be available at: `https://[username].github.io/[repo-name]/`
 
