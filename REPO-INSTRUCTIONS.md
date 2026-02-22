@@ -98,19 +98,20 @@ These settings require that all checks in the pr.yaml file succeed before you ca
 
 ## Add Custom Labels
 
-1. Go to your repository
-2. Click on the `Actions` tab
-3. Select `Create Dependabot Security and Dependencies Labels` from the workflow list
-4. Click `Run workflow` button
-5. Select the branch `main` and click `Run workflow`
-6. This will create all four labels:
+Run the label setup script once after creating your repository:
 
-If that doesn't work try the following
+```powershell
+pwsh -File ./scripts/Setup-Labels.ps1
+```
 
-Go to `Issues` tab at the top of your repo and the select `Labels` and click `New label`
+This creates the following labels used by Dependabot and workflows:
 
-1. dependabot-dependencies
-2. dependabot-security
+1. `dependabot - security`
+2. `dependabot-dependencies`
+3. `dependencies`
+4. `dotnet`
+
+Requires the [GitHub CLI](https://cli.github.com/) to be installed and authenticated (`gh auth login`).
 
 
 ## Creating the project
