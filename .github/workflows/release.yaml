@@ -553,7 +553,7 @@ jobs:
   # Attach NuGet packages and coverage report to the GitHub Release page
   update-release-artifacts:
     name: Attach Artifacts to Release
-    needs: [validate-release, pack-and-validate]
+    needs: [validate-release, pack-and-validate, publish-nuget]
     if: needs.pack-and-validate.outputs.has-packages == 'true'
     runs-on: ubuntu-latest
     permissions:
