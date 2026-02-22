@@ -554,6 +554,7 @@ jobs:
   update-release-artifacts:
     name: Attach Artifacts to Release
     needs: [validate-release, pack-and-validate]
+    if: needs.pack-and-validate.outputs.has-packages == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write  # Required to upload assets to the GitHub Release
