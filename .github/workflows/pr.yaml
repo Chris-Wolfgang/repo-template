@@ -9,6 +9,8 @@
 # - All checkout steps use PR refs (refs/pull/*/head) to check out PR code from the base repo
 # - After checkout, configuration files (.editorconfig, BannedSymbols.txt, etc.) are fetched from 
 #   the main branch to prevent malicious PRs from disabling analyzers or bypassing code quality checks
+# - If a PR changes any of these protected configuration files, CI explicitly fails with instructions
+#   for a maintainer to manually review and verify the changes before merging
 # - persist-credentials: false prevents the checkout token from being written to git config for subsequent git commands
 #   (it does NOT, by itself, prevent steps from accessing github.token / GITHUB_TOKEN if you explicitly expose it)
 # - Default GITHUB_TOKEN permissions are restricted to read-only repository contents to limit impact if exposed
@@ -40,12 +42,19 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
       
+      - name: Checkout main branch (for trusted configuration)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: ${{ runner.temp }}/main-branch-checkout
+          persist-credentials: false
+      
       - name: Fetch trusted configuration files from main branch
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
-          git fetch origin main:main-branch
+          # Create local ref from the already-checked-out main branch (no unauthenticated network fetch needed)
+          git fetch "$RUNNER_TEMP/main-branch-checkout" HEAD:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(
@@ -83,6 +92,60 @@ jobs:
           echo ""
           echo "✅ Configuration files secured - using versions from main branch"
       
+      - name: Detect protected configuration file changes
+        run: |
+          echo "Checking for changes to protected configuration files in this PR..."
+          
+          # Verify main-branch ref is available (it was fetched in the previous step)
+          if ! git cat-file -e main-branch 2>/dev/null; then
+            echo "❌ main-branch ref not found - cannot detect configuration file changes"
+            exit 1
+          fi
+          
+          changed_files=()
+          
+          # Check exact file matches against main branch git objects
+          # 2>/dev/null suppresses output when a file doesn't exist in one ref (new/deleted file),
+          # which git diff handles correctly via its exit code
+          exact_files=(
+            ".editorconfig"
+            "Directory.Build.props"
+            "Directory.Build.targets"
+            "BannedSymbols.txt"
+          )
+          
+          for config_file in "${exact_files[@]}"; do
+            if ! git diff --quiet main-branch HEAD -- "$config_file" 2>/dev/null; then
+              changed_files+=("$config_file")
+            fi
+          done
+          
+          # Check .globalconfig and .ruleset files using the same git diff approach
+          # --diff-filter=AMRC: Added, Modified, Renamed, Copied (excludes Deleted)
+          while IFS= read -r file; do
+            changed_files+=("$file")
+          done < <(git diff --name-only --diff-filter=AMRC main-branch HEAD 2>/dev/null | grep -E '\.(globalconfig|ruleset)$' || true)
+          
+          if [ ${#changed_files[@]} -gt 0 ]; then
+            echo ""
+            echo "⚠️  PROTECTED CONFIGURATION FILES CHANGED IN THIS PR:"
+            for file in "${changed_files[@]}"; do
+              echo "  - $file"
+            done
+            echo ""
+            echo "❌ CI uses the main branch version of these files to prevent security bypasses."
+            echo "   The PR's changes to these files were NOT tested by CI."
+            echo "   A maintainer must manually review and verify these changes before merging."
+            echo ""
+            echo "To proceed, a maintainer should:"
+            echo "  1. Review the configuration changes in this PR carefully"
+            echo "  2. Test the changes locally to confirm they work correctly"
+            echo "  3. Merge with awareness that CI did not validate these configuration changes"
+            exit 1
+          else
+            echo "✅ No protected configuration files changed - CI fully validates this PR"
+          fi
+      
       - name: Check for .NET project files
         id: check-projects
         run: |
@@ -110,12 +173,25 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
       
+      - name: Checkout main branch (for trusted configuration)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: ${{ runner.temp }}/main-branch-checkout
+          persist-credentials: false
+      
       - name: Fetch trusted configuration files from main branch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
-          git fetch origin main:main-branch
+          # Ensure origin uses an authenticated URL so fetch works on private repositories
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          
+          # Create local ref from the already-checked-out main branch (no unauthenticated network fetch needed)
+          git fetch "$RUNNER_TEMP/main-branch-checkout" HEAD:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(
@@ -415,13 +491,25 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
       
+      - name: Checkout main branch (for trusted configuration)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: ${{ runner.temp }}/main-branch-checkout
+          persist-credentials: false
+      
       - name: Fetch trusted configuration files from main branch
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           Write-Host "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
-          git fetch origin main:main-branch
+          # Ensure origin uses an authenticated URL so fetch works on private repositories
+          git remote set-url origin "https://x-access-token:$env:GITHUB_TOKEN@github.com/$env:GITHUB_REPOSITORY.git"
+          # Create local ref from the already-checked-out main branch (no unauthenticated network fetch needed)
+          git fetch "$env:RUNNER_TEMP/main-branch-checkout" HEAD:main-branch
           
           # List of configuration files that should come from trusted main branch
           $configFiles = @(
@@ -556,11 +644,23 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
       
+      - name: Checkout main branch (for trusted configuration)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: ${{ runner.temp }}/main-branch-checkout
+          persist-credentials: false
+      
       - name: Fetch trusted configuration files from main branch
+        env:
+          REPO_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
+          # Authenticate the origin remote using the GITHUB_TOKEN (works for private repos even with persist-credentials: false)
+          git remote set-url origin "$REPO_URL"
+          
+          # Fetch the main branch from the authenticated origin remote
           git fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
@@ -795,12 +895,25 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
       
+      - name: Checkout main branch (for trusted configuration)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: ${{ runner.temp }}/main-branch-checkout
+          persist-credentials: false
+      
       - name: Fetch trusted configuration files from main branch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
-          git fetch origin main:main-branch
+          # Ensure origin uses an authenticated URL so fetch works in private repositories
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          
+          # Create local ref from the already-checked-out main branch (no unauthenticated network fetch needed)
+          git fetch "$RUNNER_TEMP/main-branch-checkout" HEAD:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(

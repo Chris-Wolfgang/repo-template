@@ -4,12 +4,11 @@ This guide explains how to configure the repository after merging the updated `r
 
 ## Overview
 
-The release workflow implements a comprehensive validation and automatic deployment process that:
+The release workflow triggers when you **publish a GitHub Release** and implements a comprehensive validation and automatic deployment process that:
 - ✅ Tests all target frameworks per test project on Windows
 - ✅ Enforces 90% code coverage threshold
 - ✅ Validates NuGet package integrity with smoke tests
 - ✅ Automatically publishes to NuGet.org after validation passes
-- ✅ Creates GitHub releases with artifacts and coverage reports
 - ✅ Eliminates duplicate build work for faster releases
 
 ## Required Post-Merge Configuration
@@ -58,13 +57,16 @@ Ensure the following settings are enabled:
 
 ## Testing the Release Workflow
 
-After completing the setup, test the workflow with a test tag:
+After completing the setup, test the workflow by creating a GitHub Release:
 
-```bash
-# Create and push a test tag
-git tag v0.0.1-test
-git push origin v0.0.1-test
-```
+1. Go to your repository's **Releases** page
+2. Click **"Draft a new release"**
+3. Choose or create a tag (e.g., `v0.0.1-test`)
+4. Add a title and description (optional for a test)
+5. Check **"Set as a pre-release"** for test releases
+6. Click **"Publish release"**
+
+The workflow triggers automatically when the release is published.
 
 ### Expected Workflow Behavior
 
@@ -85,13 +87,6 @@ git push origin v0.0.1-test
    - Publishes packages to NuGet.org automatically
    - ✅ Auto-completes if secret is valid
 
-4. **Job 4: create-github-release** (1-2 minutes)
-   - Creates GitHub release
-   - Attaches `.nupkg` files and coverage report
-   - Generates release notes automatically
-   - Marks as prerelease if tag contains `-` (e.g., `-test`, `-beta`)
-   - ✅ Auto-completes
-
 ### Monitoring the Workflow
 
 - **Actions Tab:** Shows workflow progress in real-time
@@ -107,7 +102,7 @@ git push origin v0.0.1-test
 **Solution:**
 1. Verify the secret name is exactly `NUGET_API_KEY` (case-sensitive)
 2. Re-add the secret in Settings → Secrets → Actions
-3. Re-run the workflow (this will restart the jobs using the updated secret; don't re-tag)
+3. Re-run the workflow from the Actions tab (do not re-publish the release)
 
 ### Tests Fail on Specific Framework
 
@@ -117,7 +112,7 @@ git push origin v0.0.1-test
 1. Check the test logs for framework-specific issues
 2. Fix compatibility issues in your code
 3. Test locally: `dotnet test --framework net462`
-4. Push fix and re-tag
+4. Push fix, then re-publish the release (or re-run the workflow from the Actions tab)
 
 ### Coverage Below 90% Threshold
 
@@ -127,7 +122,7 @@ git push origin v0.0.1-test
 1. Review `CoverageReport/Summary.txt` artifact
 2. Add tests for uncovered code paths
 3. Ensure tests run on all frameworks
-4. Re-tag after improving coverage
+4. Push fix, then re-publish the release (or re-run the workflow from the Actions tab)
 
 ### Smoke Test Fails to Install Package
 
@@ -137,11 +132,11 @@ git push origin v0.0.1-test
 1. Check package dependencies in `.csproj`
 2. Verify framework compatibility in `<TargetFrameworks>`
 3. Test locally: `dotnet pack` then try installing in a test project
-4. Fix packaging issues and re-tag
+4. Fix packaging issues and re-publish the release (or re-run the workflow from the Actions tab)
 
 ## Production Release Checklist
 
-Before creating a production release tag (e.g., `v1.0.0`):
+Before creating a production GitHub Release (e.g., `v1.0.0`):
 
 - [ ] All tests pass on all platforms (pr.yaml workflow)
 - [ ] Code coverage meets 90% threshold
@@ -152,15 +147,15 @@ Before creating a production release tag (e.g., `v1.0.0`):
 - [ ] Local build succeeds: `dotnet build --configuration Release`
 - [ ] Local tests pass: `dotnet test --configuration Release`
 
-**Create production tag:**
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
+**Create a production release:**
+1. Go to your repository's **Releases** page
+2. Click **"Draft a new release"**
+3. Choose or create the version tag (e.g., `v1.0.0`) targeting `main`
+4. Add a title and release notes
+5. Click **"Publish release"**
 
 **After workflow completes:**
 - [ ] Verify packages appear on NuGet.org
-- [ ] Check GitHub release has correct artifacts
 - [ ] Test installing package from NuGet.org in a clean project
 - [ ] Announce release (if applicable)
 
@@ -168,7 +163,7 @@ git push origin v1.0.0
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Trigger: Push tag v*.*.*                                   │
+│  Trigger: Published GitHub Release                          │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
@@ -197,15 +192,6 @@ git push origin v1.0.0
 │  • Validate NUGET_API_KEY                                   │
 │  • Publish to NuGet.org automatically                       │
 └─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼ (only if publishing succeeds)
-┌─────────────────────────────────────────────────────────────┐
-│  Job 4: create-github-release (Windows)                     │
-│  • Download packages & coverage                             │
-│  • Create GitHub release                                    │
-│  • Attach artifacts                                         │
-│  • Generate release notes                                   │
-└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Key Improvements Over Previous Workflow
@@ -217,7 +203,7 @@ git push origin v1.0.0
 | **Package Validation** | None | Smoke test installation |
 | **Deployment** | Incomplete publish script | Automatic publishing after validation |
 | **Secret Validation** | None | Validates before publishing |
-| **GitHub Releases** | Not created | Automated with artifacts |
+| **GitHub Releases** | Not used as trigger | Workflow triggered by published release |
 | **Build Efficiency** | Duplicate builds in each job | Build once per job with dependencies |
 | **Test Logging** | No logger parameter | Console logging with verbosity |
 | **Permissions** | Read-only | Write access for releases |
@@ -230,7 +216,6 @@ If you encounter issues not covered in this guide:
 2. Review artifacts uploaded by failed jobs
 3. Consult the [GitHub Actions documentation](https://docs.github.com/en/actions)
 4. Open an issue in this repository with:
-   - Tag name used
    - Workflow run URL
    - Error message and logs
    - Steps to reproduce
