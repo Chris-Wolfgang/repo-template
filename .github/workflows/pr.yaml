@@ -181,8 +181,14 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
+          
+          # Ensure origin uses an authenticated URL so fetch works on private repositories
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           
           # Create local ref from the already-checked-out main branch (no unauthenticated network fetch needed)
           git fetch "$RUNNER_TEMP/main-branch-checkout" HEAD:main-branch
@@ -497,6 +503,10 @@ jobs:
         run: |
           Write-Host "Fetching configuration files from main branch to prevent malicious overrides..."
           
+
+          # Fetch the main branch
+          $token = "${{ github.token }}"
+          git remote set-url origin "https://x-access-token:$token@github.com/${{ github.repository }}.git"
           # Create local ref from the already-checked-out main branch (no unauthenticated network fetch needed)
           git fetch "$env:RUNNER_TEMP/main-branch-checkout" HEAD:main-branch
           
@@ -641,11 +651,13 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        env:
+          REPO_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Create local ref from the already-checked-out main branch (no unauthenticated network fetch needed)
-          git fetch "$RUNNER_TEMP/main-branch-checkout" HEAD:main-branch
+          # Fetch the main branch using an authenticated URL (works for private repos even with persist-credentials: false)
+          git fetch "$REPO_URL" main:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(
@@ -887,8 +899,13 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
+          
+          # Ensure origin uses an authenticated URL so fetch works in private repositories
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           
           # Create local ref from the already-checked-out main branch (no unauthenticated network fetch needed)
           git fetch "$RUNNER_TEMP/main-branch-checkout" HEAD:main-branch
