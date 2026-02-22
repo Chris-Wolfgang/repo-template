@@ -3,7 +3,7 @@
 
 <#
 .SYNOPSIS
-    Sets up GitHub Pages with DocFX for automatic documentation publishing on tag creation.
+    Sets up GitHub Pages with DocFX for automatic documentation publishing on GitHub Release.
 
 .DESCRIPTION
     This script automates the setup of GitHub Pages for a .NET repository using DocFX.
@@ -14,7 +14,7 @@
     4. Replaces placeholders in docfx.json and documentation markdown files
     5. Creates a gh-pages branch if it doesn't already exist
     6. Configures GitHub Pages settings to serve from the gh-pages branch
-    7. Ensures the DocFX workflow is configured to trigger on tag pushes (v*.*.* pattern)
+    7. Verifies the DocFX workflow is reachable via workflow_call from release.yaml
     
     Run this script locally after creating a new repository from the template.
 
@@ -438,7 +438,7 @@ try {
 <body>
     <h1>Documentation Coming Soon</h1>
     <p>This site will contain the project documentation once it is generated.</p>
-    <p>Documentation is automatically published when you push a version tag (e.g., v1.0.0).</p>
+    <p>Documentation is automatically published when you publish a GitHub Release.</p>
 </body>
 </html>
 "@
@@ -620,35 +620,42 @@ if (Test-Path $workflowPath) {
     $workflowContent = Get-Content $workflowPath -Raw
     $normalizedWorkflowContent = $workflowContent -replace "`r`n", "`n"
     
-    # Check if workflow triggers on tags (looking for tag patterns like v*.*.* or v1.0.0)
-    # Uses simple patterns that work with various YAML formats
-    # Pattern 1: Matches 'v' followed by digits or asterisks in version format
-    # Pattern 2: Matches the specific glob pattern v*.*.*
-    # Pattern 3: Matches specific version numbers like v1.0.0
-    $hasTagTrigger = $normalizedWorkflowContent -match 'tags:.*\n.*-.*v[0-9*]' -or
-                     $normalizedWorkflowContent -match 'tags:.*v\*\.\*\.\*' -or
-                     $normalizedWorkflowContent -match 'tags:.*v\d+\.\d+\.\d+'
+    # Check if workflow is triggered via workflow_call (called by release.yaml)
+    $hasWorkflowCall = $normalizedWorkflowContent -match 'workflow_call:'
     
-    if ($hasTagTrigger) {
-        Write-Success "DocFX workflow is configured to trigger on version tags"
+    if ($hasWorkflowCall) {
+        Write-Success "DocFX workflow is configured to be called via workflow_call from release.yaml"
     } else {
-        Write-Warning-Custom "DocFX workflow may not be configured to trigger on version tags (v*.*.*)"
-        Write-Info "The workflow currently triggers on:"
-        if ($normalizedWorkflowContent -match 'on:\s*\n\s*push:\s*\n\s*branches:') {
-            Write-Info "   - Push to branches"
-        }
+        Write-Warning-Custom "DocFX workflow does not appear to be configured for workflow_call"
+        Write-Info "The DocFX workflow should be invoked by release.yaml via workflow_call"
+        Write-Info "   after a GitHub Release is published."
         Write-Info ""
-        Write-Info "To enable automatic documentation publishing on version tags:"
+        Write-Info "To enable automatic documentation publishing on GitHub Release:"
         Write-Info "   1. Edit $workflowPath"
-        Write-Info "   2. Update the 'on:' section to include:"
+        Write-Info "   2. Ensure the 'on:' section includes:"
         Write-Info ""
         Write-Host @"
       on:
-        push:
-          tags:
-            - 'v*.*.*'  # GitHub Actions tag pattern: matches v1.0.0, v2.1.3, etc.
-          branches:
-            - main
+        workflow_call:
+          inputs:
+            version:
+              description: 'Version tag for documentation (e.g., v1.0.0).'
+              required: false
+              default: ''
+              type: string
+        workflow_dispatch:
+"@ -ForegroundColor DarkGray
+        Write-Info ""
+        Write-Info "   3. In release.yaml, add a job that calls docfx.yaml:"
+        Write-Info ""
+        Write-Host @"
+      trigger-docs:
+        needs: validate-release
+        permissions:
+          contents: write
+        uses: ./.github/workflows/docfx.yaml
+        with:
+          version: `${{ github.event.release.tag_name }}
 "@ -ForegroundColor DarkGray
         Write-Info ""
     }
@@ -675,13 +682,13 @@ Write-Host "   • Verified DocFX workflow configuration" -ForegroundColor Gray
 Write-Host "`n📝 Next Steps:" -ForegroundColor Yellow
 if ($needsDocFxConfig -and $filesUpdated -gt 0) {
     Write-Host "   1. Review and customize the generated documentation in docfx_project/" -ForegroundColor Gray
-    Write-Host "   2. Create a version tag to publish: git tag v1.0.0 && git push origin v1.0.0" -ForegroundColor Gray
+    Write-Host "   2. Publish a GitHub Release to trigger documentation deployment" -ForegroundColor Gray
     Write-Host "   3. Check the Actions tab to see the documentation build" -ForegroundColor Gray
     Write-Host "   4. Visit your documentation site once published" -ForegroundColor Gray
 } else {
     Write-Host "   1. Ensure docfx_project/docfx.json is configured for your project" -ForegroundColor Gray
-    Write-Host "   2. Update .github/workflows/docfx.yaml to trigger on tags if needed" -ForegroundColor Gray
-    Write-Host "   3. Create a version tag to test: git tag v1.0.0 && git push origin v1.0.0" -ForegroundColor Gray
+    Write-Host "   2. Ensure .github/workflows/docfx.yaml has workflow_call in its 'on:' triggers and is called by release.yaml" -ForegroundColor Gray
+    Write-Host "   3. Publish a GitHub Release to trigger documentation deployment" -ForegroundColor Gray
     Write-Host "   4. Check the Actions tab to see the documentation build" -ForegroundColor Gray
 }
 
