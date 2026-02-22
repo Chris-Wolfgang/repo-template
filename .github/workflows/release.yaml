@@ -1,5 +1,24 @@
 name: Release on Published Release
 
+# RELEASE PROCESS
+# ─────────────────────────────────────────────────────────────────────────────
+# This workflow is triggered ONLY when a GitHub Release is manually published
+# via the GitHub UI (Releases → "Draft a new release" → "Publish release").
+#
+# It does NOT create GitHub Releases automatically. You must create the release
+# first, then this workflow runs to validate, publish to NuGet, deploy docs,
+# and attach build artifacts to the release you created.
+#
+# Steps to trigger a release:
+#   1. Go to your repository's Releases page
+#   2. Click "Draft a new release"
+#   3. Choose or create a version tag (e.g. v1.0.0) targeting main
+#   4. Add a title and release notes
+#   5. Click "Publish release" — this triggers the workflow
+#
+# For full setup and troubleshooting, see RELEASE-WORKFLOW-SETUP.md
+# ─────────────────────────────────────────────────────────────────────────────
+
 on:
   release:
     types: [published]
