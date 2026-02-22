@@ -12,3 +12,51 @@ updates:
       dotnet-dependencies:
         patterns:
           - "*"
+  - package-ecosystem: "nuget"
+    directory: "/src"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "dotnet"
+    groups:
+      dotnet-dependencies-src:
+        patterns:
+          - "*"
+  - package-ecosystem: "nuget"
+    directory: "/tests"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "dotnet"
+    groups:
+      dotnet-dependencies-tests:
+        patterns:
+          - "*"
+  - package-ecosystem: "nuget"
+    directory: "/benchmarks"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "dotnet"
+    groups:
+      dotnet-dependencies-benchmarks:
+        patterns:
+          - "*"
+  - package-ecosystem: "nuget"
+    directory: "/examples"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "dotnet"
+    groups:
+      dotnet-dependencies-examples:
+        patterns:
+          - "*"

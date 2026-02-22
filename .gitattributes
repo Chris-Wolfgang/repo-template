@@ -9,8 +9,10 @@
 *.fsx text eol=lf
 
 # Scripts
-# PowerShell uses CRLF to maintain compatibility with Windows and PowerShell conventions
-# This overrides the global eol=lf setting and aligns with .editorconfig line 33
+# PowerShell scripts: CRLF line endings (intentional override)
+# Both .gitattributes and .editorconfig consistently configure PowerShell files
+# to use CRLF (Windows-style) line endings for PowerShell convention compliance.
+# See .editorconfig [*.ps1] section for the matching configuration.
 *.ps1 text eol=crlf
 
 
