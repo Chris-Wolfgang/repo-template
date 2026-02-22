@@ -170,7 +170,11 @@ If you plan to publish NuGet packages using the automated release workflow, you 
    - Set expiration date (recommended: 1 year)
 5. Click **"Add secret"**
 
-**Note:** The release workflow automatically publishes packages to NuGet.org when you **publish a GitHub Release** (go to Releases → Draft a new release). See [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md) for detailed information about the release workflow, testing, and troubleshooting.
+**How releases work:** GitHub Releases must be **created manually** in the GitHub UI. The release workflow does not create releases automatically — it is *triggered by* a published release. Once triggered, it validates the build, publishes packages to NuGet.org, deploys documentation, and attaches build artifacts to the release.
+
+To create a release: go to **Releases → "Draft a new release"**, choose a version tag (e.g. `v1.0.0`) targeting `main`, add a title and release notes, then click **"Publish release"** to trigger the workflow.
+
+See [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md) for detailed information about the release workflow, testing, and troubleshooting.
 
 
 ## Update Template Files
