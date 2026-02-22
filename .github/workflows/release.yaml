@@ -1,12 +1,11 @@
-name: Release on Version Tag
+name: Release on Published Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  release:
+    types: [published]
 
 permissions:
-  contents: write  # Required for creating GitHub releases
+  contents: read  # Required for checking out repository contents during validation
 
 jobs:
   # Streamlined validation: All frameworks, Windows only
@@ -540,50 +539,14 @@ jobs:
           Write-Host "✅ All packages published to NuGet.org" -ForegroundColor Green
           Write-Host "==========================================" -ForegroundColor Green
 
-  # Create GitHub Release
-  create-github-release:
-    name: Create GitHub Release
-    needs: [pack-and-validate, publish-nuget]
-    if: |
-      always() && 
-      needs.pack-and-validate.result == 'success' &&
-      needs.pack-and-validate.outputs.has-packages == 'true' &&
-      needs.publish-nuget.result == 'success'
-    runs-on: windows-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # Build and deploy versioned documentation via the shared docfx workflow
+  # Note: reusable workflow jobs called via `uses:` do not require `runs-on` in the caller
+  trigger-docs:
+    name: Build & Deploy Documentation
+    needs: validate-release
+    permissions:
+      contents: write  # Required by docfx.yaml to push to gh-pages branch
+    uses: ./.github/workflows/docfx.yaml
+    with:
+      version: ${{ github.event.release.tag_name }}
 
-      - name: Download NuGet packages
-        uses: actions/download-artifact@v4
-        with:
-          name: nuget-packages
-          path: ./release-packages
-
-      - name: Download coverage report
-        uses: actions/download-artifact@v4
-        with:
-          name: release-coverage
-          path: ./coverage-report
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            ./release-packages/*.nupkg
-            ./coverage-report/Summary.txt
-          generate_release_notes: true
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          body: |
-            ## 📦 NuGet Packages
-            
-            This release has been published to NuGet.org.
-            
-            ## ✅ Quality Metrics
-            
-            - All tests passed across each project's target frameworks
-            - 90% code coverage threshold met
-            - NuGet package installation validated
-            
-            See attached `Summary.txt` for detailed coverage report.
