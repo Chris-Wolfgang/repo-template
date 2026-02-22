@@ -1,14 +1,46 @@
 name: Deploy DocFX Pages
 
 on:
-  push:
-    tags:
-      - 'v*.*.*' # Trigger on version tags (e.g., v1.0.0)
-    branches:
-      - main # Your primary branch
+  # Called by release.yaml after a GitHub Release is published.
+  # Callers may pass an explicit 'version' string (e.g. v1.2.3); when omitted,
+  # the destination directory is derived from github.ref_name automatically.
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version tag for documentation (e.g., v1.0.0). Defaults to the triggering ref name.'
+        required: false
+        default: ''
+        type: string
+      deploy_to_pages:
+        description: 'Deploy to GitHub Pages'
+        required: false
+        type: boolean
+        default: true
+      deploy_as_latest:
+        description: 'Also deploy to the site root (/) and /latest/ as the current latest version'
+        required: false
+        type: boolean
+        default: true
+  # Manual trigger for ad-hoc builds or dry-runs.
+  # Leave 'version' blank to use the selected branch or tag name as the destination.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag for documentation (e.g., v1.0.0). Leave blank to use the ref name.'
+        required: false
+        default: ''
+      deploy_to_pages:
+        description: 'Deploy to GitHub Pages (uncheck for dry-run)'
+        type: boolean
+        default: true
+      deploy_as_latest:
+        description: 'Also deploy to the site root (/) and /latest/ (uncheck when rebuilding older versions)'
+        type: boolean
+        default: true
 
 jobs:
   build-and-deploy:
+    name: Build & Deploy Documentation
     runs-on: ubuntu-latest
 
     permissions:
@@ -17,11 +49,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed to enumerate all v* tags
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '8.0.x'
 
       - name: Restore dependencies
         run: dotnet restore
@@ -32,28 +66,205 @@ jobs:
       - name: Install DocFX
         run: dotnet tool update docfx --global
 
-      - name: Build DocFx Metadata
-        run: docfx metadata 
+      - name: Build DocFX Metadata
+        run: docfx metadata
         working-directory: docfx_project
 
       - name: Build Docs
-        run: docfx build 
+        run: docfx build
         working-directory: docfx_project
 
       - name: Verify build output
         run: |
-          if [ ! -d "docs" ]; then
-            echo "Error: docs directory not found!"
+          if [ ! -d "docfx_project/_site" ]; then
+            echo "Error: docfx_project/_site directory not found!"
             exit 1
           fi
-          echo "Build successful. Contents of docs:"
-          ls -la docs
+          echo "Build successful. Contents of _site:"
+          ls -la docfx_project/_site
           echo "API documentation:"
-          ls -la docs/api
+          ls -la docfx_project/_site/api
 
-      - name: Deploy to GitHub Pages
+      - name: Generate versions.json
+        # Produces versions.json consumed by the DocFX version-switcher dropdown.
+        # Site layout:
+        #   /<repo>/               ← latest docs (deployed to root)
+        #   /<repo>/latest/        ← latest docs (alias for convenience)
+        #   /<repo>/v1.2.3/        ← versioned docs (sibling to root)
+        # versions.json format expected by the dropdown:
+        #   [{ "version": "latest", "url": "/<repo>/" }, { "version": "v1.2.3", "url": "/<repo>/v1.2.3/" }]
+        # URLs must include the repo path segment because this is a GitHub Pages project site
+        # (https://<owner>.github.io/<repo>/), not a root user/org site.
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 - <<'EOF'
+          import subprocess, json, re, os
+
+          result = subprocess.run(['git', 'tag', '-l', 'v*'], capture_output=True, text=True, check=True)
+          tags = [t for t in result.stdout.strip().split('\n') if t]
+
+          # Strict SemVer pattern: vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-PRERELEASE
+          SEMVER_RE = re.compile(
+              r"^v"
+              r"(?P<major>0|[1-9]\d*)\."
+              r"(?P<minor>0|[1-9]\d*)\."
+              r"(?P<patch>0|[1-9]\d*)"
+              r"(?:-(?P<prerelease>[0-9A-Za-z.-]+))?$"
+          )
+
+          def semver_key(tag):
+              m = SEMVER_RE.match(tag)
+              if not m:
+                  return None
+              major = int(m.group("major"))
+              minor = int(m.group("minor"))
+              patch = int(m.group("patch"))
+              prerelease = m.group("prerelease")
+              # Stable releases (no prerelease) sort after pre-releases (higher stability flag)
+              if prerelease is None:
+                  return (major, minor, patch, 1, ())
+              prerelease_key = tuple(
+                  (0, int(p)) if p.isdigit() else (1, p)
+                  for p in prerelease.split(".")
+              )
+              return (major, minor, patch, 0, prerelease_key)
+
+          # Filter out tags that do not conform to SemVer
+          tagged_versions = []
+          for t in tags:
+              key = semver_key(t)
+              if key is not None:
+                  tagged_versions.append((t, key))
+          tagged_versions.sort(key=lambda x: x[1], reverse=True)
+          ordered_tags = [t for (t, _) in tagged_versions]
+
+          # Build the base path for this GitHub Pages project site: /<repo-name>/
+          # GITHUB_REPOSITORY is "owner/repo"; we need just the repo name.
+          repo_name = os.environ.get("GITHUB_REPOSITORY", "").split("/")[-1]
+          base = "/" + repo_name + "/" if repo_name else "/"
+
+          # "latest" always points to the site root; each version points to its own folder.
+          versions = [{"version": "latest", "url": base}] + [{"version": t, "url": base + t + "/"} for t in ordered_tags]
+          with open('docfx_project/_site/versions.json', 'w') as f:
+              json.dump(versions, f, indent=2)
+          print(f"Generated versions.json with {len(versions)} version(s): {[v['version'] for v in versions]}")
+          EOF
+
+      - name: Clean up stale root files from gh-pages
+        # Before deploying the latest docs to the site root, remove any pre-existing
+        # root-level files and folders from the gh-pages branch (except version folders
+        # such as v1.0.0/, the latest/ alias, CNAME, and .nojekyll) so that stale DocFX
+        # assets from a previous build do not linger on the live site.
+        # Version folders (v*) and the latest/ folder are preserved so that older docs
+        # remain accessible while the root is refreshed with the new build.
+        if: inputs.deploy_to_pages != false && inputs.deploy_as_latest != false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! git ls-remote --heads origin gh-pages | grep -q gh-pages; then
+            echo "ℹ️ gh-pages branch does not exist yet – skipping stale-file cleanup."
+            exit 0
+          fi
+
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git remote set-url origin \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+          git fetch origin gh-pages
+          # Create a local tracking branch only if it does not already exist
+          git show-ref --verify --quiet refs/heads/gh-pages \
+            || git branch gh-pages origin/gh-pages
+
+          WORK_DIR=/tmp/gh-pages-clean
+          # Remove a leftover worktree from a previous failed run, if any
+          git worktree remove "$WORK_DIR" --force 2>/dev/null || true
+          rm -rf "$WORK_DIR"
+          git worktree add "$WORK_DIR" gh-pages
+
+          # Remove all root-level items EXCEPT:
+          #   .git         – Git metadata
+          #   CNAME        – Custom domain config (if present)
+          #   .nojekyll    – Tells GitHub Pages not to run Jekyll
+          #   v[0-9]*      – Versioned docs folders (e.g. v1.0.0/)
+          #   latest/      – Stable alias folder for the latest version
+          find "$WORK_DIR" -mindepth 1 -maxdepth 1 \
+            ! -name '.git' \
+            ! -name 'CNAME' \
+            ! -name '.nojekyll' \
+            ! -regex '.*/v[0-9].*' \
+            ! -name 'latest' \
+            -exec rm -rf {} +
+
+          git -C "$WORK_DIR" add -A
+          if ! git -C "$WORK_DIR" diff --cached --quiet; then
+            git -C "$WORK_DIR" commit \
+              -m "chore: clean up stale root DocFX assets before redeploy [skip ci]"
+            git -C "$WORK_DIR" push origin HEAD:gh-pages
+            echo "✅ Stale root files removed from gh-pages."
+          else
+            echo "ℹ️ No stale files found in gh-pages root – nothing to clean."
+          fi
+
+          git worktree remove "$WORK_DIR" --force
+
+      - name: Compute destination directory
+        # Determines the versioned subfolder name for the docs deployment (e.g. /v1.2.3/).
+        # Uses the explicit 'version' input when provided; otherwise falls back to
+        # github.ref_name so the workflow works without callers passing a version.
+        # Sanitization steps (applied in order):
+        #   1. Replace forward slashes with hyphens (prevents nested paths).
+        #   2. Replace any character outside [A-Za-z0-9._-] with a hyphen.
+        #   3. Collapse consecutive hyphens into one.
+        #   4. Strip leading dots and hyphens (avoids hidden/awkward directory names).
+        #   5. Fall back to "latest" if the result is empty, ".", or "..".
+        id: dest
+        run: |
+          RAW="${{ inputs.version != '' && inputs.version || github.ref_name }}"
+          SANITIZED="${RAW//\//-}"
+          SANITIZED="$(printf '%s' "$SANITIZED" | sed 's/[^A-Za-z0-9._-]/-/g')"
+          SANITIZED="$(printf '%s' "$SANITIZED" | sed 's/-\{2,\}/-/g')"
+          SANITIZED="$(printf '%s' "$SANITIZED" | sed 's/^[.-]\+//')"
+          if [ -z "$SANITIZED" ] || [ "$SANITIZED" = "." ] || [ "$SANITIZED" = ".." ]; then
+            SANITIZED="latest"
+          fi
+          echo "dir=$SANITIZED" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy versioned docs to GitHub Pages
+        # Publishes this build into its own versioned subfolder on gh-pages, e.g. /v1.2.3/.
+        # keep_files: true preserves all other version folders already present in gh-pages.
+        if: inputs.deploy_to_pages != false
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs
-          force_orphan: true
+          publish_dir: ./docfx_project/_site
+          destination_dir: ${{ steps.dest.outputs.dir }}
+          keep_files: true
+          force_orphan: false
+
+      - name: Deploy latest docs to GitHub Pages root
+        # Publishes the latest docs to the site root ('/') so that visiting
+        # https://<owner>.github.io/<repo>/ always shows the latest version.
+        # keep_files: true preserves all existing version folders as siblings.
+        # Skipped when deploy_as_latest is false (e.g. when rebuilding an older version).
+        if: inputs.deploy_to_pages != false && inputs.deploy_as_latest != false
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docfx_project/_site
+          keep_files: true
+          force_orphan: false
+
+      - name: Deploy latest docs to /latest/ folder
+        # Also publishes to /latest/ as a stable, bookmarkable URL alias for the
+        # latest version.  The versions.json 'latest' entry points to '/' (root).
+        # Skipped when deploy_as_latest is false (e.g. when rebuilding an older version).
+        if: inputs.deploy_to_pages != false && inputs.deploy_as_latest != false
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docfx_project/_site
+          destination_dir: latest
+          keep_files: true
+          force_orphan: false

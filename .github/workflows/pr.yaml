@@ -7,6 +7,8 @@
 # - Uses pull_request_target to run workflow from the trusted main branch, not from the PR branch
 # - This prevents malicious workflow YAML changes in untrusted PR branches from taking effect
 # - All checkout steps use PR refs (refs/pull/*/head) to check out PR code from the base repo
+# - After checkout, configuration files (.editorconfig, BannedSymbols.txt, etc.) are fetched from 
+#   the main branch to prevent malicious PRs from disabling analyzers or bypassing code quality checks
 # - persist-credentials: false prevents the checkout token from being written to git config for subsequent git commands
 #   (it does NOT, by itself, prevent steps from accessing github.token / GITHUB_TOKEN if you explicitly expose it)
 # - Default GITHUB_TOKEN permissions are restricted to read-only repository contents to limit impact if exposed
@@ -38,6 +40,49 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
       
+      - name: Fetch trusted configuration files from main branch
+        run: |
+          echo "Fetching configuration files from main branch to prevent malicious overrides..."
+          
+          # Fetch the main branch
+          git fetch origin main:main-branch
+          
+          # List of configuration files that should come from trusted main branch
+          config_files=(
+            ".editorconfig"
+            "Directory.Build.props"
+            "Directory.Build.targets"
+            "BannedSymbols.txt"
+            "*.globalconfig"
+            "*.ruleset"
+          )
+          
+          # Copy each configuration file from main branch if it exists
+          for config_file in "${config_files[@]}"; do
+            # Handle glob patterns
+            if [[ "$config_file" == *"*"* ]]; then
+              # Find files matching the pattern in main branch
+              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
+                if [ -n "$file" ]; then
+                  echo "  ✓ Copying $file from main branch"
+                  mkdir -p "$(dirname "$file")"
+                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
+                fi
+              done
+            else
+              # Check if file exists in main branch
+              if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
+                echo "  ✓ Copying $config_file from main branch"
+                git show "main-branch:$config_file" > "$config_file"
+              else
+                echo "  ℹ️  $config_file not found in main branch, skipping"
+              fi
+            fi
+          done
+          
+          echo ""
+          echo "✅ Configuration files secured - using versions from main branch"
+      
       - name: Check for .NET project files
         id: check-projects
         run: |
@@ -64,6 +109,49 @@ jobs:
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
+      
+      - name: Fetch trusted configuration files from main branch
+        run: |
+          echo "Fetching configuration files from main branch to prevent malicious overrides..."
+          
+          # Fetch the main branch
+          git fetch origin main:main-branch
+          
+          # List of configuration files that should come from trusted main branch
+          config_files=(
+            ".editorconfig"
+            "Directory.Build.props"
+            "Directory.Build.targets"
+            "BannedSymbols.txt"
+            "*.globalconfig"
+            "*.ruleset"
+          )
+          
+          # Copy each configuration file from main branch if it exists
+          for config_file in "${config_files[@]}"; do
+            # Handle glob patterns
+            if [[ "$config_file" == *"*"* ]]; then
+              # Find files matching the pattern in main branch
+              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
+                if [ -n "$file" ]; then
+                  echo "  ✓ Copying $file from main branch"
+                  mkdir -p "$(dirname "$file")"
+                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
+                fi
+              done
+            else
+              # Check if file exists in main branch
+              if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
+                echo "  ✓ Copying $config_file from main branch"
+                git show "main-branch:$config_file" > "$config_file"
+              else
+                echo "  ℹ️  $config_file not found in main branch, skipping"
+              fi
+            fi
+          done
+          
+          echo ""
+          echo "✅ Configuration files secured - using versions from main branch"
 
       # Fix for .NET 5.0 on Ubuntu 22.04+ - install libssl1.1
       - name: Install OpenSSL 1.1 for .NET 5.0
@@ -95,7 +183,8 @@ jobs:
             project_found=true
             # Check if project has any .NET 5+ target framework
             # Look for: net5.0, net6.0, net7.0, net8.0, net9.0, net10.0, or netcoreapp, netstandard
-            if grep -qE '<TargetFramework[s]?>.*(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp|netstandard)' "$proj"; then
+            # Use tr to collapse multi-line TargetFrameworks into a single line before grepping
+            if tr -d '\n\r' < "$proj" | grep -qE '<TargetFramework[s]?>.*(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp|netstandard)'; then
               projects+=("$proj")
               echo "✓ Including: $proj (has .NET 5+ or .NET Core target)"
             else
@@ -138,7 +227,8 @@ jobs:
             
             # Extract target frameworks from the project file
             # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$proj" | tr ';' '\n' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp[0-9.]+|netstandard[0-9.]+)$' || true)
+            # Use tr to collapse multi-line TargetFrameworks into a single line before grepping
+            frameworks=$(tr -d '\n\r' < "$proj" | grep -oP '<TargetFramework[s]?>\K[^<]+' | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp[0-9.]+|netstandard[0-9.]+)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⚠️  No Linux-compatible frameworks found in $proj"
@@ -169,7 +259,10 @@ jobs:
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
         run: |
           # Find all test projects (C#, VB.NET, F#)
-          mapfile -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
+          test_projects=()
+          while IFS= read -r -d '' proj; do
+            test_projects+=("$proj")
+          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
           
           if [ ${#test_projects[@]} -eq 0 ]; then
             echo "❌ No test projects found in ./tests directory!"
@@ -189,7 +282,8 @@ jobs:
             
             # Extract target frameworks from the project file
             # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$test_proj" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            # Use tr to collapse multi-line TargetFrameworks into a single line before grepping
+            frameworks=$(tr -d '\n\r' < "$test_proj" | grep -oP '<TargetFramework[s]?>\K[^<]+' | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⊘ Skipping: No compatible .NET 5.0-10.0 target frameworks found"
@@ -320,6 +414,51 @@ jobs:
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
+      
+      - name: Fetch trusted configuration files from main branch
+        shell: pwsh
+        run: |
+          Write-Host "Fetching configuration files from main branch to prevent malicious overrides..."
+          
+          # Fetch the main branch
+          git fetch origin main:main-branch
+          
+          # List of configuration files that should come from trusted main branch
+          $configFiles = @(
+            ".editorconfig",
+            "Directory.Build.props",
+            "Directory.Build.targets",
+            "BannedSymbols.txt"
+          )
+          
+          # Copy each configuration file from main branch if it exists
+          foreach ($configFile in $configFiles) {
+            # Check if file exists in main branch
+            $exists = git cat-file -e "main-branch:$configFile" 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "  ✓ Copying $configFile from main branch"
+              git show "main-branch:$configFile" | Out-File -FilePath $configFile -Encoding UTF8 -NoNewline
+            } else {
+              Write-Host "  ℹ️  $configFile not found in main branch, skipping"
+            }
+          }
+          
+          # Handle glob patterns for .globalconfig and .ruleset files
+          $globPatterns = @("*.globalconfig", "*.ruleset")
+          foreach ($pattern in $globPatterns) {
+            $files = git ls-tree -r --name-only main-branch | Select-String -Pattern $pattern.Replace("*", ".*")
+            foreach ($file in $files) {
+              if ($file) {
+                Write-Host "  ✓ Copying $file from main branch"
+                $dir = Split-Path -Parent $file
+                if ($dir) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+                git show "main-branch:$file" | Out-File -FilePath $file -Encoding UTF8 -NoNewline
+              }
+            }
+          }
+          
+          Write-Host ""
+          Write-Host "✅ Configuration files secured - using versions from main branch"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -373,7 +512,7 @@ jobs:
             }
             
             # Split by semicolon for multi-targeting projects
-            $frameworks = $tfmMatch.Groups[1].Value -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0|462|472|48|481)$' }
+            $frameworks = $tfmMatch.Groups[1].Value -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0|462|47|471|472|48|481)$' }
             
             if ($frameworks.Count -eq 0) {
               Write-Host "⊘ Skipping: No compatible .NET 5.0-10.0 or Framework 4.6.2-4.8.1 target frameworks found" -ForegroundColor Yellow
@@ -416,6 +555,49 @@ jobs:
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
+      
+      - name: Fetch trusted configuration files from main branch
+        run: |
+          echo "Fetching configuration files from main branch to prevent malicious overrides..."
+          
+          # Fetch the main branch
+          git fetch origin main:main-branch
+          
+          # List of configuration files that should come from trusted main branch
+          config_files=(
+            ".editorconfig"
+            "Directory.Build.props"
+            "Directory.Build.targets"
+            "BannedSymbols.txt"
+            "*.globalconfig"
+            "*.ruleset"
+          )
+          
+          # Copy each configuration file from main branch if it exists
+          for config_file in "${config_files[@]}"; do
+            # Handle glob patterns
+            if [[ "$config_file" == *"*"* ]]; then
+              # Find files matching the pattern in main branch
+              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
+                if [ -n "$file" ]; then
+                  echo "  ✓ Copying $file from main branch"
+                  mkdir -p "$(dirname "$file")"
+                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
+                fi
+              done
+            else
+              # Check if file exists in main branch
+              if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
+                echo "  ✓ Copying $config_file from main branch"
+                git show "main-branch:$config_file" > "$config_file"
+              else
+                echo "  ℹ️  $config_file not found in main branch, skipping"
+              fi
+            fi
+          done
+          
+          echo ""
+          echo "✅ Configuration files secured - using versions from main branch"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -440,7 +622,8 @@ jobs:
             project_found=true
             # Check if project has any .NET 6+ target framework (macOS ARM64 compatible)
             # Look for: net6.0, net7.0, net8.0, net9.0, net10.0
-            if grep -qE '<TargetFramework[s]?>.*net(6\.0|7\.0|8\.0|9\.0|10\.0)' "$proj"; then
+            # Use tr to collapse multi-line TargetFrameworks into a single line before grepping
+            if tr -d '\n\r' < "$proj" | grep -qE '<TargetFramework[s]?>.*net(6\.0|7\.0|8\.0|9\.0|10\.0)'; then
               projects+=("$proj")
               echo "✓ Including: $proj (has .NET 6+ target)"
             else
@@ -483,8 +666,8 @@ jobs:
             
             # Extract target frameworks from the project file
             # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            # Trim whitespace from each framework before filtering
-            frameworks=$(sed -n -E 's/.*<TargetFrameworks?>[[:space:]]*>([^<]+)<\/TargetFrameworks?>.*/\1/p' "$proj" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            # Use tr to collapse multi-line TargetFrameworks into a single line before grepping
+            frameworks=$(tr -d '\n\r' < "$proj" | grep -Eo '<TargetFrameworks?>[^<]+' | sed -E 's/<TargetFrameworks?>//' | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⚠️  No macOS ARM64-compatible frameworks found in $proj"
@@ -515,7 +698,10 @@ jobs:
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
         run: |
           # Find all test projects (C#, VB.NET, F#)
-          mapfile -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
+          test_projects=()
+          while IFS= read -r -d '' proj; do
+            test_projects+=("$proj")
+          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
           
           if [ ${#test_projects[@]} -eq 0 ]; then
             echo "❌ No test projects found in ./tests directory!"
@@ -536,7 +722,8 @@ jobs:
             # Extract target frameworks from the project file
             # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
             # Only include .NET 6.0+ (ARM64 compatible on macOS)
-            frameworks=$(grep -Eo '<TargetFrameworks?>[^<]+' "$test_proj" | sed -E 's/<TargetFrameworks?>//' | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            # Use tr to collapse multi-line TargetFrameworks into a single line before grepping
+            frameworks=$(tr -d '\n\r' < "$test_proj" | grep -Eo '<TargetFrameworks?>[^<]+' | sed -E 's/<TargetFrameworks?>//' | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⊘ Skipping: No compatible .NET 6.0-10.0 target frameworks found (ARM64 required)"
@@ -607,6 +794,49 @@ jobs:
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
+      
+      - name: Fetch trusted configuration files from main branch
+        run: |
+          echo "Fetching configuration files from main branch to prevent malicious overrides..."
+          
+          # Fetch the main branch
+          git fetch origin main:main-branch
+          
+          # List of configuration files that should come from trusted main branch
+          config_files=(
+            ".editorconfig"
+            "Directory.Build.props"
+            "Directory.Build.targets"
+            "BannedSymbols.txt"
+            "*.globalconfig"
+            "*.ruleset"
+          )
+          
+          # Copy each configuration file from main branch if it exists
+          for config_file in "${config_files[@]}"; do
+            # Handle glob patterns
+            if [[ "$config_file" == *"*"* ]]; then
+              # Find files matching the pattern in main branch
+              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
+                if [ -n "$file" ]; then
+                  echo "  ✓ Copying $file from main branch"
+                  mkdir -p "$(dirname "$file")"
+                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
+                fi
+              done
+            else
+              # Check if file exists in main branch
+              if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
+                echo "  ✓ Copying $config_file from main branch"
+                git show "main-branch:$config_file" > "$config_file"
+              else
+                echo "  ℹ️  $config_file not found in main branch, skipping"
+              fi
+            fi
+          done
+          
+          echo ""
+          echo "✅ Configuration files secured - using versions from main branch"
 
       - name: Install DevSkim CLI
         run: dotnet tool install --global Microsoft.CST.DevSkim.CLI
