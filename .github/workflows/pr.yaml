@@ -621,11 +621,13 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        env:
+          REPO_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
-          git fetch origin main:main-branch
+          # Fetch the main branch using an authenticated URL (works for private repos even with persist-credentials: false)
+          git fetch "$REPO_URL" main:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(
