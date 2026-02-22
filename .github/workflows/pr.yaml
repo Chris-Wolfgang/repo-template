@@ -482,7 +482,9 @@ jobs:
         run: |
           Write-Host "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
+          # Configure authenticated remote using GITHUB_TOKEN, then fetch the main branch
+          $token = "${{ github.token }}"
+          git remote set-url origin "https://x-access-token:$token@github.com/${{ github.repository }}.git"
           git fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
