@@ -167,8 +167,14 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
+          
+          # Ensure origin uses an authenticated URL so fetch works on private repositories
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           
           # Fetch the main branch
           git fetch origin main:main-branch
