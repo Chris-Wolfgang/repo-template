@@ -515,7 +515,10 @@ jobs:
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
         run: |
           # Find all test projects (C#, VB.NET, F#)
-          mapfile -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
+          test_projects=()
+          while IFS= read -r file; do
+          test_projects+=("$file")
+          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))          
           
           if [ ${#test_projects[@]} -eq 0 ]; then
             echo "❌ No test projects found in ./tests directory!"
