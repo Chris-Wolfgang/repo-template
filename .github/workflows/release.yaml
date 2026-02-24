@@ -234,7 +234,7 @@ jobs:
           
           foreach ($line in $summaryContent) {
             # Match lines with module names and percentages (skip Summary line)
-            if ($line -match '^([^ ]+)\s+.*\s+(\d+\.?\d*)%$' -and $line -notmatch '^Summary') {
+            if ($line -match '^([^ ]+)\s+.*\s+(\d+(?:\.\d+)?)%$' -and $line -notmatch '^Summary') {
               $coverageFound = $true
               $module = $matches[1]
               $coverage = [decimal]$matches[2]
@@ -292,6 +292,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
+            3.1.x
             5.0.x
             6.0.x
             7.0.x
@@ -480,6 +481,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
+            3.1.x
             5.0.x
             6.0.x
             7.0.x
