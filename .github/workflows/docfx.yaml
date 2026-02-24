@@ -41,7 +41,7 @@ on:
 jobs:
   build-and-deploy:
     name: Build & Deploy Documentation
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     permissions:
       contents: write # Allow write access for gh-pages branch
@@ -55,7 +55,14 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: |
+            3.1.x
+            5.0.x
+            6.0.x
+            7.0.x
+            8.0.x
+            9.0.x
+            10.0.x
 
       - name: Restore dependencies
         run: dotnet restore
@@ -76,14 +83,15 @@ jobs:
 
       - name: Verify build output
         run: |
-          if [ ! -d "docfx_project/_site" ]; then
-            echo "Error: docfx_project/_site directory not found!"
+          if (-Not (Test-Path "docfx_project/_site")) {
+          Write-Host "Error: docfx_project/_site directory not found!"
             exit 1
-          fi
-          echo "Build successful. Contents of _site:"
-          ls -la docfx_project/_site
-          echo "API documentation:"
-          ls -la docfx_project/_site/api
+          }  
+          Write-Host "Build successful. Contents of _site:" 
+          Get-ChildItem "docfx_project/_site"
+          Write-Host "API documentation:"
+          Get-ChildItem "docfx_project/_site/api"
+        shell: pwsh
 
       - name: Generate versions.json
         # Produces versions.json consumed by the DocFX version-switcher dropdown.
