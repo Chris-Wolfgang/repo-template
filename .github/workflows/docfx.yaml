@@ -100,7 +100,7 @@ jobs:
       - name: Generate versions.json
         # Produces versions.json consumed by the DocFX version-switcher dropdown.
         # Site layout:
-        #   /<repo>/               ← latest docs (deployed to root)
+        #   /<repo>/               ← version-picker index.html (deployed to root)
         #   /<repo>/versions/latest/  ← latest docs (alias under versions/)
         #   /<repo>/versions/v1.2.3/  ← versioned docs (under versions/)
         # versions.json format expected by the dropdown:
