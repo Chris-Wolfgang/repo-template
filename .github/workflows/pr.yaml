@@ -600,6 +600,55 @@ jobs:
           echo "PR is ready to merge! 🎉"
 
   # ============================================================================
+  # Format Check (Runs independently of multi-stage test jobs; gated on detect-projects)
+  # ============================================================================
+  format-check:
+    name: "Format Check (dotnet format)"
+    runs-on: ubuntu-latest
+    needs: detect-projects
+    if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/head
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Detect solution file
+        run: |
+          sln=$(find . -maxdepth 1 \( -name "*.sln" -o -name "*.slnx" \) 2>/dev/null | head -1)
+          if [ -n "$sln" ]; then
+            echo "FORMAT_TARGET=$sln" >> "$GITHUB_ENV"
+            echo "📁 Found solution: $sln"
+          else
+            echo "❌ No solution file (.sln or .slnx) found at the repository root."
+            echo "This workflow expects a solution file in the root directory, consistent with ./scripts/format.ps1."
+            echo "Please add a solution file and re-run the workflow."
+            exit 1
+          fi
+
+      - name: Restore dependencies
+        run: dotnet restore "$FORMAT_TARGET"
+
+      - name: Check code formatting
+        run: |
+          if ! dotnet format "$FORMAT_TARGET" --verify-no-changes --verbosity diagnostic; then
+            echo ""
+            echo "❌ Formatting issues detected!"
+            echo "Run './scripts/format.ps1' locally to fix them, then commit and push."
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All files are properly formatted!"
+
+  # ============================================================================
   # Security Scan (Runs in parallel, independently of .NET jobs)
   # ============================================================================
   security-scan:
