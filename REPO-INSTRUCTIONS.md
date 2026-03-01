@@ -243,7 +243,6 @@ This repository is configured for versioned documentation using DocFX. The setup
 #### Key Files
 | File | Purpose |
 |------|---------|
-| *(optional)* `docfx.json` | Root-level DocFX configuration you can create for local/single-version documentation builds or previews. Not included by default in this template and **not used by CI workflows** for version discovery or multi-version wiring (handled via git tags). |
 | `docfx_project/docfx.json` | Per-build DocFX configuration included in this template and used by CI workflows to build docs. Uses `default` + `modern` templates with dark mode enabled (`colorMode: dark`). |
 | `docfx_project/logo.svg` | Default repository logo used by DocFX. You can optionally copy this to the repo root as `logo.svg` if you want a root-level logo as well. |
 
