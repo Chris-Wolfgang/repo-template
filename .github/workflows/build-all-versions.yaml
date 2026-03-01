@@ -318,12 +318,11 @@ jobs:
           $listHtml = $listItems -join "`n"
 
           $templatePath = '.github/version-picker-template.html'
-          if (Test-Path $templatePath) {
-            $template = Get-Content $templatePath -Raw
-          } else {
-            Write-Host "Template file '$templatePath' not found. Using built-in fallback template."
+          if (-not (Test-Path $templatePath)) {
+            Write-Error "Template file '$templatePath' not found. This file is required."
             exit 1
           }
+          $template = Get-Content $templatePath -Raw
           $html = $template -replace '\{\{TITLE\}\}', $title `
                             -replace '\{\{VERSION_LIST\}\}', $listHtml
 
