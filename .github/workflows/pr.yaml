@@ -899,6 +899,9 @@ jobs:
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
+          # Ensure git can authenticate to the origin remote using the GitHub token
+          git remote set-url origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          
           # Fetch the main branch
           git fetch origin main:main-branch
           
