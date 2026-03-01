@@ -243,9 +243,9 @@ This repository is configured for versioned documentation using DocFX. The setup
 #### Key Files
 | File | Purpose |
 |------|---------|
-| `docfx.json` | Optional root-level DocFX configuration for local/single-version documentation builds or previews. **Not used by CI workflows** for version discovery or multi-version wiring (handled via git tags). |
-| `docfx_project/docfx.json` | Per-build DocFX configuration used by CI workflows to build docs. Uses `default` + `modern` templates with dark mode enabled (`colorMode: dark`). |
-| `logo.svg` | Repository logo at the root; also present in `docfx_project/`. |
+| *(optional)* `docfx.json` | Root-level DocFX configuration you can create for local/single-version documentation builds or previews. Not included by default in this template and **not used by CI workflows** for version discovery or multi-version wiring (handled via git tags). |
+| `docfx_project/docfx.json` | Per-build DocFX configuration included in this template and used by CI workflows to build docs. Uses `default` + `modern` templates with dark mode enabled (`colorMode: dark`). |
+| `docfx_project/logo.svg` | Default repository logo used by DocFX. You can optionally copy this to the repo root as `logo.svg` if you want a root-level logo as well. |
 
 #### How Versioning Works
 - CI workflows discover documentation versions **dynamically at runtime** by querying git tags that match the SemVer pattern `v*.*.*` (e.g. `v1.0.0`, `v0.3.0`). No manual version list is maintained in any config file.
