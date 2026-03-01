@@ -50,16 +50,16 @@ Write-Host "✅ dotnet format is available" -ForegroundColor Green
 Write-Host ""
 
 # Find solution file
-$solutions = Get-ChildItem -Path . -File | Where-Object { $_.Extension -eq '.sln' -or $_.Extension -eq '.slnx' } | Select-Object -First 1
+$solution = Get-ChildItem -Path . -File | Where-Object { $_.Extension -eq '.sln' -or $_.Extension -eq '.slnx' } | Select-Object -First 1
 
-if (-not $solutions)
+if (-not $solution)
 {
     Write-Host "❌ No solution file found!" -ForegroundColor Red
     exit 1
 }
 
-$solutionFile = $solutions.FullName
-Write-Host "📁 Found solution: $($solutions.Name)" -ForegroundColor Green
+$solutionFile = $solution.FullName
+Write-Host "📁 Found solution: $($solution.Name)" -ForegroundColor Green
 Write-Host ""
 
 if ($Check)
