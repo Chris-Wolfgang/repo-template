@@ -673,9 +673,10 @@ jobs:
           
           while IFS= read -r -d '' proj; do
             project_found=true
-            # Check if project has any .NET 6+ target framework (macOS ARM64 compatible)
-            # Look for: net6.0, net7.0, net8.0, net9.0, net10.0
-            if grep -qE '<TargetFramework[s]?>.*net(6\.0|7\.0|8\.0|9\.0|10\.0)' "$proj"; then
+            # Use MSBuild to read TargetFramework/TargetFrameworks properties instead of line-based grep,
+            # so that multi-line or differently formatted XML is handled correctly.
+            tfms="$(dotnet msbuild "$proj" -nologo -getProperty:TargetFrameworks,TargetFramework 2>&1)" || { echo "⚠️  MSBuild evaluation failed for $proj, skipping"; tfms=""; }
+            if echo "$tfms" | grep -qE 'net(6\.0|7\.0|8\.0|9\.0|10\.0)'; then
               projects+=("$proj")
               echo "✓ Including: $proj (has .NET 6+ target)"
             else
