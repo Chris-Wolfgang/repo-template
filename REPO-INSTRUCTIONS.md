@@ -170,11 +170,7 @@ If you plan to publish NuGet packages using the automated release workflow, you 
    - Set expiration date (recommended: 1 year)
 5. Click **"Add secret"**
 
-**How releases work:** GitHub Releases must be **created manually** in the GitHub UI. The release workflow does not create releases automatically — it is *triggered by* a published release. Once triggered, it validates the build, publishes packages to NuGet.org, deploys documentation, and attaches build artifacts to the release.
-
-To create a release: go to **Releases → "Draft a new release"**, choose a version tag (e.g. `v1.0.0`) targeting `main`, add a title and release notes, then click **"Publish release"** to trigger the workflow.
-
-See [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md) for detailed information about the release workflow, testing, and troubleshooting.
+**Note:** The release workflow automatically publishes packages to NuGet.org when you push a version tag (e.g., `v1.0.0`). See [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md) for detailed information about the release workflow, testing, and troubleshooting.
 
 
 ## Update Template Files
@@ -203,7 +199,7 @@ After creating your repository from the template, update the following files wit
 
 ### Setup GitHub Pages for Documentation (Optional)
 
-If you want to publish your DocFX documentation to GitHub Pages automatically when you create version tags:
+If you want to publish your DocFX documentation to GitHub Pages automatically when you publish a GitHub Release:
 
 1. Run the GitHub Pages setup script:
    ```powershell
@@ -256,7 +252,7 @@ This repository is configured for versioned documentation using DocFX. The setup
 - The `.github/workflows/build-all-versions.yaml` workflow enumerates all matching tags and builds documentation for each — no file updates are required when a new release is published.
 - Each release triggers `.github/workflows/release.yaml` (on a published GitHub Release), which calls `.github/workflows/docfx.yaml` via `workflow_call` to build docs and deploy them to the `gh-pages` branch under `versions/<tag>/`. You can also run `docfx.yaml` directly via `workflow_dispatch` from the Actions tab for ad-hoc builds.
 - After every versioned deploy, a `versions.json` is generated and written to `gh-pages`, powering the version-switcher dropdown.
-- `versions/latest/` always mirrors the most recent stable release; the site root (`/`) also serves the latest docs.
+- `versions/latest/` always mirrors the most recent stable release; the site root (`/`) hosts the version-picker landing page that links to the latest and all other available documentation versions.
 
 #### Adding a New Version
 When you publish a new release (e.g. `v1.0.0`):
