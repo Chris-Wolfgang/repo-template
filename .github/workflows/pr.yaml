@@ -600,7 +600,7 @@ jobs:
           echo "PR is ready to merge! 🎉"
 
   # ============================================================================
-  # Format Check (Runs in parallel, independently of test jobs)
+  # Format Check (Runs independently of multi-stage test jobs; gated on detect-projects)
   # ============================================================================
   format-check:
     name: "Format Check (dotnet format)"
@@ -627,8 +627,10 @@ jobs:
             echo "FORMAT_TARGET=$sln" >> "$GITHUB_ENV"
             echo "📁 Found solution: $sln"
           else
-            echo "FORMAT_TARGET=." >> "$GITHUB_ENV"
-            echo "📁 No solution file found, will check all projects"
+            echo "❌ No solution file (.sln or .slnx) found at the repository root."
+            echo "This workflow expects a solution file in the root directory, consistent with ./scripts/format.ps1."
+            echo "Please add a solution file and re-run the workflow."
+            exit 1
           fi
 
       - name: Restore dependencies
