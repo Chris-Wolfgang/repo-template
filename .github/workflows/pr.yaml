@@ -716,10 +716,14 @@ jobs:
           for proj in "${projects[@]}"; do
             echo "Building: $proj"
             
-            # Extract target frameworks from the project file
+            # Use dotnet msbuild to evaluate TargetFramework(s) - handles multi-line XML and property imports
             # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
             # Trim whitespace from each framework before filtering
-            frameworks=$(sed -n -E 's/.*<TargetFrameworks?>[[:space:]]*>([^<]+)<\/TargetFrameworks?>.*/\1/p' "$proj" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            raw_frameworks=$(dotnet msbuild "$proj" -getProperty:TargetFrameworks 2>/dev/null)
+            if [ -z "$raw_frameworks" ]; then
+              raw_frameworks=$(dotnet msbuild "$proj" -getProperty:TargetFramework 2>/dev/null)
+            fi
+            frameworks=$(echo "$raw_frameworks" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⚠️  No macOS ARM64-compatible frameworks found in $proj"
@@ -771,10 +775,14 @@ jobs:
             echo "Testing project: $test_proj"
             echo "=========================================="
             
-            # Extract target frameworks from the project file
+            # Use dotnet msbuild to evaluate TargetFramework(s) - handles multi-line XML and property imports
             # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
             # Only include .NET 6.0+ (ARM64 compatible on macOS)
-            frameworks=$(grep -Eo '<TargetFrameworks?>[^<]+' "$test_proj" | sed -E 's/<TargetFrameworks?>//' | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            raw_frameworks=$(dotnet msbuild "$test_proj" -getProperty:TargetFrameworks 2>/dev/null)
+            if [ -z "$raw_frameworks" ]; then
+              raw_frameworks=$(dotnet msbuild "$test_proj" -getProperty:TargetFramework 2>/dev/null)
+            fi
+            frameworks=$(echo "$raw_frameworks" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⊘ Skipping: No compatible .NET 6.0-10.0 target frameworks found (ARM64 required)"
