@@ -122,19 +122,84 @@ jobs:
               # Sorting descending by Stable places stable (1) before prerelease (0) of the same version.
               $stable = if ([string]::IsNullOrEmpty($Matches['prerelease'])) { 1 } else { 0 }
               [PSCustomObject]@{
-                Tag    = $t
-                Major  = [int]$Matches['major']
-                Minor  = [int]$Matches['minor']
-                Patch  = [int]$Matches['patch']
-                Stable = $stable
+                Tag        = $t
+                Major      = [int]$Matches['major']
+                Minor      = [int]$Matches['minor']
+                Patch      = [int]$Matches['patch']
+                Stable     = $stable
+                PreRelease = $Matches['prerelease']
               }
             }
           }
 
-          # Sort descending by SemVer components so newest stable version comes first
-          $orderedTags = $taggedVersions |
-            Sort-Object -Property Major, Minor, Patch, Stable -Descending |
-            Select-Object -ExpandProperty Tag
+          # Sort descending by full SemVer precedence (Major, Minor, Patch, Stable, PreRelease)
+          # Convert to a mutable list so we can use a custom comparison for proper SemVer prerelease ordering.
+          $tagList = [System.Collections.Generic.List[object]]::new()
+          foreach ($item in $taggedVersions) {
+            [void]$tagList.Add($item)
+          }
+
+          $comparison = [System.Comparison[object]]{
+            param($a, $b)
+
+            # Compare Major, Minor, Patch (descending)
+            if ($a.Major -ne $b.Major) { return [Math]::Sign($b.Major - $a.Major) }
+            if ($a.Minor -ne $b.Minor) { return [Math]::Sign($b.Minor - $a.Minor) }
+            if ($a.Patch -ne $b.Patch) { return [Math]::Sign($b.Patch - $a.Patch) }
+
+            # Compare Stable flag (descending: stable=1 > prerelease=0)
+            if ($a.Stable -ne $b.Stable) { return [Math]::Sign($b.Stable - $a.Stable) }
+
+            # At this point, Major/Minor/Patch/Stable are equal.
+            # If both are stable (no prerelease), they are equal for our purposes.
+            $aPre = [string]$a.PreRelease
+            $bPre = [string]$b.PreRelease
+
+            if ([string]::IsNullOrEmpty($aPre) -and [string]::IsNullOrEmpty($bPre)) { return 0 }
+
+            # Both should be prereleases when Stable is 0, but handle any unexpected cases gracefully.
+            if ([string]::IsNullOrEmpty($aPre) -and -not [string]::IsNullOrEmpty($bPre)) { return -1 }
+            if (-not [string]::IsNullOrEmpty($aPre) -and [string]::IsNullOrEmpty($bPre)) { return 1 }
+
+            $aIds = $aPre -split '\.'
+            $bIds = $bPre -split '\.'
+            $maxLen = [Math]::Max($aIds.Length, $bIds.Length)
+
+            for ($i = 0; $i -lt $maxLen; $i++) {
+              if ($i -ge $aIds.Length) { return -1 } # a has fewer identifiers -> lower precedence
+              if ($i -ge $bIds.Length) { return 1 }  # b has fewer identifiers -> lower precedence
+
+              $aId = $aIds[$i]
+              $bId = $bIds[$i]
+
+              $aIsNum = [int]::TryParse($aId, [ref]([int]$null))
+              $bIsNum = [int]::TryParse($bId, [ref]([int]$null))
+
+              if ($aIsNum -and $bIsNum) {
+                $aVal = [int]$aId
+                $bVal = [int]$bId
+                if ($aVal -ne $bVal) { return [Math]::Sign($bVal - $aVal) }
+              }
+              elseif ($aIsNum -and -not $bIsNum) {
+                # Numeric identifiers have lower precedence than non-numeric.
+                return 1
+              }
+              elseif (-not $aIsNum -and $bIsNum) {
+                return -1
+              }
+              else {
+                $cmp = [string]::CompareOrdinal($aId, $bId)
+                if ($cmp -ne 0) { return -$cmp }
+              }
+            }
+
+            # All identifiers equal
+            return 0
+          }
+
+          $tagList.Sort($comparison)
+          # We implemented comparison for descending SemVer order directly in the comparison.
+          $orderedTags = $tagList | Select-Object -ExpandProperty Tag
 
           # Build the base path for this GitHub Pages project site: /<repo-name>/
           # GITHUB_REPOSITORY is "owner/repo"; we need just the repo name.
