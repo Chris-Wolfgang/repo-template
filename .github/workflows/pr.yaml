@@ -46,10 +46,22 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
+          # Ensure we have an authenticated remote for fetching from main.
+          # Because checkout used `persist-credentials: false`, we must explicitly configure
+          # the remote URL with GITHUB_TOKEN so this works on private repositories.
+          if [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${GITHUB_REPOSITORY:-}" ]; then
+            echo "Error: GITHUB_TOKEN or GITHUB_REPOSITORY is not set; cannot fetch main branch securely."
+            exit 1
+          fi
+          
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          
+          # Fetch the main branch into a local reference
           git fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
@@ -170,10 +182,22 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
+          # Ensure we have an authenticated remote for fetching from main.
+          # Because checkout used `persist-credentials: false`, we must explicitly configure
+          # the remote URL with GITHUB_TOKEN so this works on private repositories.
+          if [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${GITHUB_REPOSITORY:-}" ]; then
+            echo "Error: GITHUB_TOKEN or GITHUB_REPOSITORY is not set; cannot fetch main branch securely."
+            exit 1
+          fi
+          
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          
+          # Fetch the main branch into a local reference
           git fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
@@ -470,10 +494,22 @@ jobs:
       
       - name: Fetch trusted configuration files from main branch
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           Write-Host "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
+          # Ensure we have an authenticated remote for fetching from main.
+          # Because checkout used `persist-credentials: false`, we must explicitly configure
+          # the remote URL with GITHUB_TOKEN so this works on private repositories.
+          if (-not $env:GITHUB_TOKEN -or -not $env:GITHUB_REPOSITORY) {
+            Write-Error "Error: GITHUB_TOKEN or GITHUB_REPOSITORY is not set; cannot fetch main branch securely."
+            exit 1
+          }
+          
+          git remote set-url origin "https://x-access-token:$($env:GITHUB_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git"
+          
+          # Fetch the main branch into a local reference
           git fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
@@ -610,10 +646,22 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
+          # Ensure we have an authenticated remote for fetching from main.
+          # Because checkout used `persist-credentials: false`, we must explicitly configure
+          # the remote URL with GITHUB_TOKEN so this works on private repositories.
+          if [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${GITHUB_REPOSITORY:-}" ]; then
+            echo "Error: GITHUB_TOKEN or GITHUB_REPOSITORY is not set; cannot fetch main branch securely."
+            exit 1
+          fi
+          
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          
+          # Fetch the main branch into a local reference
           git fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
@@ -896,10 +944,22 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
+          # Ensure we have an authenticated remote for fetching from main.
+          # Because checkout used `persist-credentials: false`, we must explicitly configure
+          # the remote URL with GITHUB_TOKEN so this works on private repositories.
+          if [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${GITHUB_REPOSITORY:-}" ]; then
+            echo "Error: GITHUB_TOKEN or GITHUB_REPOSITORY is not set; cannot fetch main branch securely."
+            exit 1
+          fi
+          
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          
+          # Fetch the main branch into a local reference
           git fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
