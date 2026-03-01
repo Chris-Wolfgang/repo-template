@@ -470,11 +470,13 @@ jobs:
       
       - name: Fetch trusted configuration files from main branch
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           Write-Host "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
-          git fetch origin main:main-branch
+          # Fetch the main branch with authenticated request using GITHUB_TOKEN
+          git -c http.extraHeader="Authorization: bearer $env:GITHUB_TOKEN" fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
           $configFiles = @(
