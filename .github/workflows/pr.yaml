@@ -49,8 +49,8 @@ jobs:
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
-          git fetch origin main:main-branch
+          # Fetch the main branch using an authenticated request so this works in private repositories
+          git -c http.extraheader="AUTHORIZATION: bearer ${{ secrets.GITHUB_TOKEN }}" fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(
@@ -173,8 +173,8 @@ jobs:
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
-          git fetch origin main:main-branch
+          # Fetch the main branch using an authenticated request so this works in private repositories
+          git -c http.extraheader="AUTHORIZATION: bearer ${{ secrets.GITHUB_TOKEN }}" fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(
@@ -473,8 +473,8 @@ jobs:
         run: |
           Write-Host "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
-          git fetch origin main:main-branch
+          # Fetch the main branch using an authenticated request so this works in private repositories
+          git -c http.extraheader="AUTHORIZATION: bearer ${{ secrets.GITHUB_TOKEN }}" fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
           $configFiles = @(
@@ -613,8 +613,8 @@ jobs:
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
-          git fetch origin main:main-branch
+          # Fetch the main branch using an authenticated request so this works in private repositories
+          git -c http.extraheader="AUTHORIZATION: bearer ${{ secrets.GITHUB_TOKEN }}" fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(
@@ -899,8 +899,8 @@ jobs:
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
-          git fetch origin main:main-branch
+          # Fetch the main branch using an authenticated request so this works in private repositories
+          git -c http.extraheader="AUTHORIZATION: bearer ${{ secrets.GITHUB_TOKEN }}" fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(
