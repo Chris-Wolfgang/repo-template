@@ -203,7 +203,7 @@ After creating your repository from the template, update the following files wit
 
 ### Setup GitHub Pages for Documentation (Optional)
 
-If you want to publish your DocFX documentation to GitHub Pages automatically when you publish a GitHub Release:
+If you want to publish your DocFX documentation to GitHub Pages automatically when you create version tags:
 
 1. Run the GitHub Pages setup script:
    ```powershell
@@ -240,3 +240,31 @@ If you want to publish your DocFX documentation to GitHub Pages automatically wh
 If you're using DocFX for documentation:
 1. Review and customize the generated table of contents in `docfx_project/docs/toc.yml` as needed (the setup scripts already point this to your repository)
 2. Customize the rest of the documentation content in `docfx_project/`
+### Multi-Version DocFX Documentation
+
+This repository is configured for versioned documentation using DocFX. The setup consists of:
+
+#### Key Files
+| File | Purpose |
+|------|---------|
+| `docfx.json` | Optional root-level DocFX configuration for local/single-version documentation builds or previews. **Not used by CI workflows** for version discovery or multi-version wiring (handled via git tags). |
+| `docfx_project/docfx.json` | Per-build DocFX configuration used by CI workflows to build docs. Uses `default` + `modern` templates with dark mode enabled (`colorMode: dark`). |
+| `logo.svg` | Repository logo at the root; also present in `docfx_project/`. |
+
+#### How Versioning Works
+- CI workflows discover documentation versions **dynamically at runtime** by querying git tags that match the SemVer pattern `v*.*.*` (e.g. `v1.0.0`, `v0.3.0`). No manual version list is maintained in any config file.
+- The `.github/workflows/build-all-versions.yaml` workflow enumerates all matching tags and builds documentation for each — no file updates are required when a new release is published.
+- Each release triggers `.github/workflows/release.yaml` (on a published GitHub Release), which calls `.github/workflows/docfx.yaml` via `workflow_call` to build docs and deploy them to the `gh-pages` branch under `versions/<tag>/`. You can also run `docfx.yaml` directly via `workflow_dispatch` from the Actions tab for ad-hoc builds.
+- After every versioned deploy, a `versions.json` is generated and written to `gh-pages`, powering the version-switcher dropdown.
+- `versions/latest/` always mirrors the most recent stable release; the site root (`/`) also serves the latest docs.
+
+#### Adding a New Version
+When you publish a new release (e.g. `v1.0.0`):
+1. Create and push a version tag (e.g. `v1.0.0`) to the repository.
+2. Publish a GitHub Release for that tag — this triggers `release.yaml`, which calls `docfx.yaml` via `workflow_call` to automatically build and publish the docs. You can also run `docfx.yaml` directly via `workflow_dispatch` for ad-hoc or dry-run builds.
+3. To backfill all historical versions at once, run the **Build All Versioned Docs** workflow manually from the Actions tab.
+
+#### Dark Theme
+The DocFX modern template is configured to default to dark mode. This is controlled by:
+- `"colorMode": "dark"` in `docfx_project/docfx.json` → `build.globalMetadata`
+- `"_enableDarkMode": true` enables the light/dark toggle so visitors can switch themes

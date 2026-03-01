@@ -1,0 +1,343 @@
+name: Build All Versioned Docs
+
+# One-shot (or on-demand) workflow that builds DocFX documentation for every
+# v*.*.* git tag and deploys the output to gh-pages under versions/<version>/.
+# The version list is discovered automatically from git tags at runtime – no
+# manual updates are required when new releases are published.
+#
+# Versions without a docfx_project at their tag (e.g. v0.1.x) use the
+# current docfx_project configuration so that the documentation structure
+# is consistent across all versions.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy All Versioned Docs
+    runs-on: windows-latest
+
+    permissions:
+      contents: write # Required to push to gh-pages branch
+
+    steps:
+      - name: Checkout repository (full history + all tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history so all tags are reachable
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            5.0.x
+            6.0.x
+            7.0.x
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Install DocFX
+        run: dotnet tool update docfx --global
+        shell: pwsh
+
+      - name: Build docs for each version
+        id: build
+        shell: pwsh
+        run: |
+          $outDir = Join-Path $env:RUNNER_TEMP 'all_version_docs'
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+
+          # Versions to build – discovered automatically from all v*.*.* git tags so
+          # no manual list updates are needed when new releases are published.
+          # 'latest' is handled separately below.
+          $semverRe = '^v(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)(?:-(?<prerelease>[0-9A-Za-z.-]+))?$'
+          $versions = @(
+            git tag -l 'v*' |
+              Where-Object { $_ -match $semverRe } |
+              ForEach-Object {
+                $_ -match $semverRe | Out-Null
+                $stable = if ([string]::IsNullOrEmpty($Matches['prerelease'])) { 1 } else { 0 }
+                [PSCustomObject]@{
+                  Tag    = $_
+                  Major  = [int]$Matches['major']
+                  Minor  = [int]$Matches['minor']
+                  Patch  = [int]$Matches['patch']
+                  Stable = $stable
+                }
+              } |
+              Sort-Object -Property Major, Minor, Patch, Stable -Descending |
+              Select-Object -ExpandProperty Tag
+          )
+          Write-Host "Discovered $($versions.Count) version tag(s): $($versions -join ', ')"
+
+          foreach ($version in $versions) {
+            Write-Host "========================================" -ForegroundColor Cyan
+            Write-Host "Building docs for $version" -ForegroundColor Cyan
+            Write-Host "========================================" -ForegroundColor Cyan
+
+            $workDir = Join-Path $env:RUNNER_TEMP "workdir-$version"
+
+            # Clean up any leftover worktree from a previous run
+            $removeOutput = git worktree remove $workDir --force 2>&1
+            if ($LASTEXITCODE -ne 0 -and (Test-Path $workDir)) {
+              Write-Warning "⚠️  Could not remove worktree for $version via git; attempting manual cleanup."
+              Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+
+            # Create a worktree checked out at the version tag
+            git worktree add $workDir $version
+            if ($LASTEXITCODE -ne 0) {
+              Write-Warning "⚠️  Failed to create worktree for $version – skipping."
+              continue
+            }
+
+            # Overlay the current docfx_project config so that older tags
+            # (which may lack docfx_project/) still produce consistent docs.
+            if (Test-Path 'docfx_project') {
+              if (Test-Path "$workDir/docfx_project") {
+                Remove-Item "$workDir/docfx_project" -Recurse -Force
+              }
+              Copy-Item 'docfx_project' "$workDir/docfx_project" -Recurse -Force
+            }
+
+            # Copy build-support files that were added in later versions to help
+            # older code compile cleanly.  These files contain global settings
+            # (analyzer rules, banned symbols) that are version-agnostic; copying
+            # them into older worktrees is safe and avoids restore/build warnings.
+            foreach ($f in @('Directory.Build.props', '.globalconfig', 'BannedSymbols.txt')) {
+              if ((Test-Path $f) -and -not (Test-Path "$workDir/$f")) {
+                Copy-Item $f "$workDir/$f" -Force -ErrorAction Stop
+              }
+            }
+            Push-Location $workDir
+            try {
+              # Attempt dotnet restore + build; failures are non-fatal because
+              # DocFX can still extract metadata from source files.
+              $slnFile = Get-ChildItem -Filter '*.sln' -ErrorAction SilentlyContinue |
+                         Select-Object -First 1
+              if ($slnFile) {
+                Write-Host "Restoring $($slnFile.Name)..."
+                dotnet restore $slnFile.FullName 2>&1 | Write-Host
+                Write-Host "Building $($slnFile.Name)..."
+                dotnet build $slnFile.FullName --configuration Release --no-restore 2>&1 | Write-Host
+              }
+
+              Write-Host "Running docfx metadata..."
+              docfx metadata docfx_project/docfx.json 2>&1 | Write-Host
+
+              Write-Host "Running docfx build..."
+              docfx build docfx_project/docfx.json 2>&1 | Write-Host
+
+              if (Test-Path 'docfx_project/_site') {
+                $dest = Join-Path $outDir 'versions' $version
+                New-Item -ItemType Directory -Force -Path $dest | Out-Null
+                Copy-Item 'docfx_project/_site/*' $dest -Recurse -Force -ErrorAction Stop
+                Write-Host "✅ Docs built for $version" -ForegroundColor Green
+              } else {
+                Write-Warning "⚠️  No _site output produced for $version."
+              }
+            } finally {
+              Pop-Location
+              $removeOutput = git worktree remove $workDir --force 2>&1
+              if ($LASTEXITCODE -ne 0) {
+                Write-Warning "⚠️  git worktree remove failed for $version (exit $LASTEXITCODE): $removeOutput"
+              }
+            }
+          }
+
+          # Build 'latest' from the most recent stable v*.*.* tag so that the
+          # 'latest' docs always match the last published release rather than an
+          # arbitrary HEAD commit.
+          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host "Building docs for latest" -ForegroundColor Cyan
+          Write-Host "========================================" -ForegroundColor Cyan
+
+          $semverRe = '^v(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)$'
+          $latestTag = git tag -l 'v*' |
+            Where-Object { $_ -match $semverRe } |
+            ForEach-Object {
+              $_ -match $semverRe | Out-Null
+              [PSCustomObject]@{
+                Tag   = $_
+                Major = [int]$Matches['major']
+                Minor = [int]$Matches['minor']
+                Patch = [int]$Matches['patch']
+              }
+            } |
+            Sort-Object -Property Major, Minor, Patch -Descending |
+            Select-Object -First 1 -ExpandProperty Tag
+
+          if (-not $latestTag) {
+            Write-Error "❌ No stable v*.*.* tag found – cannot build 'latest'."
+            exit 1
+          }
+
+          Write-Host "Latest stable tag: $latestTag" -ForegroundColor Cyan
+
+          $latestWorkDir = Join-Path $env:RUNNER_TEMP 'workdir-latest'
+          $removeOutput = git worktree remove $latestWorkDir --force 2>&1
+          if ($LASTEXITCODE -ne 0 -and (Test-Path $latestWorkDir)) {
+            Remove-Item $latestWorkDir -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          git worktree add $latestWorkDir $latestTag
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "❌ Failed to create worktree for $latestTag (latest)."
+            exit 1
+          }
+
+          # Overlay current docfx_project and build-support files (same as versioned builds)
+          if (Test-Path 'docfx_project') {
+            if (Test-Path "$latestWorkDir/docfx_project") {
+              Remove-Item "$latestWorkDir/docfx_project" -Recurse -Force
+            }
+            Copy-Item 'docfx_project' "$latestWorkDir/docfx_project" -Recurse -Force
+          }
+          foreach ($f in @('Directory.Build.props', '.globalconfig', 'BannedSymbols.txt')) {
+            if ((Test-Path $f) -and -not (Test-Path "$latestWorkDir/$f")) {
+              Copy-Item $f "$latestWorkDir/$f" -Force -ErrorAction Stop
+            }
+          }
+
+          Push-Location $latestWorkDir
+          try {
+            $slnFile = Get-ChildItem -Filter '*.sln' -ErrorAction SilentlyContinue |
+                       Select-Object -First 1
+            if ($slnFile) {
+              Write-Host "Restoring $($slnFile.Name)..."
+              dotnet restore $slnFile.FullName
+              if ($LASTEXITCODE -ne 0) {
+                Write-Warning "⚠️  dotnet restore failed for latest – continuing to docfx."
+              }
+              Write-Host "Building $($slnFile.Name)..."
+              dotnet build $slnFile.FullName --configuration Release --no-restore
+              if ($LASTEXITCODE -ne 0) {
+                Write-Warning "⚠️  dotnet build failed for latest – continuing to docfx."
+              }
+            }
+
+            Write-Host "Running docfx metadata..."
+            docfx metadata docfx_project/docfx.json
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "❌ docfx metadata failed for latest (exit $LASTEXITCODE)."
+              exit $LASTEXITCODE
+            }
+
+            Write-Host "Running docfx build..."
+            docfx build docfx_project/docfx.json
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "❌ docfx build failed for latest (exit $LASTEXITCODE)."
+              exit $LASTEXITCODE
+            }
+
+            if (Test-Path 'docfx_project/_site') {
+              $dest = Join-Path $outDir 'versions' 'latest'
+              New-Item -ItemType Directory -Force -Path $dest | Out-Null
+              Copy-Item 'docfx_project/_site/*' $dest -Recurse -Force -ErrorAction Stop
+              Write-Host "✅ Docs built for latest ($latestTag)" -ForegroundColor Green
+            } else {
+              Write-Error "❌ No _site output for latest build."
+              exit 1
+            }
+          } finally {
+            Pop-Location
+            $removeOutput = git worktree remove $latestWorkDir --force 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              Write-Warning "⚠️  git worktree remove failed for latest (exit $LASTEXITCODE): $removeOutput"
+            }
+          }
+
+      - name: Generate versions.json for every version
+        # Writes a versions.json (consumed by the version-switcher dropdown) into
+        # each version's output directory.  All URLs are rooted under versions/.
+        shell: pwsh
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          $outDir = Join-Path $env:RUNNER_TEMP 'all_version_docs'
+
+          $repoName = ($env:GITHUB_REPOSITORY -split '/')[-1]
+          $base = if ($repoName) { "/$repoName/" } else { "/" }
+
+          $semverRe = '^v(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)(?:-(?<prerelease>[0-9A-Za-z.-]+))?$'
+          $tags = git tag -l 'v*' | Where-Object { $_ -ne '' }
+
+          $taggedVersions = foreach ($t in $tags) {
+            if ($t -match $semverRe) {
+              $stable = if ([string]::IsNullOrEmpty($Matches['prerelease'])) { 1 } else { 0 }
+              [PSCustomObject]@{
+                Tag    = $t
+                Major  = [int]$Matches['major']
+                Minor  = [int]$Matches['minor']
+                Patch  = [int]$Matches['patch']
+                Stable = $stable
+              }
+            }
+          }
+
+          $orderedTags = $taggedVersions |
+            Sort-Object -Property Major, Minor, Patch, Stable -Descending |
+            Select-Object -ExpandProperty Tag
+
+          [array]$versions = @([PSCustomObject]@{ version = 'latest'; url = "${base}versions/latest/" })
+          foreach ($t in $orderedTags) {
+            $versions += [PSCustomObject]@{ version = $t; url = "${base}versions/$t/" }
+          }
+
+          $versionsJson = ConvertTo-Json -InputObject $versions -Depth 3
+
+          Get-ChildItem -Path (Join-Path $outDir 'versions') -Directory | ForEach-Object {
+            $versionsJson | Set-Content -Path (Join-Path $_.FullName 'versions.json') -Encoding utf8NoBOM
+            Write-Host "Wrote versions.json to $($_.Name)/"
+          }
+
+          Write-Host "Generated versions.json with $($versions.Count) entries: $($versions | ForEach-Object { $_.version })"
+
+      - name: Generate root index.html
+        # Builds index.html from the shared template (.github/version-picker-template.html)
+        # so the page layout is maintained in one place and both this workflow and
+        # docfx.yaml produce identical markup.
+        shell: pwsh
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          $outDir = Join-Path $env:RUNNER_TEMP 'all_version_docs'
+
+          $repoName = ($env:GITHUB_REPOSITORY -split '/')[-1]
+          $title    = if ($repoName) { "$repoName Documentation" } else { "Documentation" }
+
+          $versionsJsonPath = Join-Path $outDir 'versions' 'latest' 'versions.json'
+          $versions = Get-Content $versionsJsonPath -Raw | ConvertFrom-Json
+
+          $listItems = foreach ($v in $versions) {
+            $liClass = if ($v.version -eq 'latest') { ' class="latest"' } else { '' }
+            $label   = if ($v.version -eq 'latest') { 'latest (stable)' } else { $v.version }
+            "      <li${liClass}><a href=`"$($v.url)`">$label</a></li>"
+          }
+          $listHtml = $listItems -join "`n"
+
+          $templatePath = '.github/version-picker-template.html'
+          if (Test-Path $templatePath) {
+            $template = Get-Content $templatePath -Raw
+          } else {
+            Write-Host "Template file '$templatePath' not found. Using built-in fallback template."
+            exit 1
+          }
+          $html = $template -replace '\{\{TITLE\}\}', $title `
+                            -replace '\{\{VERSION_LIST\}\}', $listHtml
+
+          $html | Set-Content -Path (Join-Path $outDir 'index.html') -Encoding utf8NoBOM
+          Write-Host "Generated index.html with $($versions.Count) version link(s)."
+
+      - name: Deploy all versioned docs to gh-pages at root
+        # Publishes the entire all_version_docs/ output directory to gh-pages
+        # at the site root.  keep_files: true preserves any other content
+        # already present on the branch (CNAME, root assets, etc.).
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ${{ runner.temp }}/all_version_docs
+          destination_dir: .
+          keep_files: true
+          force_orphan: false

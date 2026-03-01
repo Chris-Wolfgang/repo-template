@@ -32,24 +32,27 @@
     "resource": [
       {
         "files": [
+          "logo.svg",
           "images/**"
         ]
       }
     ],
-    "output": "../docs",
+    // Note: "../docs" is used as the DocFX output directory for GitHub Actions deployment and is git-ignored for local builds.
+    "output": "_site",
     "template": [
       "default",
-      "modern",
-      "modern-dark"
+      "modern"
     ],
     "globalMetadata": {
       "_appName": "{{PROJECT_NAME}}",
       "_appTitle": "{{PROJECT_NAME}} Documentation",
+      "_appLogoPath": "logo.svg",
       "_enableSearch": true,
       "_appFooter": "Made with DocFX",
       "_disableSidebar": false,
       "_disableTocFilter": false,
       "_enableDarkMode": true,
+      "colorMode": "dark",
       "_baseUrl": "{{DOCS_URL}}",
       "pdf": true
     }

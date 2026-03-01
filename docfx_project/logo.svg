@@ -1,0 +1,23 @@
+<svg width="48" height="48" viewBox="0 0 48 48"
+     xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Soft purple glow for dark backgrounds -->
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#7c23bb" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <style>
+    @font-face {
+      font-family: 'DM Serif Display';
+      src: url('https://fonts.gstatic.com/s/dmserifdisplay/v13/-nF6OG414u0gLgBvIEjRpMqB6mM.woff2') format('woff2');
+    }
+    .fancy {
+      font-family: 'DM Serif Display', serif;
+      font-size: 34px;
+      fill: #7c23bb;
+      letter-spacing: 1px;
+      filter: url(#glow);
+    }
+  </style>
+  <text x="7" y="37" class="fancy">W</text>
+</svg>
