@@ -15,6 +15,9 @@ name: PR Checks v3 (Gated)
 
 permissions:
   contents: read
+
+env:
+  CODECOV_MINIMUM: 90
   
 on:
   pull_request_target:  # Runs from the main branch, not from PR branch
@@ -251,7 +254,7 @@ jobs:
           echo ""
           
           failed_projects=""
-          threshold=90
+          threshold=${CODECOV_MINIMUM:-90}
           
           while read -r line; do
             # Match lines with module names and percentages

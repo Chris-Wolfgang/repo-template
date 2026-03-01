@@ -26,6 +26,9 @@ on:
 permissions:
   contents: read  # Required for checking out repository contents during validation
 
+env:
+  CODECOV_MINIMUM: 90
+
 jobs:
   # Streamlined validation: All frameworks, Windows only
   validate-release:
@@ -245,9 +248,9 @@ jobs:
           Get-Content CoverageReport/Summary.txt
           Write-Host ""
           
-          # Parse coverage and enforce 90% threshold per module (matching pr.yaml)
+          # Parse coverage and enforce threshold per module (matching pr.yaml)
           $summaryContent = Get-Content CoverageReport/Summary.txt
-          $threshold = 90
+          $threshold = if ($env:CODECOV_MINIMUM) { [int]$env:CODECOV_MINIMUM } else { 90 }
           $failedModules = @()
           $coverageFound = $false
           
