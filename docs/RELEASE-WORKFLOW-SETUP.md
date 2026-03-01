@@ -13,7 +13,7 @@ The release workflow triggers when you **publish a GitHub Release** and implemen
 
 ## Required Post-Merge Configuration
 
-After merging this PR, complete the following setup step:
+After adding the release workflow to your repository, complete the following setup step:
 
 ### Add NuGet API Key Secret
 
