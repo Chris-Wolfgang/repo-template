@@ -46,10 +46,15 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
+          # Ensure 'origin' uses an authenticated URL so fetch works on private repositories
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          
+          # Fetch the main branch using the authenticated remote
           git fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
@@ -170,10 +175,15 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
+          # Ensure 'origin' uses an authenticated URL so fetch works on private repositories
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          
+          # Fetch the main branch using the authenticated remote
           git fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
@@ -470,10 +480,15 @@ jobs:
       
       - name: Fetch trusted configuration files from main branch
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           Write-Host "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
+          # Ensure 'origin' uses an authenticated URL so fetch works on private repositories
+          git remote set-url origin "https://x-access-token:$($env:GITHUB_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git"
+          
+          # Fetch the main branch using the authenticated remote
           git fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
@@ -610,10 +625,15 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
+          # Ensure 'origin' uses an authenticated URL so fetch works on private repositories
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          
+          # Fetch the main branch using the authenticated remote
           git fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
@@ -896,10 +916,15 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
-          # Fetch the main branch
+          # Ensure 'origin' uses an authenticated URL so fetch works on private repositories
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          
+          # Fetch the main branch using the authenticated remote
           git fetch origin main:main-branch
           
           # List of configuration files that should come from trusted main branch
