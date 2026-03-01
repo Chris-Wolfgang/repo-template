@@ -9,7 +9,7 @@ Welcome to the {{PROJECT_NAME}} documentation. This site contains comprehensive 
 ## Quick Links
 
 - [Getting Started](docs/getting-started.md) - Learn the basics
-- [API Reference](api/index.html) - Complete API documentation
+- [API Reference](xref:{{PROJECT_NAME}}) - Complete API documentation
 - [GitHub Repository]({{GITHUB_REPO_URL}}) - View source code
 
 ## About {{PROJECT_NAME}}
@@ -27,7 +27,7 @@ dotnet add package {{PACKAGE_NAME}}
 ### 📖 [Documentation](docs/getting-started.md)
 Step-by-step guides and tutorials to help you use {{PROJECT_NAME}} effectively.
 
-### 📚 [API Reference](api/index.html)
+### 📚 [API Reference](xref:{{PROJECT_NAME}})
 Complete API documentation automatically generated from source code XML comments.
 
 ## Additional Resources
