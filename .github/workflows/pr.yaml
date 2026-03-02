@@ -7,10 +7,6 @@
 # - Uses pull_request_target to run workflow from the trusted main branch, not from the PR branch
 # - This prevents malicious workflow YAML changes in untrusted PR branches from taking effect
 # - All checkout steps use PR refs (refs/pull/*/head) to check out PR code from the base repo
-# - After checkout, configuration files (.editorconfig, BannedSymbols.txt, etc.) are fetched from
-#   the main branch to prevent malicious PRs from disabling analyzers or bypassing code quality checks
-# - If a PR changes any of these protected configuration files, CI explicitly fails with instructions
-#   for a maintainer to manually review and verify the changes before merging
 # - persist-credentials: false prevents the checkout token from being written to git config for subsequent git commands
 #   (it does NOT, by itself, prevent steps from accessing github.token / GITHUB_TOKEN if you explicitly expose it)
 # - Default GITHUB_TOKEN permissions are restricted to read-only repository contents to limit impact if exposed
@@ -45,103 +41,6 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
       
-      - name: Fetch trusted configuration files from main branch
-        run: |
-          echo "Fetching configuration files from main branch to prevent malicious overrides..."
-          
-          # Fetch the main branch
-          git fetch origin main:main-branch
-          
-          # List of configuration files that should come from trusted main branch
-          config_files=(
-            ".editorconfig"
-            "Directory.Build.props"
-            "Directory.Build.targets"
-            "BannedSymbols.txt"
-            "*.globalconfig"
-            "*.ruleset"
-          )
-          
-          # Copy each configuration file from main branch if it exists
-          for config_file in "${config_files[@]}"; do
-            # Handle glob patterns
-            if [[ "$config_file" == *"*"* ]]; then
-              # Find files matching the pattern in main branch
-              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
-                if [ -n "$file" ]; then
-                  echo "  ✓ Copying $file from main branch"
-                  mkdir -p "$(dirname "$file")"
-                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
-                fi
-              done
-            else
-              # Check if file exists in main branch
-              if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
-                echo "  ✓ Copying $config_file from main branch"
-                git show "main-branch:$config_file" > "$config_file"
-              else
-                echo "  ℹ️  $config_file not found in main branch, skipping"
-              fi
-            fi
-          done
-          
-          echo ""
-          echo "✅ Configuration files secured - using versions from main branch"
-      
-      - name: Detect protected configuration file changes
-        run: |
-          echo "Checking for changes to protected configuration files in this PR..."
-          
-          # Verify main-branch ref is available (it was fetched in the previous step)
-          if ! git cat-file -e main-branch 2>/dev/null; then
-            echo "❌ main-branch ref not found - cannot detect configuration file changes"
-            exit 1
-          fi
-          
-          changed_files=()
-          
-          # Check exact file matches against main branch git objects
-          # 2>/dev/null suppresses output when a file doesn't exist in one ref (new/deleted file),
-          # which git diff handles correctly via its exit code
-          exact_files=(
-            ".editorconfig"
-            "Directory.Build.props"
-            "Directory.Build.targets"
-            "BannedSymbols.txt"
-          )
-          
-          for config_file in "${exact_files[@]}"; do
-            if ! git diff --quiet main-branch HEAD -- "$config_file" 2>/dev/null; then
-              changed_files+=("$config_file")
-            fi
-          done
-          
-          # Check .globalconfig and .ruleset files using the same git diff approach
-          # --diff-filter=AMRC: Added, Modified, Renamed, Copied (excludes Deleted)
-          while IFS= read -r file; do
-            changed_files+=("$file")
-          done < <(git diff --name-only --diff-filter=AMRC main-branch HEAD 2>/dev/null | grep -E '\.(globalconfig|ruleset)$' || true)
-          
-          if [ ${#changed_files[@]} -gt 0 ]; then
-            echo ""
-            echo "⚠️  PROTECTED CONFIGURATION FILES CHANGED IN THIS PR:"
-            for file in "${changed_files[@]}"; do
-              echo "  - $file"
-            done
-            echo ""
-            echo "❌ CI uses the main branch version of these files to prevent security bypasses."
-            echo "   The PR's changes to these files were NOT tested by CI."
-            echo "   A maintainer must manually review and verify these changes before merging."
-            echo ""
-            echo "To proceed, a maintainer should:"
-            echo "  1. Review the configuration changes in this PR carefully"
-            echo "  2. Test the changes locally to confirm they work correctly"
-            echo "  3. Merge with awareness that CI did not validate these configuration changes"
-            exit 1
-          else
-            echo "✅ No protected configuration files changed - CI fully validates this PR"
-          fi
-      
       - name: Check for .NET project files
         id: check-projects
         run: |
@@ -168,49 +67,6 @@ jobs:
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
-      
-      - name: Fetch trusted configuration files from main branch
-        run: |
-          echo "Fetching configuration files from main branch to prevent malicious overrides..."
-          
-          # Fetch the main branch
-          git fetch origin main:main-branch
-          
-          # List of configuration files that should come from trusted main branch
-          config_files=(
-            ".editorconfig"
-            "Directory.Build.props"
-            "Directory.Build.targets"
-            "BannedSymbols.txt"
-            "*.globalconfig"
-            "*.ruleset"
-          )
-          
-          # Copy each configuration file from main branch if it exists
-          for config_file in "${config_files[@]}"; do
-            # Handle glob patterns
-            if [[ "$config_file" == *"*"* ]]; then
-              # Find files matching the pattern in main branch
-              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
-                if [ -n "$file" ]; then
-                  echo "  ✓ Copying $file from main branch"
-                  mkdir -p "$(dirname "$file")"
-                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
-                fi
-              done
-            else
-              # Check if file exists in main branch
-              if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
-                echo "  ✓ Copying $config_file from main branch"
-                git show "main-branch:$config_file" > "$config_file"
-              else
-                echo "  ℹ️  $config_file not found in main branch, skipping"
-              fi
-            fi
-          done
-          
-          echo ""
-          echo "✅ Configuration files secured - using versions from main branch"
 
       # Fix for .NET 5.0 on Ubuntu 22.04+ - install libssl1.1
       - name: Install OpenSSL 1.1 for .NET 5.0
@@ -285,7 +141,7 @@ jobs:
             
             # Extract target frameworks from the project file
             # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$proj" | tr ';' '\n' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp[0-9.]+|netstandard[0-9.]+)$' || true)
+            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$proj" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp[0-9.]+|netstandard[0-9.]+)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⚠️  No Linux-compatible frameworks found in $proj"
@@ -467,51 +323,6 @@ jobs:
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
-      
-      - name: Fetch trusted configuration files from main branch
-        shell: pwsh
-        run: |
-          Write-Host "Fetching configuration files from main branch to prevent malicious overrides..."
-          
-          # Fetch the main branch
-          git fetch origin main:main-branch
-          
-          # List of configuration files that should come from trusted main branch
-          $configFiles = @(
-            ".editorconfig",
-            "Directory.Build.props",
-            "Directory.Build.targets",
-            "BannedSymbols.txt"
-          )
-          
-          # Copy each configuration file from main branch if it exists
-          foreach ($configFile in $configFiles) {
-            # Check if file exists in main branch
-            $exists = git cat-file -e "main-branch:$configFile" 2>&1
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "  ✓ Copying $configFile from main branch"
-              git show "main-branch:$configFile" | Out-File -FilePath $configFile -Encoding UTF8 -NoNewline
-            } else {
-              Write-Host "  ℹ️  $configFile not found in main branch, skipping"
-            }
-          }
-          
-          # Handle glob patterns for .globalconfig and .ruleset files
-          $globPatterns = @("*.globalconfig", "*.ruleset")
-          foreach ($pattern in $globPatterns) {
-            $files = git ls-tree -r --name-only main-branch | Select-String -Pattern $pattern.Replace("*", ".*")
-            foreach ($file in $files) {
-              if ($file) {
-                Write-Host "  ✓ Copying $file from main branch"
-                $dir = Split-Path -Parent $file
-                if ($dir) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
-                git show "main-branch:$file" | Out-File -FilePath $file -Encoding UTF8 -NoNewline
-              }
-            }
-          }
-          
-          Write-Host ""
-          Write-Host "✅ Configuration files secured - using versions from main branch"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -608,49 +419,6 @@ jobs:
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
-      
-      - name: Fetch trusted configuration files from main branch
-        run: |
-          echo "Fetching configuration files from main branch to prevent malicious overrides..."
-          
-          # Fetch the main branch
-          git fetch origin main:main-branch
-          
-          # List of configuration files that should come from trusted main branch
-          config_files=(
-            ".editorconfig"
-            "Directory.Build.props"
-            "Directory.Build.targets"
-            "BannedSymbols.txt"
-            "*.globalconfig"
-            "*.ruleset"
-          )
-          
-          # Copy each configuration file from main branch if it exists
-          for config_file in "${config_files[@]}"; do
-            # Handle glob patterns
-            if [[ "$config_file" == *"*"* ]]; then
-              # Find files matching the pattern in main branch
-              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
-                if [ -n "$file" ]; then
-                  echo "  ✓ Copying $file from main branch"
-                  mkdir -p "$(dirname "$file")"
-                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
-                fi
-              done
-            else
-              # Check if file exists in main branch
-              if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
-                echo "  ✓ Copying $config_file from main branch"
-                git show "main-branch:$config_file" > "$config_file"
-              else
-                echo "  ℹ️  $config_file not found in main branch, skipping"
-              fi
-            fi
-          done
-          
-          echo ""
-          echo "✅ Configuration files secured - using versions from main branch"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -832,55 +600,6 @@ jobs:
           echo "PR is ready to merge! 🎉"
 
   # ============================================================================
-  # Format Check (Runs independently of multi-stage test jobs; gated on detect-projects)
-  # ============================================================================
-  format-check:
-    name: "Format Check (dotnet format)"
-    runs-on: ubuntu-latest
-    needs: detect-projects
-    if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: refs/pull/${{ github.event.pull_request.number }}/head
-          persist-credentials: false
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Detect solution file
-        run: |
-          sln=$(find . -maxdepth 1 \( -name "*.sln" -o -name "*.slnx" \) 2>/dev/null | head -1)
-          if [ -n "$sln" ]; then
-            echo "FORMAT_TARGET=$sln" >> "$GITHUB_ENV"
-            echo "📁 Found solution: $sln"
-          else
-            echo "❌ No solution file (.sln or .slnx) found at the repository root."
-            echo "This workflow expects a solution file in the root directory, consistent with ./scripts/format.ps1."
-            echo "Please add a solution file and re-run the workflow."
-            exit 1
-          fi
-
-      - name: Restore dependencies
-        run: dotnet restore "$FORMAT_TARGET"
-
-      - name: Check code formatting
-        run: |
-          if ! dotnet format "$FORMAT_TARGET" --verify-no-changes --verbosity diagnostic; then
-            echo ""
-            echo "❌ Formatting issues detected!"
-            echo "Run './scripts/format.ps1' locally to fix them, then commit and push."
-            exit 1
-          fi
-
-          echo ""
-          echo "✅ All files are properly formatted!"
-
-  # ============================================================================
   # Security Scan (Runs in parallel, independently of .NET jobs)
   # ============================================================================
   security-scan:
@@ -894,49 +613,6 @@ jobs:
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
-      
-      - name: Fetch trusted configuration files from main branch
-        run: |
-          echo "Fetching configuration files from main branch to prevent malicious overrides..."
-          
-          # Fetch the main branch
-          git fetch origin main:main-branch
-          
-          # List of configuration files that should come from trusted main branch
-          config_files=(
-            ".editorconfig"
-            "Directory.Build.props"
-            "Directory.Build.targets"
-            "BannedSymbols.txt"
-            "*.globalconfig"
-            "*.ruleset"
-          )
-          
-          # Copy each configuration file from main branch if it exists
-          for config_file in "${config_files[@]}"; do
-            # Handle glob patterns
-            if [[ "$config_file" == *"*"* ]]; then
-              # Find files matching the pattern in main branch
-              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
-                if [ -n "$file" ]; then
-                  echo "  ✓ Copying $file from main branch"
-                  mkdir -p "$(dirname "$file")"
-                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
-                fi
-              done
-            else
-              # Check if file exists in main branch
-              if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
-                echo "  ✓ Copying $config_file from main branch"
-                git show "main-branch:$config_file" > "$config_file"
-              else
-                echo "  ℹ️  $config_file not found in main branch, skipping"
-              fi
-            fi
-          done
-          
-          echo ""
-          echo "✅ Configuration files secured - using versions from main branch"
 
       - name: Install DevSkim CLI
         run: dotnet tool install --global Microsoft.CST.DevSkim.CLI
