@@ -68,11 +68,14 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
 
-      # Fix for .NET 5.0 on Ubuntu 22.04+ - install libssl1.1
+      # Fix for .NET 5.0 on Ubuntu 22.04+ - install libssl1.1 from the focal-security
+      # repository so APT verifies the package via GPG instead of a plain wget download.
       - name: Install OpenSSL 1.1 for .NET 5.0
         run: |
-          wget https://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
-          sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+          echo "deb http://security.ubuntu.com/ubuntu focal-security main" | sudo tee /etc/apt/sources.list.d/focal-security.list
+          sudo apt-get update -q
+          sudo apt-get install --yes libssl1.1
+          sudo rm /etc/apt/sources.list.d/focal-security.list
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -618,13 +621,11 @@ jobs:
         run: dotnet tool install --global Microsoft.CST.DevSkim.CLI
 
       - name: Run DevSkim security scan
-        continue-on-error: true
         run: |
           devskim analyze \
             --source-code . \
             --file-format text \
             --output-file devskim-results.txt \
-            -E \
             --ignore-rule-ids DS176209 \
             --ignore-globs "**/api/**,**/CoverageReport/**,**/TestResults/**"
 
@@ -639,7 +640,8 @@ jobs:
             echo ""
             
             if grep -qi "error\|critical\|high" devskim-results.txt; then
-              echo "⚠️ Security issues detected - review required"
+              echo "❌ Security issues detected - review required"
+              exit 1
             else
               echo "✅ No critical security issues found"
             fi

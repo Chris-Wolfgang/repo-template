@@ -6,7 +6,7 @@ on:
     types: [published]
 
 permissions:
-  contents: read  # Required for checking out repository contents during validation
+  contents: read  # Default to read-only; individual jobs declare write where required
 
 env:
   CODECOV_MINIMUM: 90
@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -291,6 +293,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -579,7 +583,7 @@ jobs:
         run: zip -r release-coverage.zip ./release-coverage
 
       - name: Attach artifacts to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b  # v2.5.0
         with:
           tag_name: ${{ github.event.release.tag_name }}
           files: |
