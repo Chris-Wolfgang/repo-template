@@ -173,7 +173,8 @@ jobs:
             project_found=true
             # Check if project has any .NET 5+ target framework
             # Look for: net5.0, net6.0, net7.0, net8.0, net9.0, net10.0, or netcoreapp, netstandard
-            if grep -qE '<TargetFramework[s]?>.*(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp|netstandard)' "$proj"; then
+            # Normalize line endings to handle multi-line <TargetFramework> / <TargetFrameworks> elements
+            if tr -d '\n\r' < "$proj" | grep -qE '<TargetFramework[s]?>.*(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp|netstandard)'; then
               projects+=("$proj")
               echo "✓ Including: $proj (has .NET 5+ or .NET Core target)"
             else
@@ -214,9 +215,24 @@ jobs:
           for proj in "${projects[@]}"; do
             echo "Building: $proj"
             
-            # Extract target frameworks from the project file
-            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$proj" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp[0-9.]+|netstandard[0-9.]+)$' || true)
+            # Extract target frameworks by parsing the project XML.
+            # Python's ElementTree correctly handles multi-line <TargetFrameworks> values,
+            # which a single-line regex would miss.
+            frameworks_raw=$(python3 -c '
+import xml.etree.ElementTree as ET, sys
+try:
+    root = ET.parse(sys.argv[1]).getroot()
+    # Strip XML namespaces so lookups work for both SDK-style and legacy MSBuild project files
+    for elem in root.iter():
+        if isinstance(elem.tag, str) and "}" in elem.tag:
+            elem.tag = elem.tag.split("}", 1)[1]
+    v = next(filter(None, (pg.findtext("TargetFrameworks") or pg.findtext("TargetFramework")
+                           for pg in root.iter("PropertyGroup"))), "")
+    print(v.strip())
+except Exception as e:
+    print("Warning: failed to parse {}: {}".format(sys.argv[1], e), file=sys.stderr)
+' "$proj" || true)
+            frameworks=$(echo "$frameworks_raw" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp[0-9.]+|netstandard[0-9.]+)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⚠️  No Linux-compatible frameworks found in $proj"
@@ -247,7 +263,7 @@ jobs:
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
         run: |
           # Find all test projects (C#, VB.NET, F#)
-          mapfile -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
+          mapfile -d '' -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
           
           if [ ${#test_projects[@]} -eq 0 ]; then
             echo "❌ No test projects found in ./tests directory!"
@@ -518,7 +534,8 @@ jobs:
             project_found=true
             # Check if project has any .NET 6+ target framework (macOS ARM64 compatible)
             # Look for: net6.0, net7.0, net8.0, net9.0, net10.0
-            if grep -qE '<TargetFramework[s]?>.*net(6\.0|7\.0|8\.0|9\.0|10\.0)' "$proj"; then
+            # Normalize newlines to spaces so multi-line <TargetFrameworks> elements are matched correctly
+            if tr $'\n' ' ' < "$proj" | grep -qE '<TargetFramework[s]?>[^<]*net(6\.0|7\.0|8\.0|9\.0|10\.0)'; then
               projects+=("$proj")
               echo "✓ Including: $proj (has .NET 6+ target)"
             else
@@ -562,7 +579,7 @@ jobs:
             # Extract target frameworks from the project file
             # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
             # Trim whitespace from each framework before filtering
-            frameworks=$(sed -n -E 's/.*<TargetFrameworks?>[[:space:]]*>([^<]+)<\/TargetFrameworks?>.*/\1/p' "$proj" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            frameworks=$(tr -d '\n\r' < "$proj" | sed -n -E 's/.*<TargetFrameworks?>[[:space:]]*>([^<]+)<\/TargetFrameworks?>.*/\1/p' | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⚠️  No macOS ARM64-compatible frameworks found in $proj"
