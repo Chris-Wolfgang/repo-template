@@ -41,6 +41,78 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
       
+      - name: Checkout trusted configuration from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: trusted-config
+          persist-credentials: false
+      
+      - name: Validate configuration files are not modified
+        run: |
+          set -euo pipefail
+          
+          trusted_dir="trusted-config"
+          
+          if [ ! -d "$trusted_dir" ]; then
+            echo "Trusted configuration directory '$trusted_dir' not found. Failing for safety."
+            exit 1
+          fi
+          
+          modified_files=""
+          
+          # Helper to record a modified file
+          record_modified() {
+            local rel="$1"
+            if [ -z "$modified_files" ]; then
+              modified_files="$rel"
+            else
+              modified_files="${modified_files}\n${rel}"
+            fi
+          }
+          
+          # Check explicit root-level config files
+          for rel in ".editorconfig" "Directory.Build.props" "Directory.Build.targets"; do
+            if [ -e "$trusted_dir/$rel" ] && [ -e "$rel" ]; then
+              if ! diff -u "$trusted_dir/$rel" "$rel" > /dev/null 2>&1; then
+                record_modified "$rel"
+              fi
+            elif [ -e "$rel" ] && [ ! -e "$trusted_dir/$rel" ]; then
+              record_modified "$rel (new file)"
+            elif [ ! -e "$rel" ] && [ -e "$trusted_dir/$rel" ]; then
+              record_modified "$rel (deleted)"
+            fi
+          done
+          
+          # Check any Directory.Build.* files (including in subdirectories)
+          while IFS= read -r -d '' file; do
+            rel="${file#./}"
+            if [ -e "$trusted_dir/$rel" ]; then
+              if ! diff -u "$trusted_dir/$rel" "$rel" > /dev/null 2>&1; then
+                record_modified "$rel"
+              fi
+            else
+              record_modified "$rel (new file)"
+            fi
+          done < <(find . -path ./trusted-config -prune -o -type f -name 'Directory.Build.*' -print0)
+          
+          # Also detect deletions of Directory.Build.* that exist on main but not in PR
+          while IFS= read -r -d '' file; do
+            rel="${file#${trusted_dir}/}"
+            if [ ! -e "$rel" ]; then
+              record_modified "$rel (deleted)"
+            fi
+          done < <(find "$trusted_dir" -type f -name 'Directory.Build.*' -print0)
+          
+          if [ -n "$modified_files" ]; then
+            echo "❌ CI configuration files (.editorconfig / Directory.Build.*) must not be modified in pull requests."
+            echo "The following files differ from the trusted main branch:"
+            printf '%b\n' "$modified_files"
+            exit 1
+          fi
+          
+          echo "✅ Configuration files match trusted main branch."
+      
       - name: Check for .NET project files
         id: check-projects
         run: |
