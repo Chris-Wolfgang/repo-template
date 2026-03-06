@@ -301,14 +301,19 @@ jobs:
           $html | Set-Content -Path 'docfx_project/_site/index.html' -Encoding utf8NoBOM
           Write-Host "Generated index.html with $($versions.Count) version link(s)."
 
+          # Also write to a minimal directory so the root deploy publishes only
+          # the picker page (not the full DocFX site with api/, docs/, assets/).
+          $null = New-Item -ItemType Directory -Force -Path 'picker_root'
+          $html | Set-Content -Path 'picker_root/index.html' -Encoding utf8NoBOM
+
       - name: Deploy version picker to GitHub Pages root
-        # Publishes the version-picker index.html (generated above) to the site root ('/').
+        # Publishes only the version-picker index.html to the site root ('/').
         # keep_files: true preserves the versions/ folder and all its sub-folders.
         # Skipped when deploy_as_latest is false (e.g. when rebuilding an older version).
         if: inputs.deploy_to_pages != false && inputs.deploy_as_latest != false
         uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e  # v4.0.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docfx_project/_site
+          publish_dir: ./picker_root
           keep_files: true
           force_orphan: false
