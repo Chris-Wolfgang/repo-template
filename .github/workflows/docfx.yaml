@@ -271,8 +271,6 @@ jobs:
         # the versioned-docs deploys have already run, so versions/<tag>/ and
         # versions/latest/ each keep the real DocFX landing page.  Only the subsequent
         # root deploy (below) receives the picker as its index.html.
-        # Falls back to a minimal built-in template when the shared template file is not
-        # present in the checked-out commit (e.g. retroactive builds of older tags).
         if: inputs.deploy_to_pages != false && inputs.deploy_as_latest != false
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
