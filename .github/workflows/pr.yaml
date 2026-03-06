@@ -195,9 +195,18 @@ jobs:
             echo "Testing project: $test_proj"
             echo "=========================================="
             
-            # Extract target frameworks from the project file
-            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$test_proj" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+            # Extract target frameworks using MSBuild property extraction to reliably handle
+            # multi-line <TargetFrameworks> values that single-line grep cannot parse.
+            # Try TargetFrameworks (multi-targeting) first, then fall back to TargetFramework.
+            # Pipe through grep+tail to get the last non-empty line (the actual value), then strip
+            # any optional "PropertyName=" or "PropertyName:" prefix emitted by older MSBuild versions.
+            tfm_raw=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFrameworks 2>/dev/null \
+              | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]')
+            if [ -z "$tfm_raw" ]; then
+              tfm_raw=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFramework 2>/dev/null \
+                | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]')
+            fi
+            frameworks=$(printf '%s' "$tfm_raw" | tr ';' '\n' | grep -E '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⊘ Skipping: No compatible .NET 5.0-10.0 target frameworks found"
