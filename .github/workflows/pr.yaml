@@ -143,10 +143,20 @@ jobs:
           for proj in "${projects[@]}"; do
             echo "Building: $proj"
             
-            # Extract target frameworks from the project file
-            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            # Collapse newlines so multi-line <TargetFrameworks> values are handled correctly
-            frameworks=$(tr '\n' ' ' < "$proj" | grep -oP '<TargetFramework[s]?>\s*\K[^<]+' | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp[0-9.]+|netstandard[0-9.]+)$' || true)
+            # Extract target frameworks by parsing the project XML.
+            # Python's ElementTree correctly handles multi-line <TargetFrameworks> values,
+            # which a single-line regex would miss.
+            frameworks_raw=$(python3 -c '
+import xml.etree.ElementTree as ET, sys
+try:
+    root = ET.parse(sys.argv[1]).getroot()
+    v = next(filter(None, (pg.findtext("TargetFrameworks") or pg.findtext("TargetFramework")
+                           for pg in root.iter("PropertyGroup"))), "")
+    print(v.strip())
+except Exception as e:
+    print("Warning: failed to parse {}: {}".format(sys.argv[1], e), file=sys.stderr)
+' "$proj" || true)
+            frameworks=$(echo "$frameworks_raw" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp[0-9.]+|netstandard[0-9.]+)$' || true)
             
             if [ -z "$frameworks" ]; then
               echo "⚠️  No Linux-compatible frameworks found in $proj"
