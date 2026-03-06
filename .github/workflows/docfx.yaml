@@ -76,7 +76,7 @@ jobs:
         shell: pwsh
 
       - name: Install DocFX
-        run: dotnet tool update docfx --global
+        run: dotnet tool update docfx --global || dotnet tool install docfx --global
         shell: pwsh
 
       - name: Build DocFX Metadata
