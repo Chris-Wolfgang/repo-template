@@ -12,6 +12,9 @@ name: Build All Versioned Docs
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read  # Default to read-only; the build-and-deploy job overrides with write
+
 jobs:
   build-and-deploy:
     name: Build & Deploy All Versioned Docs
@@ -25,6 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Full history so all tags are reachable
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -334,7 +338,7 @@ jobs:
         # Publishes the entire all_version_docs/ output directory to gh-pages
         # at the site root.  keep_files: true preserves any other content
         # already present on the branch (CNAME, root assets, etc.).
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e  # v4.0.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ${{ runner.temp }}/all_version_docs
