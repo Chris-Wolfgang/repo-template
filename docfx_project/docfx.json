@@ -32,24 +32,27 @@
     "resource": [
       {
         "files": [
+          "logo.svg",
           "images/**"
         ]
       }
     ],
-    "output": "../docs",
+
+    "output": "_site",
     "template": [
       "default",
-      "modern",
-      "modern-dark"
+      "modern"
     ],
     "globalMetadata": {
       "_appName": "{{PROJECT_NAME}}",
       "_appTitle": "{{PROJECT_NAME}} Documentation",
+      "_appLogoPath": "logo.svg",
       "_enableSearch": true,
       "_appFooter": "Made with DocFX",
       "_disableSidebar": false,
       "_disableTocFilter": false,
       "_enableDarkMode": true,
+      "colorMode": "dark",
       "_baseUrl": "{{DOCS_URL}}",
       "pdf": true
     }

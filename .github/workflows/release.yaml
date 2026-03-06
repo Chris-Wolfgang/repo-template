@@ -1,11 +1,15 @@
 name: Release on Published Release
 
+
 on:
   release:
     types: [published]
 
 permissions:
-  contents: read  # Required for checking out repository contents during validation
+  contents: read  # Default to read-only; individual jobs declare write where required
+
+env:
+  CODECOV_MINIMUM: 90
 
 jobs:
   # Streamlined validation: All frameworks, Windows only
@@ -16,6 +20,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -226,15 +232,15 @@ jobs:
           Get-Content CoverageReport/Summary.txt
           Write-Host ""
           
-          # Parse coverage and enforce 90% threshold per module (matching pr.yaml)
+          # Parse coverage and enforce threshold per module (matching pr.yaml)
           $summaryContent = Get-Content CoverageReport/Summary.txt
-          $threshold = 90
+          $threshold = if ($env:CODECOV_MINIMUM) { [int]$env:CODECOV_MINIMUM } else { 90 }
           $failedModules = @()
           $coverageFound = $false
           
           foreach ($line in $summaryContent) {
             # Match lines with module names and percentages (skip Summary line)
-            if ($line -match '^([^ ]+)\s+.*\s+(\d+\.?\d*)%$' -and $line -notmatch '^Summary') {
+            if ($line -match '^([^ ]+)\s+.*\s+(\d+(?:\.\d+)?)%$' -and $line -notmatch '^Summary') {
               $coverageFound = $true
               $module = $matches[1]
               $coverage = [decimal]$matches[2]
@@ -287,6 +293,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -575,7 +583,7 @@ jobs:
         run: zip -r release-coverage.zip ./release-coverage
 
       - name: Attach artifacts to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b  # v2.5.0
         with:
           tag_name: ${{ github.event.release.tag_name }}
           files: |

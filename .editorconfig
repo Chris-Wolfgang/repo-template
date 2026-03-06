@@ -83,12 +83,12 @@ dotnet_diagnostic.VSTHRD200.severity = suggestion # Use Async naming convention
 
 # Roslynator Rules - Common rules explicitly configured
 dotnet_diagnostic.RCS1001.severity = suggestion   # Add braces
-dotnet_diagnostic.RCS1036.severity = suggestion   # Remove unnecessary blank line
+dotnet_diagnostic.RCS1036.severity = none         # Remove unnecessary blank line
 dotnet_diagnostic.RCS1037.severity = suggestion   # Remove trailing white-space
 dotnet_diagnostic.RCS1138.severity = warning      # Add summary to documentation comment
 dotnet_diagnostic.RCS1140.severity = warning      # Add exception to documentation comment
 dotnet_diagnostic.RCS1141.severity = suggestion   # Add parameter to documentation comment
-dotnet_diagnostic.RCS1163.severity = suggestion   # Unused parameter
+dotnet_diagnostic.RCS1163.severity = warning      # Unused parameter
 dotnet_diagnostic.RCS1175.severity = suggestion   # Unused this parameter
 dotnet_diagnostic.RCS1180.severity = suggestion   # Inline lazy initialization
 dotnet_diagnostic.RCS1181.severity = suggestion   # Convert comment to documentation comment
