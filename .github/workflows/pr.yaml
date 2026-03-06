@@ -525,9 +525,9 @@ jobs:
         run: |
           # Find all test projects (C#, VB.NET, F#)
           test_projects=()
-          while IFS= read -r file; do
+          while IFS= read -r -d '' file; do
           test_projects+=("$file")
-          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))          
+          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)          
           
           if [ ${#test_projects[@]} -eq 0 ]; then
             echo "❌ No test projects found in ./tests directory!"
