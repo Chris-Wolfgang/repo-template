@@ -89,139 +89,271 @@ jobs:
             10.0.x
 
       - name: Restore and build (exclude .NET Framework-only projects)
+        shell: pwsh
         run: |
-          echo "Finding .NET project files in repository (via find command)..."
-          
+          Write-Host "Finding .NET project files in repository..."
+
+          $allProjects = @(Get-ChildItem -Path '.' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj')
+
+          if ($allProjects.Count -eq 0) {
+            Write-Error "❌ No .NET projects found."
+            exit 1
+          }
+
           # Filter out projects that ONLY target .NET Framework 4.x
           # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
-          projects=()
-          project_found=false
-          
-          while IFS= read -r -d '' proj; do
-            project_found=true
-            # Check if project has any .NET 5+ target framework
-            # Look for: net5.0, net6.0, net7.0, net8.0, net9.0, net10.0, or netcoreapp, netstandard
-            # Normalize line endings to handle multi-line <TargetFramework> / <TargetFrameworks> elements
-            if tr -d '\n\r' < "$proj" | grep -qE '<TargetFramework[s]?>.*(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp|netstandard)'; then
-              projects+=("$proj")
-              echo "✓ Including: $proj (has .NET 5+ or .NET Core target)"
-            else
-              echo "⊘ Excluding: $proj (Framework-only, incompatible with Linux)"
-            fi
-          done < <(find . -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
-          
-          if [ "$project_found" = false ]; then
-            echo "❌ No .NET projects found."
-            echo "This should not occur as detect-projects already verified project existence."
+          # Use XML parsing + MSBuild fallback so multi-line values are handled correctly.
+          $projects = @()
+          foreach ($proj in $allProjects) {
+            $frameworkValue = $null
+
+            # Try XML parsing first
+            try {
+              [xml]$projectXml = Get-Content $proj.FullName
+              foreach ($propGroup in $projectXml.Project.PropertyGroup) {
+                if ($propGroup.TargetFrameworks) { $frameworkValue = $propGroup.TargetFrameworks; break }
+                elseif ($propGroup.TargetFramework) { $frameworkValue = $propGroup.TargetFramework; break }
+              }
+            } catch {
+              Write-Warning "Failed to parse $($proj.Name) as XML: $_"
+            }
+
+            # Fall back to MSBuild if not found in XML
+            if (-not $frameworkValue) {
+              foreach ($prop in @("TargetFrameworks", "TargetFramework")) {
+                $result = dotnet msbuild $proj.FullName /nologo "-getProperty:$prop" 2>&1
+                if ($LASTEXITCODE -eq 0 -and $result) {
+                  $pattern = "^\s*${prop}\s*[:=]\s*(.+)$"
+                  foreach ($line in $result) {
+                    if ($line -match $pattern) {
+                      $frameworkValue = $Matches[1].Trim()
+                      break
+                    }
+                  }
+                }
+                if ($frameworkValue) { break }
+              }
+            }
+
+            $isCompatible = $false
+            if ($frameworkValue) {
+              $fws = $frameworkValue -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+              $isCompatible = ($fws | Where-Object { $_ -match '^(net([5-9]|[1-9][0-9]+)\.\d|netcoreapp\d+\.\d+|netstandard\d+\.\d+)' }).Count -gt 0
+            }
+
+            if ($isCompatible) {
+              $projects += $proj
+              Write-Host "✓ Including: $($proj.FullName) (has .NET 5+ or .NET Core target)"
+            } else {
+              Write-Host "⊘ Excluding: $($proj.FullName) (Framework-only, incompatible with Linux)"
+            }
+          }
+
+          if ($projects.Count -eq 0) {
+            Write-Error "❌ No compatible .NET projects found. All projects target only .NET Framework 4.x, which is incompatible with Linux."
             exit 1
-          fi
-          
-          if [ ${#projects[@]} -eq 0 ]; then
-            echo "❌ No compatible .NET projects found."
-            echo "All projects target only .NET Framework 4.x, which is incompatible with Linux."
-            exit 1
-          fi
-          
-          echo ""
-          echo "=========================================="
-          echo "Projects to build:"
-          echo "=========================================="
-          printf '%s\n' "${projects[@]}"
-          echo ""
-          
+          }
+
+          Write-Host ""
+          Write-Host "==========================================" -ForegroundColor Cyan
+          Write-Host "Projects to build:" -ForegroundColor Cyan
+          Write-Host "==========================================" -ForegroundColor Cyan
+          $projects | ForEach-Object { Write-Host $_.FullName }
+          Write-Host ""
+
           # Restore each project
-          echo "Restoring projects..."
-          for proj in "${projects[@]}"; do
-            echo "Restoring: $proj"
-            dotnet restore "$proj" || exit 1
-          done
-          
-          echo ""
-          echo "Building projects..."
+          Write-Host "Restoring projects..."
+          foreach ($proj in $projects) {
+            Write-Host "Restoring: $($proj.FullName)"
+            dotnet restore $proj.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+          Write-Host ""
+          Write-Host "Building projects..."
           # Build each project, handling multi-targeting projects
           # For multi-targeting projects, build only Linux-compatible frameworks (.NET 5.0+, .NET Core, .NET Standard)
-          for proj in "${projects[@]}"; do
-            echo "Building: $proj"
-            
-            # Extract target frameworks from the project file
-            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            # Collapse newlines so multi-line <TargetFrameworks> values are handled correctly
-            frameworks=$(tr '\n' ' ' < "$proj" | grep -oP '<TargetFramework[s]?>\s*\K[^<]+' | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp[0-9.]+|netstandard[0-9.]+)$' || true)
-            
-            if [ -z "$frameworks" ]; then
-              echo "⚠️  No Linux-compatible frameworks found in $proj"
+          foreach ($proj in $projects) {
+            Write-Host "Building: $($proj.FullName)"
+
+            # Parse project XML to get target frameworks
+            $targetFramework = $null
+            $targetFrameworks = $null
+            try {
+              [xml]$projectXml = Get-Content $proj.FullName
+              foreach ($propGroup in $projectXml.Project.PropertyGroup) {
+                if ($propGroup.TargetFrameworks) { $targetFrameworks = $propGroup.TargetFrameworks; break }
+                elseif ($propGroup.TargetFramework) { $targetFramework = $propGroup.TargetFramework; break }
+              }
+            } catch {
+              Write-Warning "Failed to re-parse $($proj.Name) as XML: $_"
+            }
+
+            $allFrameworks = @()
+            if ($targetFrameworks) {
+              $allFrameworks = $targetFrameworks -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+            } elseif ($targetFramework) {
+              $allFrameworks = @($targetFramework.Trim()) | Where-Object { $_ }
+            } else {
+              # MSBuild fallback
+              foreach ($prop in @("TargetFrameworks", "TargetFramework")) {
+                $result = dotnet msbuild $proj.FullName /nologo "-getProperty:$prop" 2>&1
+                if ($LASTEXITCODE -eq 0 -and $result) {
+                  foreach ($line in $result) {
+                    if ($line -match '^\s*TargetFrameworks\s*[:=]\s*(.+)$') {
+                      $allFrameworks = $Matches[1].Trim() -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                      break
+                    } elseif ($line -match '^\s*TargetFramework\s*[:=]\s*(.+)$') {
+                      $v = $Matches[1].Trim()
+                      if ($v) { $allFrameworks = @($v); break }
+                    }
+                  }
+                }
+                if ($allFrameworks.Count -gt 0) { break }
+              }
+            }
+
+            # Filter to Linux-compatible frameworks
+            $compatibleFrameworks = @($allFrameworks | Where-Object { $_ -match '^(net([5-9]|[1-9][0-9]+)\.\d|netcoreapp\d+\.\d+|netstandard\d+\.\d+)' })
+
+            if ($compatibleFrameworks.Count -eq 0) {
+              Write-Warning "⚠️  No Linux-compatible frameworks found in $($proj.Name)"
               continue
-            fi
-            
-            # Check if this is a multi-targeting project
-            framework_count=$(echo "$frameworks" | wc -l)
-            
-            if [ "$framework_count" -eq 1 ]; then
-              # Single target framework - build normally
-              echo "  Target framework: $frameworks"
-              dotnet build "$proj" --no-restore --configuration Release || exit 1
-            else
-              # Multi-targeting project - build each compatible framework separately
-              echo "  Target frameworks (multi-targeting): $(echo "$frameworks" | tr '\n' ' ')"
-              while IFS= read -r fw; do
-                [ -z "$fw" ] && continue
-                echo "  Building framework: $fw"
-                dotnet build "$proj" --no-restore --configuration Release --framework "$fw" || exit 1
-              done <<< "$frameworks"
-            fi
-          done
-          
-          echo ""
-          echo "✅ All compatible projects built successfully"
+            }
+
+            if ($compatibleFrameworks.Count -eq 1) {
+              Write-Host "  Target framework: $($compatibleFrameworks[0])"
+              dotnet build $proj.FullName --no-restore --configuration Release
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            } else {
+              Write-Host "  Target frameworks (multi-targeting): $($compatibleFrameworks -join ' ')"
+              foreach ($fw in $compatibleFrameworks) {
+                Write-Host "  Building framework: $fw"
+                dotnet build $proj.FullName --no-restore --configuration Release --framework $fw
+                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+              }
+            }
+          }
+
+          Write-Host ""
+          Write-Host "✅ All compatible projects built successfully" -ForegroundColor Green
 
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
+        shell: pwsh
         run: |
-          # Find all test projects (C#, VB.NET, F#)
-          mapfile -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))
-          
-          if [ ${#test_projects[@]} -eq 0 ]; then
-            echo "❌ No test projects found in ./tests directory!"
+          $testProjects = @(Get-ChildItem -Path './tests' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj')
+
+          if ($testProjects.Count -eq 0) {
+            Write-Error "❌ No test projects found in ./tests directory!"
             exit 1
-          fi
-          
-          echo "=========================================="
-          echo "Found test projects:"
-          echo "=========================================="
-          printf '%s\n' "${test_projects[@]}"
-          echo ""
-          
-          for test_proj in "${test_projects[@]}"; do
-            echo "=========================================="
-            echo "Testing project: $test_proj"
-            echo "=========================================="
-            
-            # Extract target frameworks from the project file
-            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            frameworks=$(grep -oP '<TargetFramework[s]?>\K[^<]+' "$test_proj" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
-            
-            if [ -z "$frameworks" ]; then
-              echo "⊘ Skipping: No compatible .NET 5.0-10.0 target frameworks found"
-              echo ""
+          }
+
+          Write-Host "==========================================" -ForegroundColor Cyan
+          Write-Host "Found test projects:" -ForegroundColor Cyan
+          Write-Host "==========================================" -ForegroundColor Cyan
+          $testProjects | ForEach-Object { Write-Host $_.FullName }
+          Write-Host ""
+
+          foreach ($testProj in $testProjects) {
+            Write-Host "==========================================" -ForegroundColor Cyan
+            Write-Host "Testing project: $($testProj.Name)" -ForegroundColor Cyan
+            Write-Host "==========================================" -ForegroundColor Cyan
+
+            # Parse the project XML to robustly extract TargetFramework(s),
+            # including multi-line values that grep-based approaches can miss.
+            try {
+              [xml]$projectXml = Get-Content $testProj.FullName
+            } catch {
+              Write-Error "❌ Failed to parse project file $($testProj.Name): $_"
+              exit 1
+            }
+
+            # Search all PropertyGroup elements for TargetFramework(s)
+            $targetFramework = $null
+            $targetFrameworks = $null
+            foreach ($propGroup in $projectXml.Project.PropertyGroup) {
+              if ($propGroup.TargetFrameworks) {
+                $targetFrameworks = $propGroup.TargetFrameworks
+                break
+              } elseif ($propGroup.TargetFramework) {
+                $targetFramework = $propGroup.TargetFramework
+                break
+              }
+            }
+
+            # Determine which frameworks this project targets
+            $frameworks = @()
+            if ($targetFrameworks) {
+              $frameworks = $targetFrameworks -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+            } elseif ($targetFramework) {
+              $frameworks = @($targetFramework.Trim()) | Where-Object { $_ }
+            } else {
+              # No TargetFramework found directly; fall back to MSBuild evaluation
+              # (handles Directory.Build.props and other imported property files)
+              Write-Host "No TargetFramework or TargetFrameworks found in $($testProj.Name); querying MSBuild..." -ForegroundColor Yellow
+
+              $msbuildExitCode = 0
+              $msbuildOutput = @()
+              foreach ($prop in @("TargetFrameworks", "TargetFramework")) {
+                $result = dotnet msbuild $testProj.FullName /nologo "-getProperty:$prop" 2>&1
+                if ($LASTEXITCODE -ne 0) { $msbuildExitCode = $LASTEXITCODE }
+                if ($result) { $msbuildOutput += $result }
+              }
+
+              if ($msbuildExitCode -ne 0) {
+                Write-Warning "MSBuild query failed for $($testProj.Name). Tests will run without explicit --framework."
+                $frameworks = @('')
+              } else {
+                $resolvedFrameworks = @()
+                foreach ($line in $msbuildOutput) {
+                  if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                  if ($line -match '^\s*TargetFrameworks\s*[:=]\s*(.+)$') {
+                    $resolvedFrameworks = $Matches[1].Trim() -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                    break
+                  } elseif ($line -match '^\s*TargetFramework\s*[:=]\s*(.+)$') {
+                    $propertyValue = $Matches[1].Trim()
+                    if ($propertyValue) { $resolvedFrameworks = @($propertyValue); break }
+                  }
+                }
+
+                if ($resolvedFrameworks.Count -gt 0) {
+                  $frameworks = $resolvedFrameworks
+                } else {
+                  Write-Warning "MSBuild query returned no target frameworks for $($testProj.Name). Tests will run without explicit --framework."
+                  $frameworks = @('')
+                }
+              }
+            }
+
+            # Filter to .NET 5.0+ frameworks only (Linux-compatible)
+            $compatibleFrameworks = $frameworks | Where-Object { $_ -match '^net([5-9]|[1-9][0-9]+)\.\d' }
+
+            if ($compatibleFrameworks.Count -eq 0) {
+              Write-Host "⊘ Skipping: No compatible .NET 5.0-10.0 target frameworks found" -ForegroundColor Yellow
+              Write-Host ""
               continue
-            fi
-            
-            echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
-            echo ""
-            
-            # Test each framework that the project actually targets
-            while IFS= read -r fw; do
-              [ -z "$fw" ] && continue
-              echo "Testing framework: $fw"
-              
-              dotnet test "$test_proj" \
-                --configuration Release \
-                --framework "$fw" \
-                --collect:"XPlat Code Coverage" \
-                --results-directory "./TestResults" \
-                --logger "console;verbosity=minimal" || exit 1
-            done <<< "$frameworks"
-            echo ""
-          done
+            }
+
+            Write-Host "Target frameworks: $($compatibleFrameworks -join ' ')"
+            Write-Host ""
+
+            foreach ($fw in $compatibleFrameworks) {
+              Write-Host "Testing framework: $fw" -ForegroundColor Yellow
+
+              dotnet test $testProj.FullName `
+                --configuration Release `
+                --framework $fw `
+                --collect:"XPlat Code Coverage" `
+                --results-directory "./TestResults" `
+                --logger "console;verbosity=minimal"
+
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "❌ Tests failed for framework $fw in $($testProj.Name)"
+                exit $LASTEXITCODE
+              }
+            }
+            Write-Host ""
+          }
 
       - name: Check for coverage files
         id: check-coverage
@@ -436,140 +568,269 @@ jobs:
             10.0.x
 
       - name: Restore and build (exclude .NET Framework-only projects)
+        shell: pwsh
         run: |
-          echo "Enumerating tracked .NET project files (git ls-files)..."
-          
-          # Filter out projects that ONLY target .NET Framework 4.x
+          Write-Host "Finding .NET project files in repository..."
+
+          $allProjects = @(Get-ChildItem -Path '.' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj')
+
+          if ($allProjects.Count -eq 0) {
+            Write-Error "❌ No .NET projects found."
+            exit 1
+          }
+
+          # Filter out projects that ONLY target .NET Framework 4.x or lack .NET 6+
           # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
-          projects=()
-          project_found=false
-          
-          while IFS= read -r -d '' proj; do
-            project_found=true
-            # Check if project has any .NET 6+ target framework (macOS ARM64 compatible)
-            # Look for: net6.0, net7.0, net8.0, net9.0, net10.0
-            if grep -qE '<TargetFramework[s]?>.*net(6\.0|7\.0|8\.0|9\.0|10\.0)' "$proj"; then
-              projects+=("$proj")
-              echo "✓ Including: $proj (has .NET 6+ target)"
-            else
-              echo "⊘ Excluding: $proj (no .NET 6+ target, incompatible with macOS ARM64)"
-            fi
-          done < <(git ls-files -z -- '*.csproj' '*.vbproj' '*.fsproj')
-          
-          if [ "$project_found" = false ]; then
-            echo "❌ No .NET projects found."
-            echo "This should not occur as detect-projects already verified project existence."
+          # Use XML parsing + MSBuild fallback so multi-line values are handled correctly.
+          $projects = @()
+          foreach ($proj in $allProjects) {
+            $frameworkValue = $null
+
+            # Try XML parsing first
+            try {
+              [xml]$projectXml = Get-Content $proj.FullName
+              foreach ($propGroup in $projectXml.Project.PropertyGroup) {
+                if ($propGroup.TargetFrameworks) { $frameworkValue = $propGroup.TargetFrameworks; break }
+                elseif ($propGroup.TargetFramework) { $frameworkValue = $propGroup.TargetFramework; break }
+              }
+            } catch {
+              Write-Warning "Failed to parse $($proj.Name) as XML: $_"
+            }
+
+            # Fall back to MSBuild if not found in XML
+            if (-not $frameworkValue) {
+              foreach ($prop in @("TargetFrameworks", "TargetFramework")) {
+                $result = dotnet msbuild $proj.FullName /nologo "-getProperty:$prop" 2>&1
+                if ($LASTEXITCODE -eq 0 -and $result) {
+                  $pattern = "^\s*${prop}\s*[:=]\s*(.+)$"
+                  foreach ($line in $result) {
+                    if ($line -match $pattern) {
+                      $frameworkValue = $Matches[1].Trim()
+                      break
+                    }
+                  }
+                }
+                if ($frameworkValue) { break }
+              }
+            }
+
+            $isCompatible = $false
+            if ($frameworkValue) {
+              $fws = $frameworkValue -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+              $isCompatible = ($fws | Where-Object { $_ -match '^net([6-9]|[1-9][0-9]+)\.\d' }).Count -gt 0
+            }
+
+            if ($isCompatible) {
+              $projects += $proj
+              Write-Host "✓ Including: $($proj.FullName) (has .NET 6+ target)"
+            } else {
+              Write-Host "⊘ Excluding: $($proj.FullName) (no .NET 6+ target, incompatible with macOS ARM64)"
+            }
+          }
+
+          if ($projects.Count -eq 0) {
+            Write-Error "❌ No compatible .NET projects found. All projects lack .NET 6+ targets, which are required for macOS ARM64."
             exit 1
-          fi
-          
-          if [ ${#projects[@]} -eq 0 ]; then
-            echo "❌ No compatible .NET projects found."
-            echo "All projects lack .NET 6+ targets, which are required for macOS ARM64."
-            exit 1
-          fi
-          
-          echo ""
-          echo "=========================================="
-          echo "Projects to build (excluding .NET Framework-only projects):"
-          echo "=========================================="
-          printf '%s\n' "${projects[@]}"
-          echo ""
-          
+          }
+
+          Write-Host ""
+          Write-Host "==========================================" -ForegroundColor Cyan
+          Write-Host "Projects to build (excluding .NET Framework-only projects):" -ForegroundColor Cyan
+          Write-Host "==========================================" -ForegroundColor Cyan
+          $projects | ForEach-Object { Write-Host $_.FullName }
+          Write-Host ""
+
           # Restore each project
-          echo "Restoring projects..."
-          for proj in "${projects[@]}"; do
-            echo "Restoring: $proj"
-            dotnet restore "$proj" || exit 1
-          done
-          
-          echo ""
-          echo "Building projects..."
+          Write-Host "Restoring projects..."
+          foreach ($proj in $projects) {
+            Write-Host "Restoring: $($proj.FullName)"
+            dotnet restore $proj.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+          Write-Host ""
+          Write-Host "Building projects..."
           # Build each project, handling multi-targeting projects
           # For multi-targeting projects, build only macOS ARM64-compatible frameworks (net6.0-10.0)
-          for proj in "${projects[@]}"; do
-            echo "Building: $proj"
-            
-            # Extract target frameworks from the project file
-            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            # Trim whitespace from each framework before filtering
-            frameworks=$(sed -n -E 's/.*<TargetFrameworks?>[[:space:]]*>([^<]+)<\/TargetFrameworks?>.*/\1/p' "$proj" | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
-            
-            if [ -z "$frameworks" ]; then
-              echo "⚠️  No macOS ARM64-compatible frameworks found in $proj"
+          foreach ($proj in $projects) {
+            Write-Host "Building: $($proj.FullName)"
+
+            # Parse project XML to get target frameworks
+            $targetFramework = $null
+            $targetFrameworks = $null
+            try {
+              [xml]$projectXml = Get-Content $proj.FullName
+              foreach ($propGroup in $projectXml.Project.PropertyGroup) {
+                if ($propGroup.TargetFrameworks) { $targetFrameworks = $propGroup.TargetFrameworks; break }
+                elseif ($propGroup.TargetFramework) { $targetFramework = $propGroup.TargetFramework; break }
+              }
+            } catch {
+              Write-Warning "Failed to re-parse $($proj.Name) as XML: $_"
+            }
+
+            $allFrameworks = @()
+            if ($targetFrameworks) {
+              $allFrameworks = $targetFrameworks -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+            } elseif ($targetFramework) {
+              $allFrameworks = @($targetFramework.Trim()) | Where-Object { $_ }
+            } else {
+              # MSBuild fallback
+              foreach ($prop in @("TargetFrameworks", "TargetFramework")) {
+                $result = dotnet msbuild $proj.FullName /nologo "-getProperty:$prop" 2>&1
+                if ($LASTEXITCODE -eq 0 -and $result) {
+                  foreach ($line in $result) {
+                    if ($line -match '^\s*TargetFrameworks\s*[:=]\s*(.+)$') {
+                      $allFrameworks = $Matches[1].Trim() -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                      break
+                    } elseif ($line -match '^\s*TargetFramework\s*[:=]\s*(.+)$') {
+                      $v = $Matches[1].Trim()
+                      if ($v) { $allFrameworks = @($v); break }
+                    }
+                  }
+                }
+                if ($allFrameworks.Count -gt 0) { break }
+              }
+            }
+
+            # Filter to macOS ARM64-compatible frameworks
+            $compatibleFrameworks = @($allFrameworks | Where-Object { $_ -match '^net([6-9]|[1-9][0-9]+)\.\d' })
+
+            if ($compatibleFrameworks.Count -eq 0) {
+              Write-Warning "⚠️  No macOS ARM64-compatible frameworks found in $($proj.Name)"
               continue
-            fi
-            
-            # Check if this is a multi-targeting project
-            framework_count=$(echo "$frameworks" | wc -l)
-            
-            if [ "$framework_count" -eq 1 ]; then
-              # Single target framework - build normally
-              echo "  Target framework: $frameworks"
-              dotnet build "$proj" --no-restore --configuration Release || exit 1
-            else
-              # Multi-targeting project - build each compatible framework separately
-              echo "  Target frameworks (multi-targeting): $(echo "$frameworks" | tr '\n' ' ')"
-              while IFS= read -r fw; do
-                [ -z "$fw" ] && continue
-                echo "  Building framework: $fw"
-                dotnet build "$proj" --no-restore --configuration Release --framework "$fw" || exit 1
-              done <<< "$frameworks"
-            fi
-          done
-          
-          echo ""
-          echo "✅ All compatible projects built successfully"
+            }
+
+            if ($compatibleFrameworks.Count -eq 1) {
+              Write-Host "  Target framework: $($compatibleFrameworks[0])"
+              dotnet build $proj.FullName --no-restore --configuration Release
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            } else {
+              Write-Host "  Target frameworks (multi-targeting): $($compatibleFrameworks -join ' ')"
+              foreach ($fw in $compatibleFrameworks) {
+                Write-Host "  Building framework: $fw"
+                dotnet build $proj.FullName --no-restore --configuration Release --framework $fw
+                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+              }
+            }
+          }
+
+          Write-Host ""
+          Write-Host "✅ All compatible projects built successfully" -ForegroundColor Green
 
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
+        shell: pwsh
         run: |
-          # Find all test projects (C#, VB.NET, F#)
-          test_projects=()
-          while IFS= read -r file; do
-          test_projects+=("$file")
-          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \))          
-          
-          if [ ${#test_projects[@]} -eq 0 ]; then
-            echo "❌ No test projects found in ./tests directory!"
+          $testProjects = @(Get-ChildItem -Path './tests' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj')
+
+          if ($testProjects.Count -eq 0) {
+            Write-Error "❌ No test projects found in ./tests directory!"
             exit 1
-          fi
-          
-          echo "=========================================="
-          echo "Found test projects:"
-          echo "=========================================="
-          printf '%s\n' "${test_projects[@]}"
-          echo ""
-          
-          for test_proj in "${test_projects[@]}"; do
-            echo "=========================================="
-            echo "Testing project: $test_proj"
-            echo "=========================================="
-            
-            # Extract target frameworks from the project file
-            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            # Only include .NET 6.0+ (ARM64 compatible on macOS)
-            frameworks=$(grep -Eo '<TargetFrameworks?>[^<]+' "$test_proj" | sed -E 's/<TargetFrameworks?>//' | tr ';' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
-            
-            if [ -z "$frameworks" ]; then
-              echo "⊘ Skipping: No compatible .NET 6.0-10.0 target frameworks found (ARM64 required)"
-              echo ""
+          }
+
+          Write-Host "==========================================" -ForegroundColor Cyan
+          Write-Host "Found test projects:" -ForegroundColor Cyan
+          Write-Host "==========================================" -ForegroundColor Cyan
+          $testProjects | ForEach-Object { Write-Host $_.FullName }
+          Write-Host ""
+
+          foreach ($testProj in $testProjects) {
+            Write-Host "==========================================" -ForegroundColor Cyan
+            Write-Host "Testing project: $($testProj.Name)" -ForegroundColor Cyan
+            Write-Host "==========================================" -ForegroundColor Cyan
+
+            # Parse the project XML to robustly extract TargetFramework(s),
+            # including multi-line values that grep-based approaches can miss.
+            try {
+              [xml]$projectXml = Get-Content $testProj.FullName
+            } catch {
+              Write-Error "❌ Failed to parse project file $($testProj.Name): $_"
+              exit 1
+            }
+
+            # Search all PropertyGroup elements for TargetFramework(s)
+            $targetFramework = $null
+            $targetFrameworks = $null
+            foreach ($propGroup in $projectXml.Project.PropertyGroup) {
+              if ($propGroup.TargetFrameworks) {
+                $targetFrameworks = $propGroup.TargetFrameworks
+                break
+              } elseif ($propGroup.TargetFramework) {
+                $targetFramework = $propGroup.TargetFramework
+                break
+              }
+            }
+
+            # Determine which frameworks this project targets
+            $frameworks = @()
+            if ($targetFrameworks) {
+              $frameworks = $targetFrameworks -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+            } elseif ($targetFramework) {
+              $frameworks = @($targetFramework.Trim()) | Where-Object { $_ }
+            } else {
+              # No TargetFramework found directly; fall back to MSBuild evaluation
+              # (handles Directory.Build.props and other imported property files)
+              Write-Host "No TargetFramework or TargetFrameworks found in $($testProj.Name); querying MSBuild..." -ForegroundColor Yellow
+
+              $msbuildExitCode = 0
+              $msbuildOutput = @()
+              foreach ($prop in @("TargetFrameworks", "TargetFramework")) {
+                $result = dotnet msbuild $testProj.FullName /nologo "-getProperty:$prop" 2>&1
+                if ($LASTEXITCODE -ne 0) { $msbuildExitCode = $LASTEXITCODE }
+                if ($result) { $msbuildOutput += $result }
+              }
+
+              if ($msbuildExitCode -ne 0) {
+                Write-Warning "MSBuild query failed for $($testProj.Name). Tests will run without explicit --framework."
+                $frameworks = @('')
+              } else {
+                $resolvedFrameworks = @()
+                foreach ($line in $msbuildOutput) {
+                  if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                  if ($line -match '^\s*TargetFrameworks\s*[:=]\s*(.+)$') {
+                    $resolvedFrameworks = $Matches[1].Trim() -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                    break
+                  } elseif ($line -match '^\s*TargetFramework\s*[:=]\s*(.+)$') {
+                    $propertyValue = $Matches[1].Trim()
+                    if ($propertyValue) { $resolvedFrameworks = @($propertyValue); break }
+                  }
+                }
+
+                if ($resolvedFrameworks.Count -gt 0) {
+                  $frameworks = $resolvedFrameworks
+                } else {
+                  Write-Warning "MSBuild query returned no target frameworks for $($testProj.Name). Tests will run without explicit --framework."
+                  $frameworks = @('')
+                }
+              }
+            }
+
+            # Filter to .NET 6.0+ frameworks only (ARM64 compatible on macOS)
+            $compatibleFrameworks = $frameworks | Where-Object { $_ -match '^net([6-9]|[1-9][0-9]+)\.\d' }
+
+            if ($compatibleFrameworks.Count -eq 0) {
+              Write-Host "⊘ Skipping: No compatible .NET 6.0-10.0 target frameworks found (ARM64 required)" -ForegroundColor Yellow
+              Write-Host ""
               continue
-            fi
-            
-            echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
-            echo ""
-            
-            # Test each framework that the project actually targets
-            while IFS= read -r fw; do
-              [ -z "$fw" ] && continue
-              echo "Testing framework: $fw"
-              
-              dotnet test "$test_proj" \
-                --configuration Release \
-                --framework "$fw" \
-                --logger "console;verbosity=normal" || exit 1
-            done <<< "$frameworks"
-            echo ""
-          done
+            }
+
+            Write-Host "Target frameworks: $($compatibleFrameworks -join ' ')"
+            Write-Host ""
+
+            foreach ($fw in $compatibleFrameworks) {
+              Write-Host "Testing framework: $fw" -ForegroundColor Yellow
+
+              dotnet test $testProj.FullName `
+                --configuration Release `
+                --framework $fw `
+                --logger "console;verbosity=normal"
+
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "❌ Tests failed for framework $fw in $($testProj.Name)"
+                exit $LASTEXITCODE
+              }
+            }
+            Write-Host ""
+          }
 
       - name: Display macOS architecture info
         if: always()
