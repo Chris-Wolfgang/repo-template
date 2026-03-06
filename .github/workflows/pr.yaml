@@ -72,7 +72,7 @@ jobs:
       # repository so APT verifies the package via GPG instead of a plain wget download.
       - name: Install OpenSSL 1.1 for .NET 5.0
         run: |
-          echo "deb http://security.ubuntu.com/ubuntu focal-security main" | sudo tee /etc/apt/sources.list.d/focal-security.list
+          echo "deb https://security.ubuntu.com/ubuntu focal-security main" | sudo tee /etc/apt/sources.list.d/focal-security.list
           sudo apt-get update -q
           sudo apt-get install --yes libssl1.1
           sudo rm /etc/apt/sources.list.d/focal-security.list
