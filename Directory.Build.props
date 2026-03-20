@@ -1,5 +1,7 @@
 <Project>
   <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+
     <!-- Enable .NET analyzers -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
@@ -42,13 +44,13 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     
-    <!-- NEW: Meziantou - Comprehensive code quality -->
+    <!-- Meziantou - Comprehensive code quality -->
     <PackageReference Include="Meziantou.Analyzer" Version="3.0.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    
-    <!-- NEW: SonarAnalyzer - Industry-standard analysis -->
+
+    <!-- SonarAnalyzer - Industry-standard analysis -->
     <PackageReference Include="SonarAnalyzer.CSharp" Version="10.19.0.132793">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
