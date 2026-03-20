@@ -41,7 +41,11 @@ Before using this template, ensure you have the following installed:
    The script will ask if you want:
    - **Single Developer**: No PR approvals required (you can merge your own PRs)
    - **Multi-Developer**: Requires 1+ approval and code owner review
-7. **(Optional) Set up GitHub Pages for documentation** - Configure DocFX and enable documentation:
+7. **(Optional) Set up issue labels** - Create standard labels for issues and PRs:
+   ```powershell
+   pwsh ./scripts/Setup-Labels.ps1
+   ```
+8. **(Optional) Set up GitHub Pages for documentation** - Configure DocFX and enable documentation:
    ```powershell
    pwsh ./scripts/Setup-GitHubPages.ps1
    ```
