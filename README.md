@@ -41,7 +41,11 @@ Before using this template, ensure you have the following installed:
    The script will ask if you want:
    - **Single Developer**: No PR approvals required (you can merge your own PRs)
    - **Multi-Developer**: Requires 1+ approval and code owner review
-7. **(Optional) Set up GitHub Pages for documentation** - Configure DocFX and enable documentation:
+7. **(Optional) Set up issue labels** - Create standard labels for issues and PRs:
+   ```powershell
+   pwsh ./scripts/Setup-Labels.ps1
+   ```
+8. **(Optional) Set up GitHub Pages for documentation** - Configure DocFX and enable documentation:
    ```powershell
    pwsh ./scripts/Setup-GitHubPages.ps1
    ```
@@ -178,7 +182,7 @@ Choose from three popular open-source licenses or add your own during setup:
 | **Apache 2.0** | Patent protection, enterprise | Permissive + patent grant |
 | **MPL 2.0** | File-level copyleft | Weak copyleft, file-based |
 
-See [LICENSE-SELECTION.md](LICENSE-SELECTION.md) for detailed comparison and guidance.
+See [LICENSE-SELECTION.md](docs/LICENSE-SELECTION.md) for detailed comparison and guidance.
 > **Note:** You will be prompted for a license when you run the setup script (`pwsh ./scripts/setup.ps1`)
 
 ---
@@ -226,11 +230,11 @@ The script will:
 | Copyright Holder | `Chris Wolfgang` | Yes (from git) |
 | NuGet Status | `Coming soon to NuGet.org` | No |
 
-**Note:** The setup scripts handle the placeholders above. Additional optional content placeholders (`{{QUICK_START_EXAMPLE}}`, `{{FEATURES_TABLE}}`, `{{FEATURE_EXAMPLES}}`, `{{TARGET_FRAMEWORKS}}`, `{{ACKNOWLEDGMENTS}}`) remain in your README.md for you to fill in as you develop your project. See [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS.md) for details.
+**Note:** The setup scripts handle the placeholders above. Additional optional content placeholders (`{{QUICK_START_EXAMPLE}}`, `{{FEATURES_TABLE}}`, `{{FEATURE_EXAMPLES}}`, `{{TARGET_FRAMEWORKS}}`, `{{ACKNOWLEDGMENTS}}`) remain in your README.md for you to fill in as you develop your project. See [TEMPLATE-PLACEHOLDERS.md](docs/TEMPLATE-PLACEHOLDERS.md) for details.
 
 ### Manual Setup (Not Recommended)
 
-If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS.md) for a complete list of placeholders and instructions.
+If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](docs/TEMPLATE-PLACEHOLDERS.md) for a complete list of placeholders and instructions.
 
 ---
 
@@ -266,8 +270,8 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 |------|---------|
 | `README.md`[^1] | **THIS FILE** - Deleted during setup, replaced by renamed README-TEMPLATE.md |
 | `README-TEMPLATE.md`[^1] | Project README template (renamed to `README.md` during setup) |
-| `TEMPLATE-PLACEHOLDERS.md` | Complete placeholder documentation including template identification |
-| `LICENSE-SELECTION.md` | License comparison and selection guide |
+| `docs/TEMPLATE-PLACEHOLDERS.md` | Complete placeholder documentation including template identification |
+| `docs/LICENSE-SELECTION.md` | License comparison and selection guide |
 | `REPO-INSTRUCTIONS.md` | Manual setup instructions |
 | `scripts/setup.ps1` | PowerShell setup automation |
 
@@ -347,7 +351,7 @@ If publishing to NuGet:
 2. Add secret: `NUGET_API_KEY`
 3. Get API key from [NuGet.org](https://www.nuget.org/account/apikeys)
 
-See [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md) for details.
+See [RELEASE-WORKFLOW-SETUP.md](docs/RELEASE-WORKFLOW-SETUP.md) for details.
 
 ### 3. Create Your Projects
 
@@ -381,10 +385,10 @@ Your repository now has:
 
 ## 📚 Additional Resources
 
-- **Formatting Guide:** [README-FORMATTING.md](README-FORMATTING.md)
+- **Formatting Guide:** [README-FORMATTING.md](docs/README-FORMATTING.md)
 - **Contributing Guide:** [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Code of Conduct:** [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-- **Release Workflow:** [RELEASE-WORKFLOW-SETUP.md](RELEASE-WORKFLOW-SETUP.md)
+- **Release Workflow:** [RELEASE-WORKFLOW-SETUP.md](docs/RELEASE-WORKFLOW-SETUP.md)
 - **Setup Instructions:** [REPO-INSTRUCTIONS.md](REPO-INSTRUCTIONS.md)
 <!-- -**API Reference:** `https://<username>.github.io/<repo>/api/` (live documentation)-->
 
