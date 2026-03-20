@@ -52,9 +52,9 @@ This project is licensed under the **{{LICENSE_TYPE}} License**. See the [LICENS
 
 | Framework | Versions |
 |-----------|----------|
-| .Net Framework | .net 4.6.2, .net 4.7.0, .net 4.7.1, .net 4.7.2, .net 4.8, .net 4.8.1 | 
-| .Net Core | |
-| .Net | .net 5.0, .net 6.0, .net 7.0, .net 8.0, .net 9.0, .net 10.0 |
+| .NET Framework | .NET 4.6.2, .NET 4.7.0, .NET 4.7.1, .NET 4.7.2, .NET 4.8, .NET 4.8.1 |
+| .NET Core | .NET Core 3.1 |
+| .NET | .NET 5.0, .NET 6.0, .NET 7.0, .NET 8.0, .NET 9.0, .NET 10.0 |
 
 ---
 
