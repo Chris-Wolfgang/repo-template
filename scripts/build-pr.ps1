@@ -113,26 +113,33 @@ if (-not $SkipTests -and $failed.Count -eq 0) {
             foreach ($fw in $frameworks) {
                 Write-Host "  Testing: $fw" -ForegroundColor Yellow
 
+                $testArgs = @(
+                    $testProj.FullName,
+                    '--configuration', 'Release',
+                    '--framework', $fw,
+                    '--logger', 'console;verbosity=normal'
+                )
+
                 if ($fw -match '^net([5-9]|[1-9][0-9]+)\.') {
-                    dotnet test $testProj.FullName `
-                        --configuration Release `
-                        --framework $fw `
-                        --collect:"XPlat Code Coverage" `
-                        --results-directory "./TestResults" `
-                        --logger "console;verbosity=normal"
+                    $testArgs += '--collect:XPlat Code Coverage'
+                    $testArgs += '--results-directory'
+                    $testArgs += './TestResults'
+                    if (Test-Path 'coverlet.runsettings') {
+                        $testArgs += '--settings'
+                        $testArgs += 'coverlet.runsettings'
+                    }
                 }
-                else {
-                    dotnet test $testProj.FullName `
-                        --configuration Release `
-                        --framework $fw `
-                        --logger "console;verbosity=normal"
-                }
+
+                dotnet test @testArgs
 
                 if ($LASTEXITCODE -ne 0) {
                     Write-Fail "  Tests failed for $fw"
                     $failed += "Tests ($fw)"
+                    break
                 }
             }
+
+            if ($failed.Count -gt 0) { break }
         }
 
         if ($failed.Count -eq 0) {
