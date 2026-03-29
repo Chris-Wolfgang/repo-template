@@ -244,18 +244,33 @@ if (-not $SkipSecurity) {
 
     $gitleaks = Get-Command gitleaks -ErrorAction SilentlyContinue
     if (-not $gitleaks) {
-        Write-Host "gitleaks not found — install from https://github.com/gitleaks/gitleaks/releases"
-        Write-Host "Skipping gitleaks scan"
-    }
-    else {
-        gitleaks detect --source . --verbose --redact
-        if ($LASTEXITCODE -ne 0) {
-            Write-Fail "Gitleaks found secrets"
-            $failed += "Gitleaks"
+        Write-Host "gitleaks not found — installing..."
+        $version = "8.24.0"
+        if ($IsWindows -or $env:OS -match 'Windows') {
+            $archive = "gitleaks_${version}_windows_x64.zip"
+            $url = "https://github.com/gitleaks/gitleaks/releases/download/v${version}/$archive"
+            $dest = Join-Path $env:LOCALAPPDATA "gitleaks"
+            New-Item -ItemType Directory -Force -Path $dest | Out-Null
+            $zip = Join-Path $env:TEMP $archive
+            Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+            Expand-Archive -Path $zip -DestinationPath $dest -Force
+            Remove-Item $zip -ErrorAction SilentlyContinue
+            $env:PATH = "$dest;$env:PATH"
         }
         else {
-            Write-Pass "No secrets detected"
+            $archive = "gitleaks_${version}_linux_x64.tar.gz"
+            $url = "https://github.com/gitleaks/gitleaks/releases/download/v${version}/$archive"
+            curl -sSfL $url | tar xz -C /usr/local/bin gitleaks
         }
+    }
+
+    gitleaks detect --source . --verbose --redact
+    if ($LASTEXITCODE -ne 0) {
+        Write-Fail "Gitleaks found secrets"
+        $failed += "Gitleaks"
+    }
+    else {
+        Write-Pass "No secrets detected"
     }
 }
 
