@@ -16,7 +16,6 @@
     The ruleset includes:
     - Pull request reviews with configurable approval requirements
     - Required status checks (tests, security scans)
-    - CodeQL code scanning enforcement (High+ severity)
     - Force push and deletion protection
 
 .PARAMETER Repository
@@ -189,8 +188,6 @@ $rulesetConfig = @{
                 # must NOT have path filters (paths/paths-ignore). If a workflow is path-filtered
                 # and doesn't run for a PR, GitHub will treat the required check as missing and
                 # block the merge. All required status checks must run on every PR.
-                # This also applies to the CodeQL workflow (codeql.yml) which provides the code_scanning
-                # rule below - see that section for details on how CodeQL handles graceful skipping.
                 required_status_checks = @(
                     @{ context = "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate" },
                     @{ context = "Stage 2a: Windows Tests (.NET 5.0-10.0)" },
@@ -200,24 +197,9 @@ $rulesetConfig = @{
                 )
             }
         },
-        @{
-            type = "code_scanning"
-            parameters = @{
-                # NOTE: CodeQL uses the 'code_scanning' ruleset type instead of 'required_status_checks'
-                # because it has built-in intelligence to handle cases where scans don't run
-                # The workflow (.github/workflows/codeql.yml) has no path filters to ensure
-                # GitHub can properly evaluate this rule. The workflow runs on all PRs and gracefully
-                # skips analysis when there's no C# code, preventing false merge blocks while still
-                # enforcing security scanning when needed.
-                code_scanning_tools = @(
-                    @{
-                        tool = "CodeQL"
-                        security_alerts_threshold = "high_or_higher"
-                        alerts_threshold = "errors"
-                    }
-                )
-            }
-        },
+        # NOTE: code_scanning (CodeQL) is not included in this API-created ruleset because
+        # it requires a CodeQL workflow to be present and have run on the repo. Without prior
+        # analyses, the rule blocks all PRs. Add CodeQL integration separately if needed.
         # NOTE: Copilot code review is not included in this API-created payload because
         # it is not currently supported through the rulesets API. After the ruleset is
         # created, enable Copilot code review settings manually in the GitHub repository UI.
@@ -267,7 +249,6 @@ try {
         Write-Host "   ✅ Branches must be up to date before merging" -ForegroundColor Gray
         Write-Host "   ✅ Conversation resolution required before merging" -ForegroundColor Gray
         Write-Host "   ✅ Stale reviews dismissed when new commits are pushed" -ForegroundColor Gray
-        Write-Host "   ✅ CodeQL code scanning enforcement (blocks on High+ severity findings)" -ForegroundColor Gray
         Write-Host "   ⚠️  Copilot code review: enable manually in repository settings" -ForegroundColor Yellow
         Write-Host "      (Not yet supported through the rulesets API)" -ForegroundColor DarkGray
         Write-Host "   ✅ Force pushes blocked on $BranchName branch" -ForegroundColor Gray
