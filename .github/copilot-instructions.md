@@ -2,17 +2,17 @@
 
 ## Repository Summary
 
-This is a **repository template** for creating new .NET repositories. It provides a standardized structure with comprehensive GitHub integration, CI/CD workflows, and development tooling. The template is designed for .NET 8.0 projects using C# and follows Microsoft's recommended project organization patterns.
+This is a **repository template** for creating new .NET repositories. It provides a standardized structure with comprehensive GitHub integration, CI/CD workflows, and development tooling. The template supports multi-TFM .NET projects using C# and follows Microsoft's recommended project organization patterns.
 
-**Repository Type**: Template (not a working project)  
-**Target Platform**: .NET 8.0  
-**Primary Language**: C#  
+**Repository Type**: Template (not a working project)
+**Target Platforms**: .NET Framework 4.6.2–4.8.1, .NET Core 3.1, .NET 5.0–10.0
+**Primary Language**: C#
 **Size**: Small template (~15 configuration files, empty project folders)  
 
 ## Build and Validation Instructions
 
 ### Prerequisites
-- .NET 8.0.x SDK (always install if not present)
+- .NET SDK (8.0+ recommended; CI tests against .NET 5.0–10.0 and .NET Framework 4.6.2–4.8.1)
 - ReportGenerator tool (installed via `dotnet tool install -g dotnet-reportgenerator-globaltool`)
 - DevSkim CLI (installed via `dotnet tool install --global Microsoft.CST.DevSkim.CLI`)
 
@@ -100,7 +100,7 @@ root/
 ### Continuous Integration Pipeline (`.github/workflows/pr.yaml`)
 The workflow runs on pull requests to `main` branch and includes:
 
-1. **Environment**: Ubuntu Latest with .NET 8.0.x
+1. **Environment**: Ubuntu Latest with .NET 5.0–10.0 (Windows adds .NET Framework 4.6.2–4.8.1)
 2. **Build Steps**: Checkout → Setup .NET → Restore → Build → Test → Coverage → Security
 3. **Artifacts**: Coverage reports and DevSkim results uploaded
 4. **Branch Protection**: Configured to require this workflow to pass before merging

@@ -16,10 +16,6 @@
     The ruleset includes:
     - Pull request reviews with configurable approval requirements
     - Required status checks (tests, security scans)
-    - CodeQL code scanning enforcement (High+ severity)
-    - Automatic Copilot code review for pull requests
-    - Copilot review of new pushes and draft PRs
-    - CodeQL standard queries integration with Copilot reviews
     - Force push and deletion protection
 
 .PARAMETER Repository
@@ -46,9 +42,8 @@
     
     These permissions are necessary to create and modify repository rulesets.
     
-    Note: The copilot_code_review ruleset type requires GitHub Copilot access
-    and may require GitHub Enterprise or specific subscription plans. Verify your organization has the
-    necessary subscriptions before running this script.
+    Note: Copilot code review is not supported through the rulesets API and must be
+    enabled manually in the GitHub repository UI after running this script.
 #>
 
 [CmdletBinding()]
@@ -108,28 +103,33 @@ Write-Host "📌 Protected branch: $BranchName`n" -ForegroundColor Cyan
 # Check if ruleset already exists
 Write-Host "🔍 Checking for existing rulesets..." -ForegroundColor Yellow
 try {
-    $matchingRulesets = gh api `
+    $rulesetOutput = gh api `
         -H "Accept: application/vnd.github+json" `
         -H "X-GitHub-Api-Version: 2022-11-28" `
         "/repos/$Repository/rulesets" `
         --paginate `
-        --jq '.[] | select(.name == "Protect main branch")' | ConvertFrom-Json
-    
-    $existingRuleset = $matchingRulesets | Select-Object -First 1
-    
-    if ($existingRuleset) {
-        Write-Host "✅ Ruleset 'Protect main branch' already exists!" -ForegroundColor Green
-        Write-Host "   View it at: https://github.com/$Repository/settings/rules" -ForegroundColor Cyan
-        $response = Read-Host "`nDo you want to continue anyway? This may fail. (y/N)"
-        if ($response -ne 'y' -and $response -ne 'Y') {
-            Write-Host "Exiting." -ForegroundColor Yellow
-            exit 0
+        --jq '.[] | select(.name == "Protect main branch")' 2>&1
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "⚠️  Could not check for existing rulesets (API returned exit code $LASTEXITCODE). Continuing..."
+    } elseif ($rulesetOutput) {
+        $matchingRulesets = $rulesetOutput | ConvertFrom-Json
+        $existingRuleset = $matchingRulesets | Select-Object -First 1
+
+        if ($existingRuleset) {
+            Write-Host "✅ Ruleset 'Protect main branch' already exists!" -ForegroundColor Green
+            Write-Host "   View it at: https://github.com/$Repository/settings/rules" -ForegroundColor Cyan
+            $response = Read-Host "`nDo you want to continue anyway? This may fail. (y/N)"
+            if ($response -ne 'y' -and $response -ne 'Y') {
+                Write-Host "Exiting." -ForegroundColor Yellow
+                exit 0
+            }
         }
     } else {
         Write-Host "ℹ️  Ruleset 'Protect main branch' does not exist yet." -ForegroundColor Gray
     }
 } catch {
-    Write-Warning "⚠️  Could not check for existing rulesets. Continuing..."
+    Write-Warning "⚠️  Could not check for existing rulesets: $($_.Exception.Message). Continuing..."
 }
 
 # Prompt for repository type
@@ -188,60 +188,25 @@ $rulesetConfig = @{
                 # must NOT have path filters (paths/paths-ignore). If a workflow is path-filtered
                 # and doesn't run for a PR, GitHub will treat the required check as missing and
                 # block the merge. All required status checks must run on every PR.
-                # This also applies to the CodeQL workflow (codeql.yml) which provides the code_scanning
-                # rule below - see that section for details on how CodeQL handles graceful skipping.
                 required_status_checks = @(
                     @{ context = "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate" },
                     @{ context = "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" },
                     @{ context = "Stage 3: macOS Tests (.NET 6.0-10.0)" },
-                    @{ context = "Security Scan (DevSkim)" },
-                    @{ context = "Security Scan (CodeQL)" }
+                    @{ context = "Security Scan (DevSkim)" }
                 )
             }
         },
-        @{
-            type = "code_scanning"
-            parameters = @{
-                # NOTE: CodeQL uses the 'code_scanning' ruleset type instead of 'required_status_checks'
-                # because it has built-in intelligence to handle cases where scans don't run
-                # The workflow (.github/workflows/codeql.yml) has no path filters to ensure
-                # GitHub can properly evaluate this rule. The workflow runs on all PRs and gracefully
-                # skips analysis when there's no C# code, preventing false merge blocks while still
-                # enforcing security scanning when needed.
-                code_scanning_tools = @(
-                    @{
-                        tool = "CodeQL"
-                        security_alerts_threshold = "high_or_higher"
-                        alerts_threshold = "errors"
-                    }
-                )
-            }
-        },
-        @{
-            type = "copilot_code_review"
-            # Not yet supported through API, must be set via UI
-            # <-- parameters = @{
-                # Automatically request Copilot code review for new pull requests
-                # if the author has Copilot access and hasn't reached their review request limit
-                # <-- auto_request_copilot_review = $true
-                # Review new pushes to the pull request automatically
-                # <-- review_new_pushes = $true
-                # Review draft pull requests before they are marked as ready
-                # <-- review_draft_pull_requests = $true
-                # Static analysis tools to include in Copilot code review
-                # <-- static_analysis_tools = @("CodeQL")
-                # Query suite for CodeQL
-                # <-- codeql_query_suite = "standard"
-            # }
-        },
+        # NOTE: code_scanning (CodeQL) is not included in this API-created ruleset because
+        # it requires a CodeQL workflow to be present and have run on the repo. Without prior
+        # analyses, the rule blocks all PRs. Add CodeQL integration separately if needed.
+        # NOTE: Copilot code review is not included in this API-created payload because
+        # it is not currently supported through the rulesets API. After the ruleset is
+        # created, enable Copilot code review settings manually in the GitHub repository UI.
         @{
             type = "non_fast_forward"
         },
         @{
             type = "deletion"
-        },
-        @{
-            type = "update"
         }
     )
 }
@@ -251,7 +216,7 @@ $jsonConfig = $rulesetConfig | ConvertTo-Json -Depth 10
 
 # Save to temporary file
 $tempFile = [System.IO.Path]::GetTempFileName()
-$jsonConfig | Out-File -FilePath $tempFile -Encoding UTF8
+$jsonConfig | Out-File -FilePath $tempFile -Encoding utf8NoBOM
 
 try {
     Write-Host "🚀 Creating branch ruleset..." -ForegroundColor Cyan
@@ -279,16 +244,11 @@ try {
         Write-Host "      - Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" -ForegroundColor DarkGray
         Write-Host "      - Stage 3: macOS Tests (.NET 6.0-10.0)" -ForegroundColor DarkGray
         Write-Host "      - Security Scan (DevSkim)" -ForegroundColor DarkGray
-        Write-Host "      - Security Scan (CodeQL)" -ForegroundColor DarkGray
         Write-Host "   ✅ Branches must be up to date before merging" -ForegroundColor Gray
         Write-Host "   ✅ Conversation resolution required before merging" -ForegroundColor Gray
         Write-Host "   ✅ Stale reviews dismissed when new commits are pushed" -ForegroundColor Gray
-        Write-Host "   ✅ CodeQL code scanning enforcement (blocks on High+ severity findings)" -ForegroundColor Gray
-        Write-Host "   ✅ Automatic Copilot code review enabled:" -ForegroundColor Gray
-        Write-Host "      - Auto-request for new pull requests" -ForegroundColor DarkGray
-        Write-Host "      - Review new pushes automatically" -ForegroundColor DarkGray
-        Write-Host "      - Review draft pull requests" -ForegroundColor DarkGray
-        Write-Host "      - Static analysis tools: CodeQL (standard queries)" -ForegroundColor DarkGray
+        Write-Host "   ⚠️  Copilot code review: enable manually in repository settings" -ForegroundColor Yellow
+        Write-Host "      (Not yet supported through the rulesets API)" -ForegroundColor DarkGray
         Write-Host "   ✅ Force pushes blocked on $BranchName branch" -ForegroundColor Gray
         Write-Host "   ✅ Branch deletion prevented for $BranchName" -ForegroundColor Gray
         Write-Host "   ✅ No bypass allowed - all users must follow these rules" -ForegroundColor Gray
