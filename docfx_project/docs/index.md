@@ -1,4 +1,4 @@
-# Documentation
+# {{PROJECT_NAME}} Documentation
 
 Welcome to the documentation section. Browse the topics in the navigation menu to get started.
 

@@ -27,14 +27,14 @@ The main setup script will:
 9. ✅ Validate all replacements
 10. ✅ Optionally clean up template-specific files
 
-**For detailed placeholder documentation, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS.md)**  
-**For license selection guidance, see [LICENSE-SELECTION.md](LICENSE-SELECTION.md)**
+**For detailed placeholder documentation, see [TEMPLATE-PLACEHOLDERS.md](docs/TEMPLATE-PLACEHOLDERS.md)**  
+**For license selection guidance, see [LICENSE-SELECTION.md](docs/LICENSE-SELECTION.md)**
 
 ---
 
 ## Manual Setup Instructions
 
-After you create your repo from the template you will still need to configure some settings. 
+After you create your repo from the template, you will still need to configure some settings. 
 Below is a list of what needs to be done. Once you have completed the checklist below you can delete this file
 
 ## Creating Your Repository

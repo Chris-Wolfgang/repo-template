@@ -8,6 +8,13 @@ on:
   schedule:
     - cron: '0 0 * * 0'  # Weekly on Sunday at midnight UTC
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read  # Default to read-only; the analyze job overrides where required
+
 jobs:
   analyze:
     name: "Security Scan (CodeQL)"
@@ -25,6 +32,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        persist-credentials: false
 
     - name: Check for C# source code
       id: check-csharp

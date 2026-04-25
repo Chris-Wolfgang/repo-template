@@ -351,7 +351,12 @@ if ($needsDocFxConfig) {
                 $originalContent = $content
                 
                 foreach ($placeholder in $replacements.Keys) {
-                    $content = $content -replace [regex]::Escape($placeholder), $replacements[$placeholder]
+                    $pattern = [regex]::Escape($placeholder)
+                    $content = [regex]::Replace(
+                        $content,
+                        $pattern,
+                        [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $replacements[$placeholder] }
+                    )
                 }
                 
                 if ($content -ne $originalContent) {
@@ -535,7 +540,7 @@ try {
                 } | ConvertTo-Json
                 
                 $tempFile = [System.IO.Path]::GetTempFileName()
-                $pagesConfigUpdate | Out-File -FilePath $tempFile -Encoding UTF8
+                $pagesConfigUpdate | Out-File -FilePath $tempFile -Encoding utf8NoBOM
                 
                 try {
                     $updateOutput = gh api --method PUT "/repos/$Repository/pages" --input $tempFile 2>&1
