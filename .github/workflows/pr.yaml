@@ -402,12 +402,20 @@ jobs:
 
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
         run: |
-          # Find all test projects (C#, VB.NET, F#)
+          # Find all test projects (C#, VB.NET, F#).
+          # Gracefully skip if there is no ./tests directory (e.g. template-publishing
+          # repos or library repos in early development that have no tests yet).
+          # The downstream coverage steps already handle the no-coverage-files case.
+          if [ ! -d ./tests ]; then
+            echo "ℹ️  No ./tests directory — skipping test stage."
+            exit 0
+          fi
+
           mapfile -d '' -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
-          
+
           if [ ${#test_projects[@]} -eq 0 ]; then
-            echo "❌ No test projects found in ./tests directory!"
-            exit 1
+            echo "ℹ️  No test projects found under ./tests — skipping test stage."
+            exit 0
           fi
           
           echo "=========================================="
@@ -674,12 +682,19 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          
+
+          # Gracefully skip if there is no ./tests directory (e.g. template-publishing
+          # repos or library repos in early development that have no tests yet).
+          if (-not (Test-Path -Path './tests' -PathType Container)) {
+            Write-Host "ℹ️  No ./tests directory — skipping test stage."
+            exit 0
+          }
+
           $testProjects = @(Get-ChildItem -Path './tests/*' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj')
-          
+
           if (@($testProjects).Count -eq 0) {
-            Write-Error "❌ No test projects found in ./tests directory!"
-            exit 1
+            Write-Host "ℹ️  No test projects found under ./tests — skipping test stage."
+            exit 0
           }
           
           Write-Host "==========================================" -ForegroundColor Cyan
@@ -1035,15 +1050,22 @@ jobs:
 
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
         run: |
-          # Find all test projects (C#, VB.NET, F#)
+          # Find all test projects (C#, VB.NET, F#).
+          # Gracefully skip if there is no ./tests directory (e.g. template-publishing
+          # repos or library repos in early development that have no tests yet).
+          if [ ! -d ./tests ]; then
+            echo "ℹ️  No ./tests directory — skipping test stage."
+            exit 0
+          fi
+
           test_projects=()
           while IFS= read -r -d '' file; do
           test_projects+=("$file")
-          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)          
-          
+          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
+
           if [ ${#test_projects[@]} -eq 0 ]; then
-            echo "❌ No test projects found in ./tests directory!"
-            exit 1
+            echo "ℹ️  No test projects found under ./tests — skipping test stage."
+            exit 0
           fi
           
           echo "=========================================="
