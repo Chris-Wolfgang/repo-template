@@ -10,7 +10,7 @@
 *.userosscache
 *.sln.docstates
 *.env
-n# Claude Code
+# Claude Code
 .claude/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
