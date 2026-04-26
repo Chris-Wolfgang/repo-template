@@ -77,6 +77,10 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        # Skip for Dependabot — its package-version bumps to protected files (e.g.
+        # Directory.Build.props) are legitimate and should not be overwritten by main's
+        # older versions. Dependabot's identity is GitHub-controlled and not spoofable.
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
@@ -120,6 +124,11 @@ jobs:
           echo "✅ Configuration files secured - using versions from main branch"
       
       - name: Detect protected configuration file changes
+        # Skip for Dependabot — its bumps to protected files (e.g. Directory.Build.props)
+        # are legitimate. The guard's threat model is human PR authors disabling analyzers
+        # in their own PRs; it does not apply to a trusted GitHub-controlled bot whose
+        # only action is package-version updates.
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         run: |
           echo "Checking for changes to protected configuration files in this PR..."
           
@@ -201,6 +210,10 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        # Skip for Dependabot — its package-version bumps to protected files (e.g.
+        # Directory.Build.props) are legitimate and should not be overwritten by main's
+        # older versions. Dependabot's identity is GitHub-controlled and not spoofable.
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
@@ -244,6 +257,10 @@ jobs:
           echo "✅ Configuration files secured - using versions from main branch"
 
       - name: Fetch trusted configuration files from main branch
+        # Skip for Dependabot — its package-version bumps to protected files (e.g.
+        # Directory.Build.props) are legitimate and should not be overwritten by main's
+        # older versions. Dependabot's identity is GitHub-controlled and not spoofable.
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
 
@@ -861,6 +878,10 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        # Skip for Dependabot — its package-version bumps to protected files (e.g.
+        # Directory.Build.props) are legitimate and should not be overwritten by main's
+        # older versions. Dependabot's identity is GitHub-controlled and not spoofable.
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
@@ -904,6 +925,10 @@ jobs:
           echo "✅ Configuration files secured - using versions from main branch"
 
       - name: Fetch trusted configuration files from main branch
+        # Skip for Dependabot — its package-version bumps to protected files (e.g.
+        # Directory.Build.props) are legitimate and should not be overwritten by main's
+        # older versions. Dependabot's identity is GitHub-controlled and not spoofable.
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
 
@@ -1231,6 +1256,10 @@ jobs:
           persist-credentials: false
       
       - name: Fetch trusted configuration files from main branch
+        # Skip for Dependabot — its package-version bumps to protected files (e.g.
+        # Directory.Build.props) are legitimate and should not be overwritten by main's
+        # older versions. Dependabot's identity is GitHub-controlled and not spoofable.
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
@@ -1274,6 +1303,10 @@ jobs:
           echo "✅ Configuration files secured - using versions from main branch"
 
       - name: Fetch trusted configuration files from main branch
+        # Skip for Dependabot — its package-version bumps to protected files (e.g.
+        # Directory.Build.props) are legitimate and should not be overwritten by main's
+        # older versions. Dependabot's identity is GitHub-controlled and not spoofable.
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
 
