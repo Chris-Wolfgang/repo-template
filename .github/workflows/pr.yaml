@@ -690,10 +690,38 @@ jobs:
             10.0.x
 
       - name: Restore dependencies
-        run: dotnet restore
+        # Discover the solution file explicitly rather than relying on dotnet's
+        # implicit cwd resolution. This fixes:
+        #   - MSB1003 ("Specify a project or solution file") in repos whose
+        #     solution lives in a subfolder (e.g. console-app-template's
+        #     src/ConsoleAppTemplate.sln) — bare 'dotnet restore' fails because
+        #     the repo root has no solution.
+        #   - MSB1011 ("Specify which project or solution file to use") in
+        #     repos with multiple solution files at root.
+        # Preference order: .slnx (newer XML-based format) → .sln. Among multiple
+        # candidates of the same extension, pick the alphabetically-first.
+        shell: bash
+        run: |
+          sln=$(git ls-files '*.slnx' | head -1)
+          [ -z "$sln" ] && sln=$(git ls-files '*.sln' | head -1)
+          if [ -n "$sln" ]; then
+            echo "Discovered solution: $sln"
+            dotnet restore "$sln"
+          else
+            echo "ℹ️  No solution file found — falling back to bare 'dotnet restore'."
+            dotnet restore
+          fi
 
       - name: Build solution
-        run: dotnet build --no-restore --configuration Release
+        shell: bash
+        run: |
+          sln=$(git ls-files '*.slnx' | head -1)
+          [ -z "$sln" ] && sln=$(git ls-files '*.sln' | head -1)
+          if [ -n "$sln" ]; then
+            dotnet build "$sln" --no-restore --configuration Release
+          else
+            dotnet build --no-restore --configuration Release
+          fi
 
       - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
