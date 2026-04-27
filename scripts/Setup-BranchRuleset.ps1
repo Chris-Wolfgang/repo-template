@@ -192,13 +192,17 @@ $rulesetConfig = @{
                     @{ context = "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate" },
                     @{ context = "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" },
                     @{ context = "Stage 3: macOS Tests (.NET 6.0-10.0)" },
-                    @{ context = "Security Scan (DevSkim)" }
+                    @{ context = "Security Scan (DevSkim)" },
+                    @{ context = "Security Scan (CodeQL) (csharp)" },
+                    @{ context = "Secrets Scan (gitleaks)" }
                 )
             }
         },
-        # NOTE: code_scanning (CodeQL) is not included in this API-created ruleset because
-        # it requires a CodeQL workflow to be present and have run on the repo. Without prior
-        # analyses, the rule blocks all PRs. Add CodeQL integration separately if needed.
+        # NOTE: the code_scanning *rule type* (which checks the CodeQL alerts dashboard) is not
+        # included because it requires a CodeQL workflow to have run previously on the repo;
+        # without prior analyses it blocks all PRs. The CodeQL job IS required above as a
+        # status check ("Security Scan (CodeQL) (csharp)"), which only requires that the
+        # CodeQL build/analysis succeed on each PR.
         # NOTE: Copilot code review is not included in this API-created payload because
         # it is not currently supported through the rulesets API. After the ruleset is
         # created, enable Copilot code review settings manually in the GitHub repository UI.
@@ -244,6 +248,8 @@ try {
         Write-Host "      - Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" -ForegroundColor DarkGray
         Write-Host "      - Stage 3: macOS Tests (.NET 6.0-10.0)" -ForegroundColor DarkGray
         Write-Host "      - Security Scan (DevSkim)" -ForegroundColor DarkGray
+        Write-Host "      - Security Scan (CodeQL) (csharp)" -ForegroundColor DarkGray
+        Write-Host "      - Secrets Scan (gitleaks)" -ForegroundColor DarkGray
         Write-Host "   ✅ Branches must be up to date before merging" -ForegroundColor Gray
         Write-Host "   ✅ Conversation resolution required before merging" -ForegroundColor Gray
         Write-Host "   ✅ Stale reviews dismissed when new commits are pushed" -ForegroundColor Gray
