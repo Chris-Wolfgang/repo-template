@@ -23,6 +23,60 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Validate release tag matches csproj version
+        shell: pwsh
+        env:
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          # Strip leading 'v' or 'v.' from the tag (v0.3.0 -> 0.3.0, v.0.1.0 -> 0.1.0)
+          $tagName = $env:RELEASE_TAG_NAME
+          $tagVersion = $tagName -replace '^v\.?', ''
+          Write-Host "Release tag:      $tagName" -ForegroundColor Cyan
+          Write-Host "Expected version: $tagVersion" -ForegroundColor Cyan
+          Write-Host ""
+
+          $srcCsprojs = @(Get-ChildItem -Path './src' -Recurse -Filter '*.csproj' -ErrorAction SilentlyContinue)
+          if ($srcCsprojs.Count -eq 0) {
+            Write-Warning "No src csprojs found - skipping version validation"
+            exit 0
+          }
+
+          # Collect <Version> and <PackageVersion> values from every src csproj
+          $found = @()
+          foreach ($proj in $srcCsprojs) {
+            try {
+              [xml]$xml = Get-Content $proj.FullName -Raw
+              $nodes = $xml.SelectNodes('//Version | //PackageVersion')
+              foreach ($node in $nodes) {
+                $v = $node.InnerText.Trim()
+                if ($v) {
+                  $found += [pscustomobject]@{ Project = $proj.Name; Version = $v }
+                }
+              }
+            } catch {
+              Write-Warning "Failed to parse $($proj.Name): $($_.Exception.Message)"
+            }
+          }
+
+          Write-Host "Versions found in src csprojs:" -ForegroundColor Cyan
+          foreach ($f in $found) {
+            Write-Host "  $($f.Project): $($f.Version)" -ForegroundColor DarkGray
+          }
+          Write-Host ""
+
+          if ($found.Count -eq 0) {
+            Write-Error "No <Version> or <PackageVersion> found in any src csproj"
+            exit 1
+          }
+
+          if ($found.Version -contains $tagVersion) {
+            Write-Host "Release tag matches at least one src csproj version" -ForegroundColor Green
+          } else {
+            $allVersions = ($found.Version | Sort-Object -Unique) -join ', '
+            Write-Error "Release tag '$tagName' (version '$tagVersion') does not match any src csproj version. Found: $allVersions. Bump the csproj <Version> or correct the release tag before re-running."
+            exit 1
+          }
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
