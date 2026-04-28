@@ -95,6 +95,8 @@ jobs:
             "BannedSymbols.txt"
             "*.globalconfig"
             "*.ruleset"
+            ".github/workflows/*.yml"
+            ".github/workflows/*.yaml"
           )
           
           # Copy each configuration file from main branch if it exists
@@ -156,11 +158,11 @@ jobs:
             fi
           done
           
-          # Check .globalconfig and .ruleset files using the same git diff approach
+          # Check .globalconfig, .ruleset, and workflow files using the same git diff approach
           # --diff-filter=AMRC: Added, Modified, Renamed, Copied (excludes Deleted)
           while IFS= read -r file; do
             changed_files+=("$file")
-          done < <(git diff --name-only --diff-filter=AMRC main-branch HEAD 2>/dev/null | grep -E '\.(globalconfig|ruleset)$' || true)
+          done < <(git diff --name-only --diff-filter=AMRC main-branch HEAD 2>/dev/null | grep -E '(\.(globalconfig|ruleset)|^\.github/workflows/.*\.ya?ml)$' || true)
           
           if [ ${#changed_files[@]} -gt 0 ]; then
             echo ""
@@ -228,6 +230,8 @@ jobs:
             "BannedSymbols.txt"
             "*.globalconfig"
             "*.ruleset"
+            ".github/workflows/*.yml"
+            ".github/workflows/*.yaml"
           )
           
           # Copy each configuration file from main branch if it exists
@@ -275,6 +279,8 @@ jobs:
             "BannedSymbols.txt"
             "*.globalconfig"
             "*.ruleset"
+            ".github/workflows/*.yml"
+            ".github/workflows/*.yaml"
           )
 
           # Copy each configuration file from main branch if it exists
@@ -615,8 +621,8 @@ jobs:
             }
           }
           
-          # Handle glob patterns for .globalconfig and .ruleset files
-          $globPatterns = @("*.globalconfig", "*.ruleset")
+          # Handle glob patterns for .globalconfig, .ruleset, and workflow files
+          $globPatterns = @("*.globalconfig", "*.ruleset", ".github/workflows/*.yml", ".github/workflows/*.yaml")
           foreach ($pattern in $globPatterns) {
             $files = git ls-tree -r --name-only main-branch | Select-String -Pattern $pattern.Replace("*", ".*")
             foreach ($file in $files) {
@@ -660,8 +666,8 @@ jobs:
             }
           }
 
-          # Handle glob patterns for .globalconfig and .ruleset files
-          $globPatterns = @("*.globalconfig", "*.ruleset")
+          # Handle glob patterns for .globalconfig, .ruleset, and workflow files
+          $globPatterns = @("*.globalconfig", "*.ruleset", ".github/workflows/*.yml", ".github/workflows/*.yaml")
           foreach ($pattern in $globPatterns) {
             $files = git ls-tree -r --name-only main-branch | Select-String -Pattern $pattern.Replace("*", ".*")
             foreach ($file in $files) {
@@ -896,6 +902,8 @@ jobs:
             "BannedSymbols.txt"
             "*.globalconfig"
             "*.ruleset"
+            ".github/workflows/*.yml"
+            ".github/workflows/*.yaml"
           )
           
           # Copy each configuration file from main branch if it exists
@@ -943,6 +951,8 @@ jobs:
             "BannedSymbols.txt"
             "*.globalconfig"
             "*.ruleset"
+            ".github/workflows/*.yml"
+            ".github/workflows/*.yaml"
           )
 
           # Copy each configuration file from main branch if it exists
@@ -1274,6 +1284,8 @@ jobs:
             "BannedSymbols.txt"
             "*.globalconfig"
             "*.ruleset"
+            ".github/workflows/*.yml"
+            ".github/workflows/*.yaml"
           )
           
           # Copy each configuration file from main branch if it exists
@@ -1321,6 +1333,8 @@ jobs:
             "BannedSymbols.txt"
             "*.globalconfig"
             "*.ruleset"
+            ".github/workflows/*.yml"
+            ".github/workflows/*.yaml"
           )
 
           # Copy each configuration file from main branch if it exists
