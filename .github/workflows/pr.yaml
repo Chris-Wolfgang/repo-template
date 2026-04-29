@@ -50,12 +50,26 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Fetch trusted gitleaks config from main
+        # Prevent PR from modifying .gitleaks.toml to bypass the scan
+        run: |
+          git fetch origin main --depth=1
+          git checkout origin/main -- .gitleaks.toml 2>/dev/null || true
+        shell: bash
+
       - name: Run gitleaks
         # gitleaks-action@v2 does not support pull_request_target, so invoke the CLI directly
+        # Pinned to a specific version with SHA256 checksum verification for supply-chain safety
         run: |
           GITLEAKS_VERSION="8.24.0"
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            | tar xz -C /usr/local/bin gitleaks
+          GITLEAKS_SHA256="cb49b7de5ee986510fe8666ca0273a6cc15eb82571f2f14832c9e8920751f3a4"
+          mkdir -p "$HOME/.local/bin"
+          TARBALL="$(mktemp)"
+          curl -sSfL -o "$TARBALL" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  ${TARBALL}" | sha256sum -c - || { echo "Checksum verification failed!"; exit 1; }
+          tar xzf "$TARBALL" -C "$HOME/.local/bin" gitleaks
+          rm -f "$TARBALL"
+          export PATH="$HOME/.local/bin:$PATH"
           gitleaks detect --source . --verbose --redact
         shell: bash
 
