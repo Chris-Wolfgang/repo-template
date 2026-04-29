@@ -495,6 +495,7 @@ jobs:
                 --configuration Release \
                 --framework "$fw" \
                 --collect:"XPlat Code Coverage" \
+                --settings coverlet.runsettings \
                 --results-directory "./TestResults" \
                 --logger "console;verbosity=minimal" || exit 1
             done <<< "$frameworks"
@@ -780,6 +781,7 @@ jobs:
                   --configuration Release `
                   --framework $fw `
                   --collect:"XPlat Code Coverage" `
+                  --settings coverlet.runsettings `
                   --results-directory "./TestResults" `
                   --logger "console;verbosity=normal"
               } else {
@@ -1158,6 +1160,7 @@ jobs:
                 --configuration Release \
                 --framework "$fw" \
                 --collect:"XPlat Code Coverage" \
+                --settings coverlet.runsettings \
                 --results-directory "./TestResults" \
                 --logger "console;verbosity=normal" || exit 1
             done <<< "$frameworks"
