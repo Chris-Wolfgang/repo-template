@@ -48,6 +48,8 @@ dotnet_diagnostic.IDE0005.severity = suggestion   # Remove unnecessary usings
 # Allow var usage - modern C# style
 dotnet_diagnostic.IDE0007.severity = none        # Use var instead of explicit type
 dotnet_diagnostic.IDE0008.severity = none        # Use explicit type instead of var
+# Prefer expression bodies - suppress the suggestion to use block bodies instead
+dotnet_diagnostic.IDE0022.severity = none        # Expression bodies preferred
 
 # CA (Code Analysis) Rules - Set defaults
 dotnet_diagnostic.CA1000.severity = warning
@@ -367,11 +369,12 @@ dotnet_diagnostic.AsyncFixer01.severity = none    # Allow unnecessary async/awai
 dotnet_diagnostic.AsyncFixer02.severity = none    # Allow synchronous blocking in tests
 dotnet_diagnostic.AsyncFixer05.severity = none    # Allow downcasting in tests
 dotnet_diagnostic.IDE0058.severity = none          # Allow unused expression values in tests
-dotnet_diagnostic.VSTHRD103.severity = none       # Allow calling sync methods when async alternatives exist in tests
 dotnet_diagnostic.VSTHRD102.severity = none       # Allow synchronous implementation in tests
+dotnet_diagnostic.VSTHRD103.severity = none       # Allow calling sync methods when async alternatives exist in tests
 dotnet_diagnostic.VSTHRD104.severity = none       # Allow missing async options in tests
 dotnet_diagnostic.VSTHRD107.severity = none       # Allow Task in using without await in tests
 dotnet_diagnostic.VSTHRD114.severity = none       # Allow returning null from Task methods in tests
+dotnet_diagnostic.VSTHRD200.severity = none       # Async suffix not required in test method names
 
 # Banned API Analyzer - Just warn in tests (allow for testing purposes)
 dotnet_diagnostic.RS0030.severity = warning       # Using banned API - warn instead of error in tests
