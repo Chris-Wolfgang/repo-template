@@ -220,6 +220,66 @@ jobs:
             Set-Content -Path 'docfx_project/_site/versions.json' -Encoding utf8NoBOM
           Write-Host "Generated versions.json with $($versions.Count) version(s): $($versions | ForEach-Object { $_.version })"
 
+      - name: Clean up stale root files from gh-pages
+        # Before deploying the latest docs to the site root, remove any pre-existing
+        # root-level files and folders from the gh-pages branch (except the versions/
+        # directory, CNAME, and .nojekyll) so that stale DocFX assets from a previous
+        # build do not linger on the live site.
+        # The versions/ folder is preserved so that all versioned docs remain accessible
+        # while the root is refreshed with the new build.
+        if: inputs.deploy_to_pages != false && inputs.deploy_as_latest != false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $branchExists = git ls-remote --heads origin gh-pages
+          if (-not $branchExists) {
+            Write-Host "ℹ️ gh-pages branch does not exist yet – skipping stale-file cleanup."
+            exit 0
+          }
+
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git remote set-url origin "https://x-access-token:$($env:GITHUB_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git"
+
+          git fetch origin gh-pages
+          # Create a local tracking branch only if it does not already exist
+          git show-ref --verify --quiet refs/heads/gh-pages
+          if ($LASTEXITCODE -ne 0) {
+            git branch gh-pages origin/gh-pages
+          }
+
+          $WORK_DIR = Join-Path $env:RUNNER_TEMP 'gh-pages-clean'
+          # Remove a leftover worktree from a previous failed run, if any
+          git worktree remove "$WORK_DIR" --force 2>&1 | Out-Null
+          if (Test-Path $WORK_DIR) { Remove-Item $WORK_DIR -Recurse -Force }
+          git worktree add "$WORK_DIR" gh-pages
+
+          # Remove all root-level items EXCEPT:
+          #   .git         – Git metadata (worktree pointer file)
+          #   CNAME        – Custom domain config (if present)
+          #   .nojekyll    – Tells GitHub Pages not to run Jekyll
+          #   versions/    – All versioned docs (v1.0.0/, latest/, etc.)
+          Get-ChildItem -Path $WORK_DIR -Force | Where-Object {
+            $_.Name -ne '.git' -and
+            $_.Name -ne 'CNAME' -and
+            $_.Name -ne '.nojekyll' -and
+            $_.Name -ne 'versions'
+          } | Remove-Item -Recurse -Force
+
+          git -C "$WORK_DIR" add -A
+          git -C "$WORK_DIR" diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git -C "$WORK_DIR" commit `
+              -m "chore: clean up stale root DocFX assets before redeploy [skip ci]"
+            git -C "$WORK_DIR" push origin HEAD:gh-pages
+            Write-Host "✅ Stale root files removed from gh-pages."
+          } else {
+            Write-Host "ℹ️ No stale files found in gh-pages root – nothing to clean."
+          }
+
+          git worktree remove "$WORK_DIR" --force
+
       - name: Compute destination directory
         # Determines the versioned subfolder name for the docs deployment (e.g. /v1.2.3/).
         # Uses the explicit 'version' input when provided; otherwise falls back to
