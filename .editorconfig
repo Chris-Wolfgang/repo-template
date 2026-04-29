@@ -387,9 +387,11 @@ dotnet_diagnostic.MA0051.severity = none         # Method length OK in tests
 # SonarAnalyzer - Relax in tests
 dotnet_diagnostic.S1118.severity = none          # Utility class constructors OK in tests
 dotnet_diagnostic.S1135.severity = none          # TODO tags OK in tests
+dotnet_diagnostic.S1144.severity = none          # Unused private members OK in tests (reflection-based POCOs)
 dotnet_diagnostic.S3216.severity = none          # ConfigureAwait not needed in tests
 dotnet_diagnostic.S3776.severity = none          # Complexity OK in tests
 dotnet_diagnostic.S4049.severity = none          # Properties vs methods flexibility in tests
+dotnet_diagnostic.S6966.severity = none          # Async versions not available on all target frameworks
 
 # .NET Analyzer - Relax in tests
 dotnet_diagnostic.CA2007.severity = none         # ConfigureAwait not needed in tests
@@ -425,6 +427,24 @@ dotnet_diagnostic.SA1600.severity = none
 dotnet_diagnostic.SA1601.severity = none
 dotnet_diagnostic.SA1602.severity = none
 
+# Suppress Meziantou, Sonar, and VSTHRD analyzers in benchmarks
+dotnet_diagnostic.MA0002.severity = none
+dotnet_diagnostic.MA0011.severity = none
+dotnet_diagnostic.MA0016.severity = none
+dotnet_diagnostic.MA0021.severity = none
+dotnet_diagnostic.MA0036.severity = none
+dotnet_diagnostic.MA0038.severity = none
+dotnet_diagnostic.MA0040.severity = none
+dotnet_diagnostic.MA0048.severity = none
+dotnet_diagnostic.MA0051.severity = none
+dotnet_diagnostic.MA0053.severity = none
+dotnet_diagnostic.MA0076.severity = none
+dotnet_diagnostic.S1118.severity = none
+dotnet_diagnostic.S1144.severity = none
+dotnet_diagnostic.S3776.severity = none
+dotnet_diagnostic.S6966.severity = none
+dotnet_diagnostic.VSTHRD200.severity = none
+
 # Example projects - relaxed naming, docs encouraged
 [examples/**/*.cs]
 # Allow Example_Method_Names
@@ -439,3 +459,24 @@ dotnet_diagnostic.SA1602.severity = suggestion
 
 # Banned API Analyzer - Allow in examples for demonstration purposes
 dotnet_diagnostic.RS0030.severity = none          # Allow banned APIs in examples for demonstration
+
+# Suppress Meziantou, Sonar, and VSTHRD analyzers in examples
+dotnet_diagnostic.CA2007.severity = none
+dotnet_diagnostic.MA0002.severity = none
+dotnet_diagnostic.MA0004.severity = none
+dotnet_diagnostic.MA0011.severity = none
+dotnet_diagnostic.MA0016.severity = none
+dotnet_diagnostic.MA0021.severity = none
+dotnet_diagnostic.MA0036.severity = none
+dotnet_diagnostic.MA0038.severity = none
+dotnet_diagnostic.MA0040.severity = none
+dotnet_diagnostic.MA0048.severity = none
+dotnet_diagnostic.MA0051.severity = none
+dotnet_diagnostic.MA0053.severity = none
+dotnet_diagnostic.MA0076.severity = none
+dotnet_diagnostic.S1118.severity = none
+dotnet_diagnostic.S1144.severity = none
+dotnet_diagnostic.S3216.severity = none
+dotnet_diagnostic.S3776.severity = none
+dotnet_diagnostic.S6966.severity = none
+dotnet_diagnostic.VSTHRD200.severity = none
