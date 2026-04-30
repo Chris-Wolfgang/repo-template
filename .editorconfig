@@ -376,8 +376,8 @@ dotnet_diagnostic.VSTHRD107.severity = none       # Allow Task in using without 
 dotnet_diagnostic.VSTHRD114.severity = none       # Allow returning null from Task methods in tests
 dotnet_diagnostic.VSTHRD200.severity = none       # Async suffix not required in test method names
 
-# Banned API Analyzer - Just warn in tests (allow for testing purposes)
-dotnet_diagnostic.RS0030.severity = warning       # Using banned API - warn instead of error in tests
+# Banned API Analyzer - Allow in tests (sync I/O and Stream overrides are common in test setup)
+dotnet_diagnostic.RS0030.severity = none          # Allow banned APIs in tests
 
 # Meziantou - Relax in tests
 dotnet_diagnostic.MA0004.severity = none         # ConfigureAwait not needed in tests
@@ -422,8 +422,8 @@ dotnet_diagnostic.MA0004.severity = none          # Meziantou: Use ConfigureAwai
 dotnet_diagnostic.S3216.severity = none           # SonarAnalyzer: ConfigureAwait
 dotnet_diagnostic.CA2007.severity = none          # .NET Analyzer: Use ConfigureAwait
 
-# Banned API Analyzer - Just warn in benchmarks (allow for benchmarking purposes)
-dotnet_diagnostic.RS0030.severity = warning       # Using banned API - warn instead of error in benchmarks
+# Banned API Analyzer - Allow in benchmarks (sync APIs are often the benchmark target)
+dotnet_diagnostic.RS0030.severity = none          # Allow banned APIs in benchmarks
 
 # No documentation required for benchmarks
 dotnet_diagnostic.SA1600.severity = none
