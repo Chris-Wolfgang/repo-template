@@ -254,6 +254,10 @@ dotnet_style_readonly_field = true:suggestion
 csharp_prefer_braces = true:suggestion
 csharp_prefer_simple_using_statement = true:suggestion
 csharp_style_namespace_declarations = file_scoped:suggestion
+csharp_using_directive_placement = outside_namespace:silent
+csharp_style_prefer_method_group_conversion = true:silent
+csharp_style_prefer_primary_constructors = true:suggestion
+csharp_prefer_system_threading_lock = true:suggestion
 
 # var preferences - prefer 'var' usage for modern C# style
 csharp_style_var_when_type_is_apparent = true:silent
@@ -266,7 +270,9 @@ dotnet_style_prefer_conditional_expression_over_assignment = true:silent
 dotnet_style_prefer_conditional_expression_over_return = true:silent
 dotnet_style_prefer_inferred_tuple_names = true:suggestion
 dotnet_style_prefer_inferred_anonymous_type_member_names = true:suggestion
+dotnet_style_prefer_compound_assignment = true:suggestion
 csharp_prefer_simple_default_expression = true:suggestion
+csharp_style_expression_bodied_operators = false:silent
 
 # Pattern matching
 csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
@@ -282,6 +288,7 @@ dotnet_style_null_propagation = true:suggestion
 # Preserve manual line breaks and allow flexible parameter formatting
 csharp_preserve_single_line_statements = false
 csharp_preserve_single_line_blocks = true
+dotnet_style_operator_placement_when_wrapping = beginning_of_line
 
 # Line length guidance (not enforced by dotnet format, but used by some IDEs)
 csharp_max_line_length = 120
