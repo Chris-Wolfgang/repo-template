@@ -87,6 +87,26 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
+    - name: Restore .NET workloads
+      if: steps.check-csharp.outputs.has-csharp == 'true'
+      shell: pwsh
+      run: |
+        # Some projects (MAUI / MauiHybrid / Android / iOS / WPF) declare workloads
+        # via their TFMs (e.g. net10.0-android). Install whatever the solution needs
+        # before restore. For pure libraries this is a fast no-op.
+        $solution = Get-ChildItem -Path . -Recurse -Depth 2 -Include "*.sln", "*.slnx" | Select-Object -First 1
+        if ($solution) {
+          Write-Host "Restoring workloads for $($solution.FullName)"
+          dotnet workload restore $solution.FullName
+        } else {
+          Write-Host "No solution found; restoring workloads for all projects"
+          dotnet workload restore
+        }
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error "dotnet workload restore failed with exit code $LASTEXITCODE"
+          exit $LASTEXITCODE
+        }
+
     - name: Build for CodeQL Analysis
       id: build
       if: steps.check-csharp.outputs.has-csharp == 'true'

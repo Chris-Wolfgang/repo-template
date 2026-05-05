@@ -344,6 +344,12 @@ jobs:
             9.0.x
             10.0.x
 
+      - name: Restore .NET workloads
+        # Some projects (MAUI / MauiHybrid / Android / iOS / WPF) declare workloads via
+        # their TFMs (e.g. net10.0-android). For workload-bearing repos this installs them
+        # before restore; for pure libraries it's a fast no-op.
+        run: dotnet workload restore
+
       - name: Restore and build (exclude .NET Framework-only projects)
         run: |
           echo "Finding .NET project files in repository (via find command)..."
@@ -710,6 +716,12 @@ jobs:
             9.0.x
             10.0.x
 
+      - name: Restore .NET workloads
+        # Some projects (MAUI / MauiHybrid / Android / iOS / WPF) declare workloads via
+        # their TFMs (e.g. net10.0-android). For workload-bearing repos this installs them
+        # before restore; for pure libraries it's a fast no-op.
+        run: dotnet workload restore
+
       - name: Restore dependencies
         run: dotnet restore
 
@@ -1006,6 +1018,12 @@ jobs:
             8.0.x
             9.0.x
             10.0.x
+
+      - name: Restore .NET workloads
+        # Some projects (MAUI / MauiHybrid / Android / iOS / WPF) declare workloads via
+        # their TFMs (e.g. net10.0-android). For workload-bearing repos this installs them
+        # before restore; for pure libraries it's a fast no-op.
+        run: dotnet workload restore
 
       - name: Restore and build (exclude .NET Framework-only projects)
         run: |
