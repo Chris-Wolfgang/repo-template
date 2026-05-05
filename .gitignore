@@ -427,7 +427,7 @@ CoverageReport/
 package-smoke-test/
 nuget-packages/
 
-# DocFX generated files
-docfx_project/_site/
+# DocFX generated files (any depth)
+_site/
 docfx_project/obj/
 
