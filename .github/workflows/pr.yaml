@@ -327,11 +327,13 @@ jobs:
       # repository so APT verifies the package via GPG instead of a plain wget download.
       - name: Install OpenSSL 1.1 for .NET 5.0
         run: |
-          # [trusted=yes] skips GPG signature verification — the focal Ubuntu archive
-          # signing key is not always present on newer GitHub-hosted runners, which
-          # caused the apt source to be silently ignored and 'libssl1.1' to fail with
-          # 'has no installation candidate'. Validated by IComparable-Extensions#69.
-          echo "deb [trusted=yes] https://security.ubuntu.com/ubuntu focal-security main" | sudo tee /etc/apt/sources.list.d/focal-security.list
+          # signed-by= points apt at the Canonical archive keyring that ships on all
+          # GitHub-hosted Ubuntu runners. It contains the same signing key Canonical
+          # uses across releases (focal, jammy, noble), so it can verify focal-security
+          # packages from a non-focal runner without disabling signature checking.
+          # Earlier iteration used [trusted=yes] (skipping verification) as a quick
+          # unblock; this restores end-to-end signature verification.
+          echo "deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://security.ubuntu.com/ubuntu focal-security main" | sudo tee /etc/apt/sources.list.d/focal-security.list
           sudo apt-get update -q
           sudo apt-get install --yes libssl1.1
           sudo rm /etc/apt/sources.list.d/focal-security.list
