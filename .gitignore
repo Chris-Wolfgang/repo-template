@@ -431,3 +431,14 @@ nuget-packages/
 _site/
 docfx_project/obj/
 
+# Reference documentation under docs/ — keep tracked files visible, ignore everything else
+# (e.g., CI/CD-generated artifacts that some repos publish into docs/).
+docs/*
+!docs/.gitkeep
+!docs/LICENSE-SELECTION.md
+!docs/README-FORMATTING.md
+!docs/RELEASE-WORKFLOW-SETUP.md
+!docs/SECURITY.md
+!docs/TEMPLATE-PLACEHOLDERS.md
+!docs/WORKFLOW_SECURITY.md
+
