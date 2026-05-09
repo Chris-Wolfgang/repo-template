@@ -41,8 +41,11 @@ A malicious PR could modify these files to disable security checks.
 - `BannedSymbols.txt` - Banned API usage rules
 - `*.globalconfig` - Global analyzer configuration
 - `*.ruleset` - Code analysis rulesets
+- `.github/workflows/*.yml` and `.github/workflows/*.yaml` - Workflow definitions
 
-**Implementation** (added to all workflow jobs):
+In addition to the overwrite step, a separate "Detect protected configuration file changes" step in `pr.yaml` causes the PR to fail if any of these files differ from `main`, signalling that a maintainer must manually review the change. Dependabot is exempted (its bumps to `Directory.Build.props` are legitimate).
+
+**Implementation** (in jobs that consume project source — e.g. `detect-projects`, the test stages, and the security scans; *not* the `secrets-scan` job, which only fetches `.gitleaks.toml`):
 ```yaml
 - name: Fetch trusted configuration files from main branch
   run: |
@@ -75,7 +78,7 @@ All checkout steps include `persist-credentials: false` to prevent the checkout 
 
 ```yaml
 - name: Checkout code
-  uses: actions/checkout@v4
+  uses: actions/checkout@v6
   with:
     ref: refs/pull/${{ github.event.pull_request.number }}/head
     persist-credentials: false
@@ -104,7 +107,7 @@ This limits the impact if the `GITHUB_TOKEN` is somehow exposed or misused.
 ### Scenario 2: Configuration File Tampering
 **Attack**: PR modifies `.editorconfig` to disable security analyzers
 **Prevention**: Configuration files are fetched from main branch after checkout
-**Status**: ✅ Protected (as of this PR)
+**Status**: ✅ Protected
 
 ### Scenario 3: Credential Theft
 **Attack**: PR contains malicious code that tries to access GitHub credentials
@@ -114,7 +117,7 @@ This limits the impact if the `GITHUB_TOKEN` is somehow exposed or misused.
 ### Scenario 4: Code Analysis Bypass
 **Attack**: PR modifies `BannedSymbols.txt` or `.ruleset` to allow dangerous APIs
 **Prevention**: These files are fetched from main branch after checkout
-**Status**: ✅ Protected (as of this PR)
+**Status**: ✅ Protected
 
 ## Validation
 
@@ -166,9 +169,10 @@ PR #2: New feature
 
 When adding new configuration files that control code quality or security:
 
-1. Add the file name to the `config_files` array in all workflow jobs (detect-projects, test-linux-core, test-windows, test-macos-core, security-scan)
-2. Test that the file is correctly fetched from main branch
-3. Update this documentation
+1. Add the file name to the `config_files` array in every job that runs `Fetch trusted configuration files from main branch` (the project-detection job, each test-stage job, and the security-scan jobs — search `pr.yaml` for that step name to find them all). The `secrets-scan` job does not consume project config files and does not need to be updated.
+2. Add the file path to the "Detect protected configuration file changes" guard in `pr.yaml` so PRs that touch the file fail with a maintainer-review banner.
+3. Test that the file is correctly fetched from main branch.
+4. Update this documentation.
 
 ## References
 
