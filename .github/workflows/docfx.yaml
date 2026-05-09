@@ -225,66 +225,6 @@ jobs:
             Set-Content -Path 'docfx_project/_site/versions.json' -Encoding utf8NoBOM
           Write-Host "Generated versions.json with $($versions.Count) version(s): $($versions | ForEach-Object { $_.version })"
 
-      - name: Clean up stale root files from gh-pages
-        # Before deploying the latest docs to the site root, remove any pre-existing
-        # root-level files and folders from the gh-pages branch (except the versions/
-        # directory, CNAME, and .nojekyll) so that stale DocFX assets from a previous
-        # build do not linger on the live site.
-        # The versions/ folder is preserved so that all versioned docs remain accessible
-        # while the root is refreshed with the new build.
-        if: inputs.deploy_to_pages != false && inputs.deploy_as_latest != false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: pwsh
-        run: |
-          $branchExists = git ls-remote --heads origin gh-pages
-          if (-not $branchExists) {
-            Write-Host "ℹ️ gh-pages branch does not exist yet – skipping stale-file cleanup."
-            exit 0
-          }
-
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-          git remote set-url origin "https://x-access-token:$($env:GITHUB_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git"
-
-          git fetch origin gh-pages
-          # Create a local tracking branch only if it does not already exist
-          git show-ref --verify --quiet refs/heads/gh-pages
-          if ($LASTEXITCODE -ne 0) {
-            git branch gh-pages origin/gh-pages
-          }
-
-          $WORK_DIR = Join-Path $env:RUNNER_TEMP 'gh-pages-clean'
-          # Remove a leftover worktree from a previous failed run, if any
-          git worktree remove "$WORK_DIR" --force 2>&1 | Out-Null
-          if (Test-Path $WORK_DIR) { Remove-Item $WORK_DIR -Recurse -Force }
-          git worktree add "$WORK_DIR" gh-pages
-
-          # Remove all root-level items EXCEPT:
-          #   .git         – Git metadata (worktree pointer file)
-          #   CNAME        – Custom domain config (if present)
-          #   .nojekyll    – Tells GitHub Pages not to run Jekyll
-          #   versions/    – All versioned docs (v1.0.0/, latest/, etc.)
-          Get-ChildItem -Path $WORK_DIR -Force | Where-Object {
-            $_.Name -ne '.git' -and
-            $_.Name -ne 'CNAME' -and
-            $_.Name -ne '.nojekyll' -and
-            $_.Name -ne 'versions'
-          } | Remove-Item -Recurse -Force
-
-          git -C "$WORK_DIR" add -A
-          git -C "$WORK_DIR" diff --cached --quiet
-          if ($LASTEXITCODE -ne 0) {
-            git -C "$WORK_DIR" commit `
-              -m "chore: clean up stale root DocFX assets before redeploy [skip ci]"
-            git -C "$WORK_DIR" push origin HEAD:gh-pages
-            Write-Host "✅ Stale root files removed from gh-pages."
-          } else {
-            Write-Host "ℹ️ No stale files found in gh-pages root – nothing to clean."
-          }
-
-          git worktree remove "$WORK_DIR" --force
-
       - name: Compute destination directory
         # Determines the versioned subfolder name for the docs deployment (e.g. /v1.2.3/).
         # Uses the explicit 'version' input when provided; otherwise falls back to
@@ -333,28 +273,44 @@ jobs:
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
-          git remote set-url origin "https://x-access-token:$($env:GITHUB_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git"
+
+          # Authenticate via http.extraheader rather than embedding the token in
+          # the remote URL. This keeps the token out of `git remote -v` and
+          # error-message output, and avoids writing it into per-repo .git/config.
+          $basicAuth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$($env:GITHUB_TOKEN)"))
+          git config --global http."https://github.com/".extraheader "AUTHORIZATION: basic $basicAuth"
+          git remote set-url origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
 
           $WORK_DIR = Join-Path $env:RUNNER_TEMP 'gh-pages-deploy'
           $siteDir  = Resolve-Path 'docfx_project/_site'
 
-          # Set up gh-pages worktree (or start fresh if the branch does not exist yet)
+          # Set up gh-pages worktree (or start fresh if the branch does not exist yet).
+          # ls-remote can succeed-with-empty-output (branch missing) or fail
+          # (auth/network). Distinguish the two via $LASTEXITCODE so a transient
+          # failure does not silently route into the bootstrap path and clobber
+          # an existing gh-pages branch.
           $branchExists = git ls-remote --heads origin gh-pages
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "git ls-remote --heads origin gh-pages failed with exit code $LASTEXITCODE — aborting before we accidentally bootstrap over an existing gh-pages branch."
+            exit 1
+          }
           $useWorktree = [bool]$branchExists
           if ($useWorktree) {
             git fetch origin gh-pages
             git show-ref --verify --quiet refs/heads/gh-pages
             if ($LASTEXITCODE -ne 0) { git branch gh-pages origin/gh-pages }
             git worktree remove $WORK_DIR --force 2>&1 | Out-Null
-            if (Test-Path $WORK_DIR) { Remove-Item $WORK_DIR -Recurse -Force }
+            if (Test-Path -LiteralPath $WORK_DIR) { Remove-Item -LiteralPath $WORK_DIR -Recurse -Force }
             git worktree add $WORK_DIR gh-pages
           } else {
             Write-Host "ℹ️ gh-pages does not exist yet — starting fresh."
             New-Item -ItemType Directory -Force -Path $WORK_DIR | Out-Null
             # Initialize an empty repo on the gh-pages branch so the later
             # add/commit/push commands have a real git repository to operate on.
+            # Auth is provided by the global http.extraheader configured above,
+            # so the remote URL does not embed the token.
             git -C $WORK_DIR init --initial-branch=gh-pages
-            git -C $WORK_DIR remote add origin "https://x-access-token:$($env:GITHUB_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git"
+            git -C $WORK_DIR remote add origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
           }
 
           # Remove stale root files; preserve versions/, .git, .nojekyll, CNAME
@@ -424,10 +380,19 @@ jobs:
             Write-Host "ℹ️ No documentation changes to deploy."
           }
 
+          # Capture the exit code from the deploy work above so cleanup noise
+          # below cannot mask a real failure. Restore it after cleanup so the
+          # step still fails if the deploy itself failed.
+          $deployExitCode = $LASTEXITCODE
           if ($useWorktree) {
             git worktree remove $WORK_DIR --force 2>&1 | Out-Null
           } else {
-            Remove-Item $WORK_DIR -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $WORK_DIR -Recurse -Force -ErrorAction SilentlyContinue
           }
-          # Reset $LASTEXITCODE so cleanup noise does not fail the step.
-          $global:LASTEXITCODE = 0
+
+          # Unset the http.extraheader we added at the top of this step so the
+          # token (in encoded form) does not linger in the runner's global
+          # git config for any later step in this job.
+          git config --global --unset-all http."https://github.com/".extraheader 2>&1 | Out-Null
+
+          $global:LASTEXITCODE = $deployExitCode
