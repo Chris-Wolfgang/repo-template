@@ -30,25 +30,21 @@ Or check without making changes:
 dotnet format
 ```
 
-### Check Formatting (like CI does)
+### Verify Without Modifying Files
 
 ```bash
 dotnet format --verify-no-changes
 ```
 
+This is useful as a pre-commit guard or in a CI step if the repo opts in to enforcing formatting at PR time. By default, the standard PR workflow does **not** run `dotnet format --verify-no-changes`; formatting is treated as a developer-side hygiene step driven by `.editorconfig` and IDE-on-save behavior.
+
 ## Configuration
 
-Code style rules are defined in `.editorconfig` at the repository root.
+Code style rules are defined in `.editorconfig` at the repository root. `.editorconfig` is the source of truth — anything in this document that conflicts with `.editorconfig` should be considered out of date.
 
-## CI/CD
+## Local Enforcement
 
-Code formatting is enforced locally via `.editorconfig` and `dotnet format`. Run the formatting script before submitting a PR.
-
-### If CI Fails
-
-1. Run `.\scripts\format.ps1` locally
-2. Review the changes
-3. Commit and push the formatted code
+Code formatting is enforced locally via `.editorconfig` and `dotnet format`. Run the formatting script before submitting a PR. If the repo has opted into a CI formatting check, the PR workflow will fail on unformatted code; resolve by running `.\scripts\format.ps1` locally and pushing the resulting changes.
 
 ## IDE Integration
 
@@ -60,9 +56,10 @@ Most IDEs automatically read `.editorconfig`:
 
 ## Formatting Rules
 
-Key style rules:
-- **Indentation**: 4 spaces for C# (with `switch` case contents not additionally indented when inside a block, per `.editorconfig`), 2 for XML/JSON
-- **Braces**: Opening brace on new line
-- **Line endings**: LF (Unix style)
+Authoritative rules live in `.editorconfig` (and `.gitattributes` for line endings, which may override the `.editorconfig` defaults for specific file types — e.g. forcing CRLF on `*.ps1`). The list below is a quick orientation; check those files for the binding values:
+
+- **Indentation**: 4 spaces for C#, 2 for XML/JSON (per `.editorconfig`)
+- **Braces**: Opening brace on its own line
+- **Line endings**: LF for source/docs, with file-type overrides in `.gitattributes` (e.g. CRLF for `*.ps1`)
 - **Trailing whitespace**: Removed
 - **Using directives**: System namespaces first, sorted alphabetically

@@ -1,6 +1,6 @@
 # Release Workflow Setup Guide
 
-This guide explains how to configure the repository after merging the updated `release.yaml` workflow.
+This guide explains how to configure a repository to use the standard `release.yaml` workflow. The same checklist applies whether you are bootstrapping a new repo from `repo-template` or auditing an existing one.
 
 ## Overview
 
@@ -11,9 +11,9 @@ The release workflow triggers when you **publish a GitHub Release** and implemen
 - ✅ Automatically publishes to NuGet.org after validation passes
 - ✅ Eliminates duplicate build work for faster releases
 
-## Required Post-Merge Configuration
+## Required Configuration
 
-After merging this PR, complete the following setup step:
+Complete the following one-time setup so that the workflow can publish releases:
 
 ### Add NuGet API Key Secret
 
@@ -31,9 +31,9 @@ After merging this PR, complete the following setup step:
 
 ### Verify Branch Protection Rules
 
-**Location:** Settings → Branches → main
+**Location:** Settings → Branches → main (or Settings → Rules → Rulesets)
 
-> **Note:** By default, the template is configured for single developer repositories. The branch protection setup script (`scripts/Setup-BranchRuleset.ps1`) includes interactive prompts that allow you to choose between single-developer or multi-developer settings during execution. Simply run the script and select option [1] for single-developer mode (0 approvals) or option [2] for multi-developer mode (1+ approvals and code owner review required).
+> **Note:** Repos created from `repo-template` ship with `scripts/Setup-BranchRuleset.ps1`, which configures branch protection interactively (option `[1]` for single-developer mode, `[2]` for multi-developer mode). The script may not be present in older repos — if it is missing, configure the equivalent settings manually using the checklist below.
 
 Ensure the following settings are enabled:
 
