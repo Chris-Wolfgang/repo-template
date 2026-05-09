@@ -345,6 +345,10 @@ jobs:
           } else {
             Write-Host "ℹ️ gh-pages does not exist yet — starting fresh."
             New-Item -ItemType Directory -Force -Path $WORK_DIR | Out-Null
+            # Initialize an empty repo on the gh-pages branch so the later
+            # add/commit/push commands have a real git repository to operate on.
+            git -C $WORK_DIR init --initial-branch=gh-pages
+            git -C $WORK_DIR remote add origin "https://x-access-token:$($env:GITHUB_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git"
           }
 
           # Remove stale root files; preserve versions/, .git, .nojekyll, CNAME
