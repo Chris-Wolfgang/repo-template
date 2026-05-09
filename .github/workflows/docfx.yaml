@@ -170,8 +170,13 @@ jobs:
             $maxLen = [Math]::Max($aIds.Length, $bIds.Length)
 
             for ($i = 0; $i -lt $maxLen; $i++) {
-              if ($i -ge $aIds.Length) { return -1 } # a has fewer identifiers -> lower precedence
-              if ($i -ge $bIds.Length) { return 1 }  # b has fewer identifiers -> lower precedence
+              # SemVer §11.4.4: fewer prerelease identifiers = lower precedence.
+              # In *descending* order (newest first), the lower-precedence
+              # value sorts AFTER the higher-precedence one, so the comparator
+              # must return positive when 'a' is the shorter (lower-precedence)
+              # one and negative when 'b' is.
+              if ($i -ge $aIds.Length) { return 1 }  # a has fewer identifiers -> lower precedence -> sorts later
+              if ($i -ge $bIds.Length) { return -1 } # b has fewer identifiers -> lower precedence -> sorts later
 
               $aId = $aIds[$i]
               $bId = $bIds[$i]
