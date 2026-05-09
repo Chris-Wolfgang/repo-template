@@ -335,7 +335,8 @@ jobs:
 
           # Set up gh-pages worktree (or start fresh if the branch does not exist yet)
           $branchExists = git ls-remote --heads origin gh-pages
-          if ($branchExists) {
+          $useWorktree = [bool]$branchExists
+          if ($useWorktree) {
             git fetch origin gh-pages
             git show-ref --verify --quiet refs/heads/gh-pages
             if ($LASTEXITCODE -ne 0) { git branch gh-pages origin/gh-pages }
@@ -345,6 +346,10 @@ jobs:
           } else {
             Write-Host "ℹ️ gh-pages does not exist yet — starting fresh."
             New-Item -ItemType Directory -Force -Path $WORK_DIR | Out-Null
+            # Initialize an empty repo on the gh-pages branch so the later
+            # add/commit/push commands have a real git repository to operate on.
+            git -C $WORK_DIR init --initial-branch=gh-pages
+            git -C $WORK_DIR remote add origin "https://x-access-token:$($env:GITHUB_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git"
           }
 
           # Remove stale root files; preserve versions/, .git, .nojekyll, CNAME
@@ -414,4 +419,10 @@ jobs:
             Write-Host "ℹ️ No documentation changes to deploy."
           }
 
-          git worktree remove $WORK_DIR --force 2>&1 | Out-Null
+          if ($useWorktree) {
+            git worktree remove $WORK_DIR --force 2>&1 | Out-Null
+          } else {
+            Remove-Item $WORK_DIR -Recurse -Force -ErrorAction SilentlyContinue
+          }
+          # Reset $LASTEXITCODE so cleanup noise does not fail the step.
+          $global:LASTEXITCODE = 0
