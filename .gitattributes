@@ -15,12 +15,13 @@
 # on checkout). BOM-free UTF-8 encoding is enforced separately by
 # .editorconfig's global `charset = utf-8` — `.gitattributes` can
 # normalize line endings (and control text/binary, diff, and merge
-# behavior) but has no attribute for byte-order marks. LF is required
-# for the
-# `#!/usr/bin/env pwsh` shebang to work on Linux/macOS — the kernel
-# parses CR as part of the interpreter name (looking for `pwsh\r`),
-# and a UTF-8 BOM before `#!` would prevent shebang recognition
-# entirely. Modern PowerShell 7+ handles LF on Windows transparently.
+# behavior) but has no attribute for byte-order marks.
+#
+# LF is required for the `#!/usr/bin/env pwsh` shebang to work on
+# Linux/macOS — the kernel parses CR as part of the interpreter name
+# (looking for `pwsh\r`), and a UTF-8 BOM before `#!` would prevent
+# shebang recognition entirely. Modern PowerShell 7+ handles LF on
+# Windows transparently.
 *.ps1 text eol=lf
 
 
