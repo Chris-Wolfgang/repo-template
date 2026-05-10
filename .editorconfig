@@ -25,14 +25,12 @@ indent_size = 2
 [*.{yml,yaml}]
 indent_size = 2
 
-# PowerShell files
-# Only the indent override is needed; LF + UTF-8 (no BOM) come from the
-# global [*] section above. LF + no-BOM is required for the
-# `#!/usr/bin/env pwsh` shebang at the top of every script in scripts/
-# to work on Linux/macOS — CR breaks the kernel's exec lookup, and a
-# leading BOM prevents shebang recognition entirely.
-[*.ps1]
-indent_size = 4
+# PowerShell scripts inherit LF + UTF-8 (no BOM) + 4-space indent from
+# the global [*] section above — no per-language override is needed.
+# LF + no-BOM is required for the `#!/usr/bin/env pwsh` shebang at the
+# top of every script in scripts/ to work on Linux/macOS — CR breaks
+# the kernel's exec lookup, and a leading BOM prevents shebang
+# recognition entirely.
 
 # C# files
 [*.cs]
