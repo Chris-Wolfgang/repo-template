@@ -9,11 +9,14 @@
 *.fsx text eol=lf
 
 # Scripts
-# PowerShell scripts: CRLF line endings (intentional override)
-# Both .gitattributes and .editorconfig consistently configure PowerShell files
-# to use CRLF (Windows-style) line endings for PowerShell convention compliance.
-# See .editorconfig [*.ps1] section for the matching configuration.
-*.ps1 text eol=crlf
+# PowerShell scripts: LF line endings, no BOM. Required for the
+# `#!/usr/bin/env pwsh` shebang to work on Linux/macOS — the kernel
+# parses CR as part of the interpreter name (looking for `pwsh\r`),
+# and a UTF-8 BOM before `#!` prevents shebang recognition entirely.
+# Modern PowerShell 7+ handles LF on Windows transparently; Git's
+# autocrlf still gives Windows users CRLF in their working tree if
+# desired without forcing CRLF into the index.
+*.ps1 text
 
 
 # Build and configuration files
