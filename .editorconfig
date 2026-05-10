@@ -26,12 +26,12 @@ indent_size = 2
 indent_size = 2
 
 # PowerShell files
-# PowerShell uses CRLF to maintain compatibility with Windows and PowerShell conventions
-# This overrides the global end_of_line = lf setting and aligns with .gitattributes line 14
+# Use LF + no BOM so the `#!/usr/bin/env pwsh` shebang works on Linux/macOS.
+# (CR breaks kernel exec lookup; BOM before `#!` prevents shebang recognition.)
+# Modern PowerShell 7+ handles LF on Windows transparently; users with
+# autocrlf=true still get CRLF in their working tree on checkout.
 [*.ps1]
 indent_size = 4
-end_of_line = crlf
-charset = utf-8-bom
 
 # C# files
 [*.cs]
