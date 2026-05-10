@@ -56,10 +56,10 @@ Most IDEs automatically read `.editorconfig`:
 
 ## Formatting Rules
 
-Authoritative rules live in `.editorconfig` (and `.gitattributes` for line endings, which may override the `.editorconfig` defaults for specific file types — e.g. forcing CRLF on `*.ps1`). The list below is a quick orientation; check those files for the binding values:
+Authoritative rules live in `.editorconfig` (and `.gitattributes` for line endings, which enforces LF across all text file types in this repo — including `*.ps1`, which historically used CRLF but is now LF for cross-platform shebang compatibility). The list below is a quick orientation; check those files for the binding values:
 
 - **Indentation**: 4 spaces for C#, 2 for XML/JSON (per `.editorconfig`)
 - **Braces**: Opening brace on its own line
-- **Line endings**: LF for source/docs, with file-type overrides in `.gitattributes` (e.g. CRLF for `*.ps1`)
+- **Line endings**: LF for all text files (per `.gitattributes`), including PowerShell scripts
 - **Trailing whitespace**: Removed
 - **Using directives**: System namespaces first, sorted alphabetically
