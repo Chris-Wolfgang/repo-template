@@ -274,125 +274,141 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
 
-          # Authenticate via http.extraheader rather than embedding the token in
-          # the remote URL. This keeps the token out of `git remote -v` and
-          # error-message output, and avoids writing it into per-repo .git/config.
-          $basicAuth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$($env:GITHUB_TOKEN)"))
-          git config --global http."https://github.com/".extraheader "AUTHORIZATION: basic $basicAuth"
-          git remote set-url origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
-
           $WORK_DIR = Join-Path $env:RUNNER_TEMP 'gh-pages-deploy'
-          $siteDir  = Resolve-Path 'docfx_project/_site'
+          # Default to $false so the finally block uses the safe (Remove-Item)
+          # cleanup if the try block fails before $useWorktree is assigned.
+          $useWorktree = $false
+          $deployExitCode = 0
 
-          # Set up gh-pages worktree (or start fresh if the branch does not exist yet).
-          # ls-remote can succeed-with-empty-output (branch missing) or fail
-          # (auth/network). Distinguish the two via $LASTEXITCODE so a transient
-          # failure does not silently route into the bootstrap path and clobber
-          # an existing gh-pages branch.
-          $branchExists = git ls-remote --heads origin gh-pages
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "git ls-remote --heads origin gh-pages failed with exit code $LASTEXITCODE — aborting before we accidentally bootstrap over an existing gh-pages branch."
-            exit 1
-          }
-          $useWorktree = [bool]$branchExists
-          if ($useWorktree) {
-            git fetch origin gh-pages
-            git show-ref --verify --quiet refs/heads/gh-pages
-            if ($LASTEXITCODE -ne 0) { git branch gh-pages origin/gh-pages }
-            git worktree remove $WORK_DIR --force 2>&1 | Out-Null
-            if (Test-Path -LiteralPath $WORK_DIR) { Remove-Item -LiteralPath $WORK_DIR -Recurse -Force }
-            git worktree add $WORK_DIR gh-pages
-          } else {
-            Write-Host "ℹ️ gh-pages does not exist yet — starting fresh."
-            New-Item -ItemType Directory -Force -Path $WORK_DIR | Out-Null
-            # Initialize an empty repo on the gh-pages branch so the later
-            # add/commit/push commands have a real git repository to operate on.
-            # Auth is provided by the global http.extraheader configured above,
-            # so the remote URL does not embed the token.
-            git -C $WORK_DIR init --initial-branch=gh-pages
-            git -C $WORK_DIR remote add origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
-          }
+          try {
+            # Authenticate via http.extraheader rather than embedding the token in
+            # the remote URL. This keeps the token out of `git remote -v` and
+            # error-message output, and avoids writing it into per-repo .git/config.
+            # The finally block ALWAYS unsets this so an early `exit` (e.g. failed
+            # ls-remote, missing template) cannot leave the token in the runner's
+            # global git config for subsequent steps.
+            $basicAuth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$($env:GITHUB_TOKEN)"))
+            git config --global http."https://github.com/".extraheader "AUTHORIZATION: basic $basicAuth"
+            git remote set-url origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
 
-          # Remove stale root files; preserve versions/, .git, .nojekyll, CNAME
-          Get-ChildItem -Path $WORK_DIR -Force | Where-Object {
-            $_.Name -notin @('.git', 'CNAME', '.nojekyll', 'versions')
-          } | Remove-Item -Recurse -Force
+            $siteDir = Resolve-Path 'docfx_project/_site'
 
-          # Ensure .nojekyll exists so GitHub Pages does not run Jekyll
-          New-Item -ItemType File -Path (Join-Path $WORK_DIR '.nojekyll') -Force | Out-Null
-
-          # Deploy versioned docs (real DocFX index.html — before version picker overwrites it)
-          $versionedDir = Join-Path $WORK_DIR "versions/$($env:VERSION_DIR)"
-          New-Item -ItemType Directory -Force -Path $versionedDir | Out-Null
-          Copy-Item -Path "$siteDir/*" -Destination $versionedDir -Recurse -Force
-          Write-Host "✅ Copied docs to versions/$($env:VERSION_DIR)/"
-
-          if ($env:DEPLOY_AS_LATEST -eq 'true') {
-            # Deploy to versions/latest/ (real DocFX index.html)
-            $latestDir = Join-Path $WORK_DIR 'versions/latest'
-            New-Item -ItemType Directory -Force -Path $latestDir | Out-Null
-            Copy-Item -Path "$siteDir/*" -Destination $latestDir -Recurse -Force
-            Write-Host "✅ Copied docs to versions/latest/"
-
-            # Generate version-picker index.html and overwrite _site/index.html.
-            # This happens AFTER the versioned copies above, so those directories
-            # retain the real DocFX landing page while the root gets the picker.
-            $repoName = ($env:GITHUB_REPOSITORY -split '/')[-1]
-            $title    = if ($repoName) { "$repoName Documentation" } else { "Documentation" }
-            $versions = Get-Content "$siteDir/versions.json" -Raw | ConvertFrom-Json
-
-            $listItems = foreach ($v in $versions) {
-              $liClass = if ($v.version -eq 'latest') { ' class="latest"' } else { '' }
-              $label   = if ($v.version -eq 'latest') { 'latest (stable)' } else { $v.version }
-              "      <li${liClass}><a href=`"$($v.url)`">$label</a></li>"
-            }
-            $listHtml = $listItems -join "`n"
-
-            if (-not (Test-Path '.github/version-picker-template.html')) {
-              Write-Error "Error: .github/version-picker-template.html not found; cannot generate root index.html."
+            # Set up gh-pages worktree (or start fresh if the branch does not exist yet).
+            # ls-remote can succeed-with-empty-output (branch missing) or fail
+            # (auth/network). Distinguish the two via $LASTEXITCODE so a transient
+            # failure does not silently route into the bootstrap path and clobber
+            # an existing gh-pages branch.
+            $branchExists = git ls-remote --heads origin gh-pages
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "git ls-remote --heads origin gh-pages failed with exit code $LASTEXITCODE — aborting before we accidentally bootstrap over an existing gh-pages branch."
               exit 1
             }
-
-            $template = Get-Content '.github/version-picker-template.html' -Raw
-            $html = $template -replace '\{\{TITLE\}\}', $title `
-                              -replace '\{\{VERSION_LIST\}\}', $listHtml
-            $html | Set-Content -Path "$siteDir/index.html" -Encoding utf8NoBOM
-            Write-Host "Generated version-picker index.html with $($versions.Count) version link(s)."
-
-            # Deploy version picker + shared assets to site root
-            Copy-Item -Path "$siteDir/*" -Destination $WORK_DIR -Recurse -Force
-            Write-Host "✅ Copied version picker to site root"
-          }
-
-          # Single commit and push
-          git -C $WORK_DIR add -A
-          git -C $WORK_DIR diff --cached --quiet
-          if ($LASTEXITCODE -ne 0) {
-            $msg = if ($env:DEPLOY_AS_LATEST -eq 'true') {
-              "docs: deploy $($env:VERSION_DIR) and update latest"
+            $useWorktree = [bool]$branchExists
+            if ($useWorktree) {
+              git fetch origin gh-pages
+              git show-ref --verify --quiet refs/heads/gh-pages
+              if ($LASTEXITCODE -ne 0) { git branch gh-pages origin/gh-pages }
+              git worktree remove $WORK_DIR --force 2>&1 | Out-Null
+              if (Test-Path -LiteralPath $WORK_DIR) { Remove-Item -LiteralPath $WORK_DIR -Recurse -Force }
+              git worktree add $WORK_DIR gh-pages
             } else {
-              "docs: deploy $($env:VERSION_DIR)"
+              Write-Host "ℹ️ gh-pages does not exist yet — starting fresh."
+              New-Item -ItemType Directory -Force -Path $WORK_DIR | Out-Null
+              # Initialize an empty repo on the gh-pages branch so the later
+              # add/commit/push commands have a real git repository to operate on.
+              # Auth is provided by the global http.extraheader configured above,
+              # so the remote URL does not embed the token.
+              git -C $WORK_DIR init --initial-branch=gh-pages
+              git -C $WORK_DIR remote add origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
             }
-            git -C $WORK_DIR commit -m $msg
-            git -C $WORK_DIR push origin HEAD:gh-pages
-            Write-Host "✅ Documentation deployed in a single commit."
-          } else {
-            Write-Host "ℹ️ No documentation changes to deploy."
+
+            # Remove stale root files; preserve versions/, .git, .nojekyll, CNAME
+            Get-ChildItem -Path $WORK_DIR -Force | Where-Object {
+              $_.Name -notin @('.git', 'CNAME', '.nojekyll', 'versions')
+            } | Remove-Item -Recurse -Force
+
+            # Ensure .nojekyll exists so GitHub Pages does not run Jekyll
+            New-Item -ItemType File -Path (Join-Path $WORK_DIR '.nojekyll') -Force | Out-Null
+
+            # Deploy versioned docs (real DocFX index.html — before version picker overwrites it)
+            $versionedDir = Join-Path $WORK_DIR "versions/$($env:VERSION_DIR)"
+            New-Item -ItemType Directory -Force -Path $versionedDir | Out-Null
+            Copy-Item -Path "$siteDir/*" -Destination $versionedDir -Recurse -Force
+            Write-Host "✅ Copied docs to versions/$($env:VERSION_DIR)/"
+
+            if ($env:DEPLOY_AS_LATEST -eq 'true') {
+              # Deploy to versions/latest/ (real DocFX index.html)
+              $latestDir = Join-Path $WORK_DIR 'versions/latest'
+              New-Item -ItemType Directory -Force -Path $latestDir | Out-Null
+              Copy-Item -Path "$siteDir/*" -Destination $latestDir -Recurse -Force
+              Write-Host "✅ Copied docs to versions/latest/"
+
+              # Generate version-picker index.html and overwrite _site/index.html.
+              # This happens AFTER the versioned copies above, so those directories
+              # retain the real DocFX landing page while the root gets the picker.
+              $repoName = ($env:GITHUB_REPOSITORY -split '/')[-1]
+              $title    = if ($repoName) { "$repoName Documentation" } else { "Documentation" }
+              $versions = Get-Content "$siteDir/versions.json" -Raw | ConvertFrom-Json
+
+              $listItems = foreach ($v in $versions) {
+                $liClass = if ($v.version -eq 'latest') { ' class="latest"' } else { '' }
+                $label   = if ($v.version -eq 'latest') { 'latest (stable)' } else { $v.version }
+                "      <li${liClass}><a href=`"$($v.url)`">$label</a></li>"
+              }
+              $listHtml = $listItems -join "`n"
+
+              if (-not (Test-Path '.github/version-picker-template.html')) {
+                Write-Error "Error: .github/version-picker-template.html not found; cannot generate root index.html."
+                exit 1
+              }
+
+              $template = Get-Content '.github/version-picker-template.html' -Raw
+              $html = $template -replace '\{\{TITLE\}\}', $title `
+                                -replace '\{\{VERSION_LIST\}\}', $listHtml
+              $html | Set-Content -Path "$siteDir/index.html" -Encoding utf8NoBOM
+              Write-Host "Generated version-picker index.html with $($versions.Count) version link(s)."
+
+              # Deploy version picker + shared assets to site root
+              Copy-Item -Path "$siteDir/*" -Destination $WORK_DIR -Recurse -Force
+              Write-Host "✅ Copied version picker to site root"
+            }
+
+            # Single commit and push
+            git -C $WORK_DIR add -A
+            git -C $WORK_DIR diff --cached --quiet
+            if ($LASTEXITCODE -ne 0) {
+              $msg = if ($env:DEPLOY_AS_LATEST -eq 'true') {
+                "docs: deploy $($env:VERSION_DIR) and update latest"
+              } else {
+                "docs: deploy $($env:VERSION_DIR)"
+              }
+              git -C $WORK_DIR commit -m $msg
+              git -C $WORK_DIR push origin HEAD:gh-pages
+              Write-Host "✅ Documentation deployed in a single commit."
+            } else {
+              Write-Host "ℹ️ No documentation changes to deploy."
+            }
+
+            # Capture the deploy outcome before the finally block runs cleanup
+            # (which might overwrite $LASTEXITCODE with a benign value).
+            $deployExitCode = $LASTEXITCODE
+          }
+          finally {
+            if ($useWorktree) {
+              git worktree remove $WORK_DIR --force 2>&1 | Out-Null
+            } elseif (Test-Path -LiteralPath $WORK_DIR) {
+              Remove-Item -LiteralPath $WORK_DIR -Recurse -Force -ErrorAction SilentlyContinue
+            }
+
+            # ALWAYS unset the http.extraheader so the token (in encoded form)
+            # does not linger in the runner's global git config for any later
+            # step in this job, even if the try block hit an early `exit`.
+            git config --global --unset-all http."https://github.com/".extraheader 2>&1 | Out-Null
           }
 
-          # Capture the exit code from the deploy work above so cleanup noise
-          # below cannot mask a real failure. Restore it after cleanup so the
-          # step still fails if the deploy itself failed.
-          $deployExitCode = $LASTEXITCODE
-          if ($useWorktree) {
-            git worktree remove $WORK_DIR --force 2>&1 | Out-Null
-          } else {
-            Remove-Item -LiteralPath $WORK_DIR -Recurse -Force -ErrorAction SilentlyContinue
+          # PowerShell will not propagate $LASTEXITCODE from a script block as
+          # the step's exit code reliably; explicitly `exit` so a failed
+          # commit/push fails the workflow step.
+          if ($deployExitCode -ne 0) {
+            exit $deployExitCode
           }
-
-          # Unset the http.extraheader we added at the top of this step so the
-          # token (in encoded form) does not linger in the runner's global
-          # git config for any later step in this job.
-          git config --global --unset-all http."https://github.com/".extraheader 2>&1 | Out-Null
-
-          $global:LASTEXITCODE = $deployExitCode
