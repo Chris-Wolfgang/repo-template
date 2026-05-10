@@ -16,7 +16,7 @@
 # Modern PowerShell 7+ handles LF on Windows transparently; Git's
 # autocrlf still gives Windows users CRLF in their working tree if
 # desired without forcing CRLF into the index.
-*.ps1 text
+*.ps1 text eol=lf
 
 
 # Build and configuration files
