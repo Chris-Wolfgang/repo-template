@@ -1,3 +1,4 @@
+#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
     Creates a branch protection ruleset for the main branch in the current repository.

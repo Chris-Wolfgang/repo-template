@@ -1,3 +1,4 @@
+#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
     Fixes branch rulesets by disabling existing ones and recreating with the correct configuration.
