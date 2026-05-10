@@ -430,4 +430,10 @@ nuget-packages/
 # DocFX generated files (any depth)
 _site/
 docfx_project/obj/
+# Auto-generated API metadata: `docfx metadata` writes <Type>.yml and toc.yml
+# under docfx_project/api/ for every public type extracted from src/. Keep
+# these out of the repo so a careless `git add -A` after running docfx
+# metadata locally doesn't commit generated files. The hand-written
+# index.md and README.md in api/ are intentionally tracked.
+docfx_project/api/*.yml
 
