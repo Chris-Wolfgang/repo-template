@@ -42,9 +42,6 @@
     - Write access with "Administration" permission enabled
     
     These permissions are necessary to create and modify repository rulesets.
-    
-    Note: Copilot code review is not supported through the rulesets API and must be
-    enabled manually in the GitHub repository UI after running this script.
 #>
 
 [CmdletBinding()]
@@ -284,10 +281,11 @@ try {
         Write-Host "   ✅ Branches must be up to date before merging" -ForegroundColor Gray
         Write-Host "   ✅ Conversation resolution required before merging" -ForegroundColor Gray
         Write-Host "   ✅ Stale reviews dismissed when new commits are pushed" -ForegroundColor Gray
-        Write-Host "   ⚠️  Copilot code review: enable manually in repository settings" -ForegroundColor Yellow
-        Write-Host "      (Not yet supported through the rulesets API)" -ForegroundColor DarkGray
         Write-Host "   ✅ Force pushes blocked on $BranchName branch" -ForegroundColor Gray
         Write-Host "   ✅ Branch deletion prevented for $BranchName" -ForegroundColor Gray
+        Write-Host "   ✅ Code scanning: CodeQL alerts gate (errors / high+)" -ForegroundColor Gray
+        Write-Host "   ✅ Copilot code review: auto-requested on every PR (incl. drafts, on push)" -ForegroundColor Gray
+        Write-Host "   ✅ Code quality gate: blocks on analyzer / formatter errors" -ForegroundColor Gray
         Write-Host "   ✅ No bypass allowed - all users must follow these rules" -ForegroundColor Gray
         
         Write-Host "`n🔗 View ruleset at:" -ForegroundColor Cyan
