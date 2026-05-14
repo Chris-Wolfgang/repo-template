@@ -42,9 +42,6 @@
     - Write access with "Administration" permission enabled
     
     These permissions are necessary to create and modify repository rulesets.
-    
-    Note: Copilot code review is not supported through the rulesets API and must be
-    enabled manually in the GitHub repository UI after running this script.
 #>
 
 [CmdletBinding()]
@@ -200,19 +197,47 @@ $rulesetConfig = @{
                 )
             }
         },
-        # NOTE: the code_scanning *rule type* (which checks the CodeQL alerts dashboard) is not
-        # included because it requires a CodeQL workflow to have run previously on the repo;
-        # without prior analyses it blocks all PRs. The CodeQL job IS required above as a
-        # status check ("Security Scan (CodeQL) (csharp)"), which only requires that the
-        # CodeQL build/analysis succeed on each PR.
-        # NOTE: Copilot code review is not included in this API-created payload because
-        # it is not currently supported through the rulesets API. After the ruleset is
-        # created, enable Copilot code review settings manually in the GitHub repository UI.
         @{
             type = "non_fast_forward"
         },
         @{
             type = "deletion"
+        },
+        # The CodeQL alerts-dashboard gate. Only blocks merges when the alerts
+        # threshold is exceeded; the underlying CodeQL workflow already runs as
+        # a required status check above, so this is the second-tier "results"
+        # gate. Activate it only AFTER the CodeQL workflow has completed at
+        # least one successful run — without prior analyses it blocks all PRs.
+        @{
+            type = "code_scanning"
+            parameters = @{
+                code_scanning_tools = @(
+                    @{
+                        alerts_threshold          = "errors"
+                        security_alerts_threshold = "high_or_higher"
+                        tool                      = "CodeQL"
+                    }
+                )
+            }
+        },
+        # Auto-request a Copilot review on every PR, including drafts and on
+        # subsequent pushes. The rulesets API now supports this rule type
+        # (earlier versions of this script left the toggle to the UI).
+        @{
+            type = "copilot_code_review"
+            parameters = @{
+                review_draft_pull_requests = $true
+                review_on_push             = $true
+            }
+        },
+        # Block merges when the code-quality check (analyzer / formatter) emits
+        # errors. Severity matches the canonical libraries (errors only — warnings
+        # don't block, the build itself already promotes them in Release mode).
+        @{
+            type = "code_quality"
+            parameters = @{
+                severity = "errors"
+            }
         }
     )
 }
@@ -256,10 +281,11 @@ try {
         Write-Host "   ✅ Branches must be up to date before merging" -ForegroundColor Gray
         Write-Host "   ✅ Conversation resolution required before merging" -ForegroundColor Gray
         Write-Host "   ✅ Stale reviews dismissed when new commits are pushed" -ForegroundColor Gray
-        Write-Host "   ⚠️  Copilot code review: enable manually in repository settings" -ForegroundColor Yellow
-        Write-Host "      (Not yet supported through the rulesets API)" -ForegroundColor DarkGray
         Write-Host "   ✅ Force pushes blocked on $BranchName branch" -ForegroundColor Gray
         Write-Host "   ✅ Branch deletion prevented for $BranchName" -ForegroundColor Gray
+        Write-Host "   ✅ Code scanning: CodeQL alerts gate (errors / high+)" -ForegroundColor Gray
+        Write-Host "   ✅ Copilot code review: auto-requested on every PR (incl. drafts, on push)" -ForegroundColor Gray
+        Write-Host "   ✅ Code quality gate: blocks on analyzer / formatter errors" -ForegroundColor Gray
         Write-Host "   ✅ No bypass allowed - all users must follow these rules" -ForegroundColor Gray
         
         Write-Host "`n🔗 View ruleset at:" -ForegroundColor Cyan
