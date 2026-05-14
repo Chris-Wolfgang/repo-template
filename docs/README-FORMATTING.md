@@ -4,7 +4,7 @@ This repository uses `dotnet format` to enforce consistent C# code style.
 
 ## Prerequisites
 
-The `dotnet format` command is **built into the .NET SDK** starting with .NET 6 and later. Any .NET 6+ SDK on PATH is sufficient to run formatting — no separate tool installation is needed. See the workflow files and root `README.md` for the full set of SDKs used to build and test this project's target frameworks.
+The `dotnet format` command is **built into the .NET SDK** starting with .NET 6 — no separate tool installation is needed. In practice `dotnet format` still has to load and evaluate the project, so you need an SDK new enough to handle this repo's target frameworks: use the SDK version(s) installed by `.github/workflows/pr.yaml` (and `global.json` if present). The latest stable .NET SDK is generally a safe choice.
 
 > **Note:** The standalone `dotnet-format` global tool was deprecated when `dotnet format` was integrated into the .NET 6 SDK in August 2021.
 
