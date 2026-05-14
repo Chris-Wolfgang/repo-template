@@ -62,6 +62,8 @@ In addition to the overwrite step, a separate "Detect protected configuration fi
       "BannedSymbols.txt"
       "*.globalconfig"
       "*.ruleset"
+      ".github/workflows/*.yml"
+      ".github/workflows/*.yaml"
     )
     
     # Copy each configuration file from main branch if it exists

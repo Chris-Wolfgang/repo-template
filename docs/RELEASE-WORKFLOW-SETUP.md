@@ -212,7 +212,7 @@ Before creating a production GitHub Release (e.g., `v1.0.0`):
 
 If you encounter issues not covered in this guide:
 
-1. Check the [Actions tab](../../actions) for detailed logs
+1. Check the Actions tab of this repository on GitHub for detailed logs
 2. Review artifacts uploaded by failed jobs
 3. Consult the [GitHub Actions documentation](https://docs.github.com/en/actions)
 4. Open an issue in this repository with:
