@@ -322,9 +322,11 @@ jobs:
               git -C $WORK_DIR remote add origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
             }
 
-            # Remove stale root files; preserve versions/, .git, .nojekyll, CNAME
+            # Remove stale root files; preserve versions/, .git, .nojekyll, CNAME, dev
+            # ('dev' is where benchmark-action/github-action-benchmark stores its
+            # chart + accumulated data.js — wiping it loses chart history on every release.)
             Get-ChildItem -Path $WORK_DIR -Force | Where-Object {
-              $_.Name -notin @('.git', 'CNAME', '.nojekyll', 'versions')
+              $_.Name -notin @('.git', 'CNAME', '.nojekyll', 'versions', 'dev')
             } | Remove-Item -Recurse -Force
 
             # Ensure .nojekyll exists so GitHub Pages does not run Jekyll
