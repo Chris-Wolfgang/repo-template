@@ -139,7 +139,7 @@ The Quality framework tracks ongoing, non-feature improvement work — security 
 After running `Setup-Labels.ps1`, run:
 
 ```powershell
-pwsh -File ./scripts/Setup-QualityRoadmap.ps1 -QualityProjectUrl 'https://github.com/users/Chris-Wolfgang/projects/N'
+pwsh -File ./scripts/Setup-Quality.ps1 -QualityProjectUrl 'https://github.com/users/Chris-Wolfgang/projects/N'
 ```
 
 Substitute the actual Quality project URL — ask the repo owner if you don't have it. The script is idempotent: running it twice will not duplicate the parent issue.

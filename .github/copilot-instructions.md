@@ -193,7 +193,7 @@ This produces a paper trail that ties findings → tracked work → PRs, and rol
 
 When a new repo is created from this template:
 1. Run `scripts/Setup-Labels.ps1` to provision the 9 Quality labels.
-2. Run `scripts/Setup-QualityRoadmap.ps1 -QualityProjectUrl '<url>'` to create the parent Quality issue. (Pass the cross-repo project URL — ask the user if you don't have it.)
+2. Run `scripts/Setup-Quality.ps1 -QualityProjectUrl '<url>'` to create the parent Quality issue. (Pass the cross-repo project URL — ask the user if you don't have it.)
 3. The auto-add workflow in the Quality project will pick up new `quality-task` sub-issues automatically.
 
 ## Agent Guidelines

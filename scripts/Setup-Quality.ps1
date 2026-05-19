@@ -24,11 +24,11 @@
     https://github.com/users/Chris-Wolfgang/projects/N). Substituted into the issue body.
 
 .EXAMPLE
-    .\Setup-QualityRoadmap.ps1 -QualityProjectUrl 'https://github.com/users/Chris-Wolfgang/projects/5'
+    .\Setup-Quality.ps1 -QualityProjectUrl 'https://github.com/users/Chris-Wolfgang/projects/5'
     Creates the parent Quality issue for the current repository.
 
 .EXAMPLE
-    .\Setup-QualityRoadmap.ps1 -Repository 'Chris-Wolfgang/my-repo' -QualityProjectUrl 'https://github.com/users/Chris-Wolfgang/projects/5'
+    .\Setup-Quality.ps1 -Repository 'Chris-Wolfgang/my-repo' -QualityProjectUrl 'https://github.com/users/Chris-Wolfgang/projects/5'
     Creates the parent Quality issue for a specific repository.
 
 .NOTES
