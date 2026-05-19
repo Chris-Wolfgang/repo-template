@@ -97,6 +97,7 @@ fi
 echo ""
 echo "3. Validating versions.json..."
 
+STEP3_OK=0
 if [ -f "$WORK_DIR/versions.json" ]; then
   if python3 - "$WORK_DIR/versions.json" <<'PYEOF'
 import json, sys
@@ -113,9 +114,17 @@ if not isinstance(data, list):
     print("  ❌ versions.json must be a JSON array")
     sys.exit(1)
 
-for entry in data:
-    if "version" not in entry or "url" not in entry:
-        print(f"  ❌ Entry is missing 'version' or 'url': {entry}")
+for i, entry in enumerate(data):
+    if not isinstance(entry, dict):
+        print(f"  ❌ Entry [{i}] is not a JSON object: {entry!r}")
+        sys.exit(1)
+    version = entry.get("version")
+    url = entry.get("url")
+    if not isinstance(version, str) or not version:
+        print(f"  ❌ Entry [{i}] has missing or non-string 'version': {entry!r}")
+        sys.exit(1)
+    if not isinstance(url, str) or not url:
+        print(f"  ❌ Entry [{i}] has missing or non-string 'url': {entry!r}")
         sys.exit(1)
 
 print(f"  ✅ versions.json is valid ({len(data)} version(s))")
@@ -124,6 +133,7 @@ for v in data:
 PYEOF
   then
     PASS=$((PASS + 1))
+    STEP3_OK=1
   else
     FAIL=$((FAIL + 1))
   fi
@@ -145,7 +155,9 @@ REPO_NAME=$(git remote get-url origin 2>/dev/null \
   | sed -E 's|.*[/:]([^/]+?)(\.git)?$|\1|' \
   || echo "")
 
-if [ -f "$WORK_DIR/versions.json" ]; then
+if [ "$STEP3_OK" -ne 1 ]; then
+  echo "  ⏭️  Skipped — versions.json failed validation in step 3"
+elif [ -f "$WORK_DIR/versions.json" ]; then
   FOLDER_CHECK_RESULT=0
   python3 - "$WORK_DIR" "$REPO_NAME" <<'PYEOF' || FOLDER_CHECK_RESULT=1
 import json, os, sys
