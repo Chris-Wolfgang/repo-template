@@ -1016,7 +1016,14 @@ function Start-Setup {
     Write-Host ""
     Write-Host "1. Configure branch protection (see REPO-INSTRUCTIONS.md if kept)" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "2. Start developing!" -ForegroundColor Yellow
+    Write-Host "2. Provision custom labels (includes the Quality framework labels)" -ForegroundColor Yellow
+    Write-Host "   pwsh ./scripts/Setup-Labels.ps1" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "3. Create the parent Quality issue for this repo" -ForegroundColor Yellow
+    Write-Host "   pwsh ./scripts/Setup-QualityRoadmap.ps1 -QualityProjectUrl '<url>'" -ForegroundColor Gray
+    Write-Host "   # The cross-repo Quality project URL — ask for it or check repo-template's README" -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "4. Start developing!" -ForegroundColor Yellow
     if ($solutionName) {
         Write-Host "   # Solution file created: $solutionName.slnx" -ForegroundColor Gray
         Write-Host "   # Add your projects to src/ and tests/" -ForegroundColor Gray
