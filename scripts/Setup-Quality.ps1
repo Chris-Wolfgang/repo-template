@@ -83,15 +83,17 @@ if (-not $Repository) {
 $repoName = ($Repository -split '/')[-1]
 $issueTitle = "Quality: $repoName"
 
-# Idempotency: check if a parent Quality issue already exists
+# Idempotency: check if a parent Quality issue already exists.
+# Limit is large (1000) so accidental over-use of the `quality` label can't cause
+# the check to miss the actual parent and create a duplicate. After fetching,
+# filter to exact title match.
 Write-Host "`n🔍 Checking for existing parent Quality issue..." -ForegroundColor Cyan
 $existing = gh issue list `
     --repo $Repository `
     --label 'quality' `
     --state all `
-    --search "in:title `"Quality: $repoName`"" `
     --json number,title,state `
-    --limit 5 2>&1
+    --limit 1000 2>&1
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "❌ Failed to query existing issues. Verify the 'quality' label exists in $Repository (run Setup-Labels.ps1 first)."
@@ -123,8 +125,10 @@ $body = Get-Content -Path $templatePath -Raw
 $body = $body -replace '\{\{QUALITY_PROJECT_URL\}\}', $QualityProjectUrl
 $body = $body -replace '\{\{REPO_NAME\}\}', $repoName
 
-# Write body to a temp file to avoid command-line length / quoting issues
-$bodyFile = Join-Path $env:TEMP "quality-parent-body-$([guid]::NewGuid()).md"
+# Write body to a temp file to avoid command-line length / quoting issues.
+# Use [IO.Path]::GetTempPath() so this works on Linux/macOS (where $env:TEMP
+# can be unset) as well as Windows.
+$bodyFile = Join-Path ([IO.Path]::GetTempPath()) "quality-parent-body-$([guid]::NewGuid()).md"
 Set-Content -Path $bodyFile -Value $body -Encoding utf8NoBOM
 
 try {
