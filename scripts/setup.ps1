@@ -1021,7 +1021,7 @@ function Start-Setup {
     Write-Host ""
     Write-Host "3. Create the parent Quality issue for this repo" -ForegroundColor Yellow
     Write-Host "   pwsh ./scripts/Setup-Quality.ps1 -QualityProjectUrl '<url>'" -ForegroundColor Gray
-    Write-Host "   # The cross-repo Quality project URL — ask for it or check repo-template's README" -ForegroundColor DarkGray
+    Write-Host "   # The cross-repo Quality project URL — ask the repo owner if you don't have it" -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "4. Start developing!" -ForegroundColor Yellow
     if ($solutionName) {
