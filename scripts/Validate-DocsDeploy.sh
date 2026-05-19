@@ -31,7 +31,14 @@ echo ""
 # 1. Verify the gh-pages branch exists on the remote
 # ------------------------------------------------------------------
 echo "1. Checking gh-pages branch..."
-if ! git ls-remote --heads origin gh-pages | grep -q gh-pages; then
+if ! ls_remote_output=$(git ls-remote --heads origin gh-pages 2>&1); then
+  check_fail "Could not query 'origin' for the gh-pages branch — \`git ls-remote\` exited non-zero"
+  echo "    $ls_remote_output"
+  echo ""
+  echo "Total: $PASS passed, $FAIL failed"
+  exit 1
+fi
+if ! echo "$ls_remote_output" | grep -q gh-pages; then
   check_fail "gh-pages branch does not exist on remote"
   echo ""
   echo "Total: $PASS passed, $FAIL failed"
@@ -42,17 +49,24 @@ check_pass "gh-pages branch exists on remote"
 # ------------------------------------------------------------------
 # 2. Set up a temporary worktree to inspect the branch contents
 # ------------------------------------------------------------------
-WORK_DIR=$(mktemp -d)
+# Use an explicit template so this works on BSD/macOS mktemp (which rejects
+# `mktemp -d` with no template), not only GNU coreutils.
+WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/gh-pages-validate.XXXXXX")
 cleanup() {
   git worktree remove "$WORK_DIR" --force 2>/dev/null || true
   rm -rf "$WORK_DIR"
 }
 trap cleanup EXIT
 
-git fetch origin gh-pages 2>/dev/null
-git show-ref --verify --quiet refs/heads/gh-pages \
-  || git branch gh-pages origin/gh-pages
-git worktree add "$WORK_DIR" gh-pages 2>/dev/null
+# Always fetch the latest gh-pages from origin so we validate what's actually
+# deployed, not a stale local copy. Use a detached worktree pointing at
+# `origin/gh-pages` directly so we don't depend on (and don't update) any
+# local `gh-pages` branch the caller might have around.
+if ! git fetch origin gh-pages; then
+  check_fail "Failed to fetch origin gh-pages"
+  exit 1
+fi
+git worktree add --detach "$WORK_DIR" origin/gh-pages
 
 echo ""
 echo "2. Checking required root files..."
@@ -72,7 +86,9 @@ fi
 if [ -f "$WORK_DIR/.nojekyll" ]; then
   check_pass ".nojekyll exists (Jekyll processing disabled)"
 else
-  check_warn ".nojekyll not found; GitHub Pages may apply Jekyll processing to the site"
+  # The canonical DocFX deploy workflow always creates .nojekyll; missing means
+  # the deploy was botched, not a soft warning.
+  check_fail ".nojekyll is MISSING from root (GitHub Pages will apply Jekyll processing)"
 fi
 
 # ------------------------------------------------------------------
@@ -119,12 +135,33 @@ fi
 echo ""
 echo "4. Checking version folders match versions.json..."
 
+# Derive the repository name from the origin remote URL so we can strip the
+# project-Pages-site prefix (e.g., '/MyRepo/versions/v1.0.0/') from URLs in
+# versions.json before mapping them to filesystem paths under gh-pages.
+# On a user/org root Pages site there is no prefix; for project Pages sites
+# the prefix is '/<repo>/'. Either way, after stripping the prefix the URL
+# should map directly to a folder on gh-pages.
+REPO_NAME=$(git remote get-url origin 2>/dev/null \
+  | sed -E 's|.*[/:]([^/]+?)(\.git)?$|\1|' \
+  || echo "")
+
 if [ -f "$WORK_DIR/versions.json" ]; then
   FOLDER_CHECK_RESULT=0
-  python3 - "$WORK_DIR" <<'PYEOF' || FOLDER_CHECK_RESULT=1
+  python3 - "$WORK_DIR" "$REPO_NAME" <<'PYEOF' || FOLDER_CHECK_RESULT=1
 import json, os, sys
 
 work_dir = sys.argv[1]
+repo_name = sys.argv[2] if len(sys.argv) > 2 else ""
+
+def url_to_folder(url, repo_name):
+    """Map a versions.json URL to a folder path relative to the gh-pages root."""
+    if not url or url == "/":
+        return None  # Root-level alias — no separate folder to check
+    # Strip the project-Pages prefix '/<repo>/' if present.
+    if repo_name and url.startswith(f"/{repo_name}/"):
+        url = url[len(f"/{repo_name}/"):]
+    return url.strip("/")
+
 with open(os.path.join(work_dir, "versions.json")) as f:
     versions = json.load(f)
 
@@ -132,11 +169,11 @@ missing = []
 for v in versions:
     ver = v["version"]
     url = v["url"]
-    # 'latest' with url '/' resolves to the root, not a subfolder – skip here.
-    # If 'latest' points to a subfolder (e.g. '/latest/'), validate that folder.
-    if ver == "latest" and url == "/":
+    folder_name = url_to_folder(url, repo_name)
+    if folder_name is None:
+        # Entry points at the site root (typically 'latest' on a user/org Pages
+        # site). The root index.html is already validated in step 2.
         continue
-    folder_name = ver if url == f"/{ver}/" else url.strip("/")
     folder = os.path.join(work_dir, folder_name)
     if not os.path.isdir(folder):
         missing.append(f"{ver}  (folder '{folder_name}/' not found)")
@@ -159,26 +196,10 @@ PYEOF
 fi
 
 # ------------------------------------------------------------------
-# 5. Verify the 'latest/' alias folder exists
+# 5. Check for known stale DocFX root artifacts
 # ------------------------------------------------------------------
 echo ""
-echo "5. Checking latest/ alias folder..."
-
-if [ -d "$WORK_DIR/latest" ]; then
-  if [ -f "$WORK_DIR/latest/index.html" ]; then
-    check_pass "latest/ folder exists and contains index.html"
-  else
-    check_warn "latest/ folder exists but index.html is missing"
-  fi
-else
-  check_warn "latest/ alias folder not found (may not have been deployed yet)"
-fi
-
-# ------------------------------------------------------------------
-# 6. Check for known stale DocFX root artifacts
-# ------------------------------------------------------------------
-echo ""
-echo "6. Checking for stale DocFX root artifacts..."
+echo "5. Checking for stale DocFX root artifacts..."
 
 # The 'public/' directory is a known DocFX build artifact that should never
 # appear at the gh-pages root; its presence indicates a previous deploy did
