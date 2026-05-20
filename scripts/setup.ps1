@@ -1016,12 +1016,12 @@ function Start-Setup {
     Write-Host ""
     Write-Host "1. Configure branch protection (see REPO-INSTRUCTIONS.md if kept)" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "2. Provision custom labels (includes the Quality framework labels)" -ForegroundColor Yellow
+    Write-Host "2. Provision custom labels (includes the Maintenance framework labels)" -ForegroundColor Yellow
     Write-Host "   pwsh ./scripts/Setup-Labels.ps1" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "3. Create the parent Quality issue for this repo" -ForegroundColor Yellow
-    Write-Host "   pwsh ./scripts/Setup-Quality.ps1 -QualityProjectUrl '<url>'" -ForegroundColor Gray
-    Write-Host "   # The cross-repo Quality project URL — ask the repo owner if you don't have it" -ForegroundColor DarkGray
+    Write-Host "3. Create the parent Maintenance issue for this repo" -ForegroundColor Yellow
+    Write-Host "   pwsh ./scripts/Setup-Maintenance.ps1 -MaintenanceProjectUrl '<url>'" -ForegroundColor Gray
+    Write-Host "   # The cross-repo Maintenance project URL — ask the repo owner if you don't have it" -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "4. Start developing!" -ForegroundColor Yellow
     if ($solutionName) {

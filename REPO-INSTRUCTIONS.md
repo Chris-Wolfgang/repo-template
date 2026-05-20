@@ -110,43 +110,43 @@ This creates the following labels:
 1. `dependencies`
 2. `dotnet`
 
-**Quality framework** (per-repo improvement tracking):
-3. `quality` — the per-repo parent Quality issue
-4. `quality-task` — actionable Quality sub-issues
-5. `quality - security` — scans, finding fixes, dependency vulnerability audit
-6. `quality - performance` — profile, benchmark, optimize, validate gains
-7. `quality - testing` — coverage, integration/smoke/mutation tests, fixtures
-8. `quality - cleanup` — refactor for reuse, quality, efficiency
-9. `quality - docs` — XML doc coverage, README, CHANGELOG, samples
-10. `quality - API` — public/internal surface audit, breaking-change vigilance
-11. `quality - CICD` — Docker, CI workflow, build/publish pipeline
+**Maintenance framework** (per-repo improvement tracking):
+3. `maintenance` — the per-repo parent Maintenance issue
+4. `maintenance-task` — actionable Maintenance sub-issues
+5. `maintenance - security` — scans, finding fixes, dependency vulnerability audit
+6. `maintenance - performance` — profile, benchmark, optimize, validate gains
+7. `maintenance - testing` — coverage, integration/smoke/mutation tests, fixtures
+8. `maintenance - cleanup` — refactor for reuse, quality, efficiency
+9. `maintenance - docs` — XML doc coverage, README, CHANGELOG, samples
+10. `maintenance - API` — public/internal surface audit, breaking-change vigilance
+11. `maintenance - CI/CD` — Docker, CI workflow, build/publish pipeline
 
 Requires the [GitHub CLI](https://cli.github.com/) to be installed and authenticated (`gh auth login`).
 
 
-## Set Up the Quality Framework
+## Set Up the Maintenance Framework
 
-The Quality framework tracks ongoing, non-feature improvement work — security scanning, performance review, test coverage, cleanup, etc. — across all repos. It has three pieces:
+The Maintenance framework tracks ongoing, non-feature improvement work — security scanning, performance review, test coverage, cleanup, etc. — across all repos. It has three pieces:
 
-1. **Per-repo parent issue** titled `Quality: <repo>` (labeled `quality`). This is a living "improvement menu" — stays open forever. Lists candidate work organized by category.
-2. **Sub-issues** labeled `quality-task` plus one category label (e.g., `quality - security`). Created lazily when actual work begins; closed when complete.
-3. **Cross-repo Projects v2 board** that auto-aggregates every `quality-task` issue across all repos. Provides Table, Board, and (optional) Roadmap views.
+1. **Per-repo parent issue** titled `Maintenance: <repo>` (labeled `maintenance`). This is a living "improvement menu" — stays open forever. Lists candidate work organized by category.
+2. **Sub-issues** labeled `maintenance-task` plus one category label (e.g., `maintenance - security`). Created lazily when actual work begins; closed when complete.
+3. **Cross-repo Projects v2 board** that auto-aggregates every `maintenance-task` issue across all repos. Provides Table, Board, and (optional) Roadmap views.
 
-### Create the parent Quality issue
+### Create the parent Maintenance issue
 
 After running `Setup-Labels.ps1`, run:
 
 ```powershell
-pwsh -File ./scripts/Setup-Quality.ps1 -QualityProjectUrl 'https://github.com/users/Chris-Wolfgang/projects/N'
+pwsh -File ./scripts/Setup-Maintenance.ps1 -MaintenanceProjectUrl 'https://github.com/users/Chris-Wolfgang/projects/N'
 ```
 
-Substitute the actual Quality project URL — ask the repo owner if you don't have it. The script is idempotent: running it twice will not duplicate the parent issue.
+Substitute the actual Maintenance project URL — ask the repo owner if you don't have it. The script is idempotent: running it twice will not duplicate the parent issue.
 
 ### Sub-issues are created lazily
 
-Don't pre-create one issue per category. Sub-issues only get created when there's actionable work — e.g., when a scan finds something, a profile identifies a hot path, or a coverage gap is noticed. Use the **"Quality task"** issue template (`.github/ISSUE_TEMPLATE/quality-task.yaml`) when creating one — it pre-fills the `quality-task` label and prompts for category, scope, and acceptance. After creation, **manually add the matching `quality - <category>` label** (issue forms can't apply labels dynamically based on dropdown selections yet).
+Don't pre-create one issue per category. Sub-issues only get created when there's actionable work — e.g., when a scan finds something, a profile identifies a hot path, or a coverage gap is noticed. Use the **"Maintenance task"** issue template (`.github/ISSUE_TEMPLATE/maintenance-task.yaml`) when creating one — it pre-fills the `maintenance-task` label and prompts for category, scope, and acceptance. After creation, **manually add the matching `maintenance - <category>` label** (issue forms can't apply labels dynamically based on dropdown selections yet).
 
-Repo-specific decisions that don't fit the fleet-wide pattern (a TFM drop, a one-off bug fix, a feature request) are tracked as **regular issues without the `quality - ` prefix** so they stay out of the Quality project board.
+Repo-specific decisions that don't fit the fleet-wide pattern (a TFM drop, a one-off bug fix, a feature request) are tracked as **regular issues without the `maintenance - ` prefix** so they stay out of the Maintenance project board.
 
 
 ## Creating the project
