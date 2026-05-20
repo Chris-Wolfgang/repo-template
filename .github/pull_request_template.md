@@ -4,6 +4,18 @@
 
 Fixes/Complete # (issue)
 
+<!--
+If this PR addresses a Quality framework sub-issue, link it explicitly so the
+project board auto-marks the item as Done on merge:
+
+  Fixes #<quality-task-issue-number>
+
+The Quality framework tracks ongoing improvement work (security, performance,
+testing, cleanup, docs, api, cicd) — see the parent `Quality: <repo>` issue
+for details.
+-->
+
+
 ## Type of change
 
 Please delete options that are not relevant.
