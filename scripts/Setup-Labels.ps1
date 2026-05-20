@@ -17,8 +17,8 @@
     - quality - testing        (green)      — category: coverage, integration/smoke/mutation tests
     - quality - cleanup        (yellow)     — category: refactor for reuse / quality / efficiency
     - quality - docs           (teal)       — category: XML docs, README, CHANGELOG, samples
-    - quality - api            (light purple) — category: public/internal surface audit
-    - quality - cicd           (deep purple)  — category: Docker, CI workflow, build/publish pipeline
+    - quality - API            (light purple) — category: public/internal surface audit
+    - quality - CICD           (deep purple)  — category: Docker, CI workflow, build/publish pipeline
 
 .PARAMETER Repository
     The repository in owner/repo format. If not provided, uses the current repository.
@@ -96,8 +96,8 @@ $labels = @(
     @{ name = "quality - testing";        color = "0e8a16"; description = "Quality: coverage %, integration/smoke/mutation tests, fixtures" },
     @{ name = "quality - cleanup";        color = "fbca04"; description = "Quality: refactor for reuse, quality, efficiency" },
     @{ name = "quality - docs";           color = "006b75"; description = "Quality: XML doc coverage, README, CHANGELOG, samples" },
-    @{ name = "quality - api";            color = "d4c5f9"; description = "Quality: public/internal surface audit, breaking-change vigilance" },
-    @{ name = "quality - cicd";           color = "5319e7"; description = "Quality: Docker, CI workflow, build/publish pipeline" }
+    @{ name = "quality - API";            color = "d4c5f9"; description = "Quality: public/internal surface audit, breaking-change vigilance" },
+    @{ name = "quality - CICD";           color = "5319e7"; description = "Quality: Docker, CI workflow, build/publish pipeline" }
 )
 
 $created = 0

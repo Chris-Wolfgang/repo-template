@@ -172,8 +172,8 @@ Every repo derived from this template uses a per-repo **Quality** tracking frame
 | `quality - testing` | Coverage %, integration/smoke/mutation tests, fixtures, CI test-step additions |
 | `quality - cleanup` | Refactor for reuse, quality, efficiency |
 | `quality - docs` | XML doc coverage, README, CHANGELOG, samples |
-| `quality - api` | Public/internal surface audit, breaking-change vigilance |
-| `quality - cicd` | Docker, CI workflow, build/publish pipeline, packaging |
+| `quality - API` | Public/internal surface audit, breaking-change vigilance |
+| `quality - CICD` | Docker, CI workflow, build/publish pipeline, packaging |
 
 ### For Copilot agents working in this repo
 

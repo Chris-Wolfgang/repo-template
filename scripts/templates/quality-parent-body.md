@@ -36,11 +36,11 @@ This issue is the living **improvement menu** for this repo. It is intentionally
 - Refresh README and CHANGELOG
 - Add usage samples
 
-### API (`quality - api`)
+### API (`quality - API`)
 - Audit public vs internal surface
 - Breaking-change vigilance / API review
 
-### CI/CD (`quality - cicd`)
+### CI/CD (`quality - CICD`)
 - Refactor CI workflows
 - Set up Docker build (if applicable)
 - Improve packaging / publish pipeline

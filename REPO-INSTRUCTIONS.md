@@ -118,8 +118,8 @@ This creates the following labels:
 7. `quality - testing` — coverage, integration/smoke/mutation tests, fixtures
 8. `quality - cleanup` — refactor for reuse, quality, efficiency
 9. `quality - docs` — XML doc coverage, README, CHANGELOG, samples
-10. `quality - api` — public/internal surface audit, breaking-change vigilance
-11. `quality - cicd` — Docker, CI workflow, build/publish pipeline
+10. `quality - API` — public/internal surface audit, breaking-change vigilance
+11. `quality - CICD` — Docker, CI workflow, build/publish pipeline
 
 Requires the [GitHub CLI](https://cli.github.com/) to be installed and authenticated (`gh auth login`).
 
