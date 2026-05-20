@@ -157,7 +157,7 @@ Branch protection rules are configured by running the local PowerShell script `s
 
 ## Maintenance Framework
 
-Every repo derived from this template uses a per-repo **Maintenance** tracking framework to organize ongoing improvement work (security, performance, testing, cleanup, docs, api, ci/cd). The framework has three pieces:
+Every repo derived from this template uses a per-repo **Maintenance** tracking framework to organize ongoing improvement work (security, performance, testing, cleanup, docs, API, CI/CD). The framework has three pieces:
 
 1. **One parent `Maintenance: <repo>` issue per repo** (labeled `maintenance`). Living "improvement menu" — stays open forever. Lists candidate work by category. Never close.
 2. **Sub-issues labeled `maintenance-task` + a `maintenance - <category>` label.** These are the actual tracked work. Spawn lazily — create one when there's actionable work, close when done.

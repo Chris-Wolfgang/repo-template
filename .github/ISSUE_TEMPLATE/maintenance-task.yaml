@@ -1,5 +1,5 @@
 name: "✨ Maintenance task"
-description: "Track an actionable improvement under the Maintenance framework (security, performance, testing, cleanup, docs, api, or ci/cd)."
+description: "Track an actionable improvement under the Maintenance framework (security, performance, testing, cleanup, docs, API, or CI/CD)."
 title: "[Maintenance] <category>: <short description>"
 labels: [maintenance-task]
 assignees: []
@@ -26,8 +26,8 @@ body:
         - "testing — coverage, integration/smoke/mutation tests, fixtures"
         - "cleanup — refactor for reuse / quality / efficiency"
         - "docs — XML doc coverage, README, CHANGELOG, samples"
-        - "api — public/internal surface audit, breaking-change vigilance"
-        - "ci/cd — Docker, CI workflow, build/publish pipeline"
+        - "API — public/internal surface audit, breaking-change vigilance"
+        - "CI/CD — Docker, CI workflow, build/publish pipeline"
     validations:
       required: true
 

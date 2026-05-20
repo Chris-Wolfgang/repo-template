@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     The Maintenance framework tracks ongoing improvement work (security, performance, testing,
-    cleanup, docs, api, ci/cd) across all Chris-Wolfgang .NET code repos. Each repo has
+    cleanup, docs, API, CI/CD) across all Chris-Wolfgang .NET code repos. Each repo has
     one parent Maintenance issue (this script creates it) that documents candidate work by
     category. Actual tracked work lives in sub-issues labeled `maintenance-task` plus a
     `maintenance - <category>` label, and rolls up into a cross-repo GitHub Projects v2 board.

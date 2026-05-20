@@ -11,7 +11,7 @@ project board auto-marks the item as Done on merge:
   Fixes #<maintenance-task-issue-number>
 
 The Maintenance framework tracks ongoing improvement work (security, performance,
-testing, cleanup, docs, api, ci/cd) — see the parent `Maintenance: <repo>` issue
+testing, cleanup, docs, API, CI/CD) — see the parent `Maintenance: <repo>` issue
 for details.
 -->
 
