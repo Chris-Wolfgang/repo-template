@@ -86,18 +86,18 @@ $labels = @(
     @{ name = "dependencies";             color = "0366d6"; description = "Pull requests that update a dependency file" },
     @{ name = "dotnet";                   color = "512bd4"; description = ".NET related changes" },
 
-    # Quality framework — kind labels
-    @{ name = "quality";                  color = "6f42c1"; description = "Per-repo parent Quality issue (living improvement menu)" },
-    @{ name = "quality-task";             color = "1d76db"; description = "A Quality sub-issue — actionable improvement work" },
+    # Quality framework — kind labels (neutral steel: the meta is colorless)
+    @{ name = "quality";                  color = "9aa7b3"; description = "Per-repo parent Quality issue (living improvement menu)" },
+    @{ name = "quality-task";             color = "5a6c7d"; description = "A Quality sub-issue — actionable improvement work" },
 
     # Quality framework — category labels (applied to sub-issues)
-    @{ name = "quality - security";       color = "b60205"; description = "Quality: scans, finding fixes, dependency vulnerability audit" },
-    @{ name = "quality - performance";    color = "d93f0b"; description = "Quality: profile, benchmark, optimize, validate gains" },
-    @{ name = "quality - testing";        color = "0e8a16"; description = "Quality: coverage %, integration/smoke/mutation tests, fixtures" },
-    @{ name = "quality - cleanup";        color = "fbca04"; description = "Quality: refactor for reuse, quality, efficiency" },
-    @{ name = "quality - docs";           color = "006b75"; description = "Quality: XML doc coverage, README, CHANGELOG, samples" },
-    @{ name = "quality - API";            color = "d4c5f9"; description = "Quality: public/internal surface audit, breaking-change vigilance" },
-    @{ name = "quality - CICD";           color = "5319e7"; description = "Quality: Docker, CI workflow, build/publish pipeline" }
+    @{ name = "quality - security";       color = "d73a4a"; description = "Quality: scans, finding fixes, dependency vulnerability audit" },
+    @{ name = "quality - performance";    color = "2cbe4e"; description = "Quality: profile, benchmark, optimize, validate gains" },
+    @{ name = "quality - testing";        color = "f9c513"; description = "Quality: coverage %, integration/smoke/mutation tests, fixtures" },
+    @{ name = "quality - cleanup";        color = "a2845e"; description = "Quality: refactor for reuse, quality, efficiency" },
+    @{ name = "quality - docs";           color = "008672"; description = "Quality: XML doc coverage, README, CHANGELOG, samples" },
+    @{ name = "quality - API";            color = "ed7d31"; description = "Quality: public/internal surface audit, breaking-change vigilance" },
+    @{ name = "quality - CICD";           color = "ec6cb9"; description = "Quality: Docker, CI workflow, build/publish pipeline" }
 )
 
 $created = 0
