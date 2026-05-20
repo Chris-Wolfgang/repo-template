@@ -146,7 +146,7 @@ Substitute the actual Quality project URL — ask the repo owner if you don't ha
 
 ### Sub-issues are created lazily
 
-Don't pre-create one issue per category. Sub-issues only get created when there's actionable work — e.g., when a scan finds something, a profile identifies a hot path, or a coverage gap is noticed. Use the **"Quality task"** issue template (`.github/ISSUE_TEMPLATE/quality-task.yaml`) when creating one — it pre-fills the right labels and prompts for scope and acceptance.
+Don't pre-create one issue per category. Sub-issues only get created when there's actionable work — e.g., when a scan finds something, a profile identifies a hot path, or a coverage gap is noticed. Use the **"Quality task"** issue template (`.github/ISSUE_TEMPLATE/quality-task.yaml`) when creating one — it pre-fills the `quality-task` label and prompts for category, scope, and acceptance. After creation, **manually add the matching `quality:<category>` label** (issue forms can't apply labels dynamically based on dropdown selections yet).
 
 Repo-specific decisions that don't fit the fleet-wide pattern (a TFM drop, a one-off bug fix, a feature request) are tracked as **regular issues without the `quality:` prefix** so they stay out of the Quality project board.
 

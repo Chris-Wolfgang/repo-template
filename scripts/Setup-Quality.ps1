@@ -88,17 +88,24 @@ $issueTitle = "Quality: $repoName"
 # the check to miss the actual parent and create a duplicate. After fetching,
 # filter to exact title match.
 Write-Host "`n🔍 Checking for existing parent Quality issue..." -ForegroundColor Cyan
-$existing = gh issue list `
-    --repo $Repository `
-    --label 'quality' `
-    --state all `
-    --json number,title,state `
-    --limit 1000 2>&1
+# Capture stdout and stderr separately so JSON parsing isn't corrupted by
+# any warnings gh emits to stderr. Only stdout is fed to ConvertFrom-Json.
+$stderrFile = Join-Path ([IO.Path]::GetTempPath()) "setup-quality-stderr-$([guid]::NewGuid()).txt"
+try {
+    $existing = gh issue list `
+        --repo $Repository `
+        --label 'quality' `
+        --state all `
+        --json number,title,state `
+        --limit 1000 2> $stderrFile
 
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "❌ Failed to query existing issues. Verify the 'quality' label exists in $Repository (run Setup-Labels.ps1 first)."
-    Write-Host $existing -ForegroundColor Red
-    exit 1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "❌ Failed to query existing issues. Verify the 'quality' label exists in $Repository (run Setup-Labels.ps1 first)."
+        if (Test-Path $stderrFile) { Write-Host (Get-Content $stderrFile -Raw) -ForegroundColor Red }
+        exit 1
+    }
+} finally {
+    Remove-Item -Path $stderrFile -ErrorAction SilentlyContinue
 }
 
 $matches = $existing | ConvertFrom-Json | Where-Object { $_.title -eq $issueTitle }
@@ -121,9 +128,10 @@ if (-not (Test-Path $templatePath)) {
 
 $body = Get-Content -Path $templatePath -Raw
 
-# Substitute placeholders
-$body = $body -replace '\{\{QUALITY_PROJECT_URL\}\}', $QualityProjectUrl
-$body = $body -replace '\{\{REPO_NAME\}\}', $repoName
+# Literal string replacement (.Replace) rather than -replace, since
+# -replace's right-hand-side honors regex tokens like '$' and we don't want
+# to alter the URL the caller passed in.
+$body = $body.Replace('{{QUALITY_PROJECT_URL}}', $QualityProjectUrl)
 
 # Write body to a temp file to avoid command-line length / quoting issues.
 # Use [IO.Path]::GetTempPath() so this works on Linux/macOS (where $env:TEMP

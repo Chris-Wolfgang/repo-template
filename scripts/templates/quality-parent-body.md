@@ -5,7 +5,7 @@ This issue is the living **improvement menu** for this repo. It is intentionally
 - **This issue (`quality` label)** is the per-repo reference. Read it to see candidate work for this repo.
 - **Sub-issues (`quality-task` + `quality:<category>` labels)** are the actual tracked work.
 - All `quality-task` issues across all repos roll up into the Quality project board: {{QUALITY_PROJECT_URL}}
-- To create a sub-issue, use the **"Quality task"** issue template (`.github/ISSUE_TEMPLATE/quality-task.yaml`). It pre-fills the right labels and prompts for scope, acceptance criteria, and links.
+- To create a sub-issue, use the **"Quality task"** issue template (`.github/ISSUE_TEMPLATE/quality-task.yaml`). It pre-fills the `quality-task` label and prompts for category, scope, acceptance criteria, and links. After creation, **manually add the matching `quality:<category>` label** — issue forms can't apply labels dynamically based on dropdown selections yet.
 
 ## Candidate tasks by category
 
