@@ -8,19 +8,17 @@
     other workflows. Run this locally once after creating a new repo from the template.
     
     Labels created:
-    - dependabot - security    (red)
-    - dependabot-dependencies  (orange)
-    - dependencies             (blue)
-    - dotnet                   (purple)
+    - dependencies             (blue)       — applied automatically by Dependabot to every update PR
+    - dotnet                   (purple)     — applied by Dependabot for NuGet ecosystem PRs
     - quality                  (purple)     — kind label, applied to the per-repo parent Quality issue
     - quality-task             (blue)       — kind label, applied to every Quality sub-issue
-    - quality:security         (red)        — category: scans, finding fixes, dependency vuln audit
-    - quality:performance      (orange)     — category: profile, benchmark, optimize, validate
-    - quality:testing          (green)      — category: coverage, integration/smoke/mutation tests
-    - quality:cleanup          (yellow)     — category: refactor for reuse / quality / efficiency
-    - quality:docs             (teal)       — category: XML docs, README, CHANGELOG, samples
-    - quality:api              (light purple) — category: public/internal surface audit
-    - quality:cicd             (deep purple)  — category: Docker, CI workflow, build/publish pipeline
+    - quality - security       (red)        — category: scans, finding fixes, dependency vuln audit
+    - quality - performance    (orange)     — category: profile, benchmark, optimize, validate
+    - quality - testing        (green)      — category: coverage, integration/smoke/mutation tests
+    - quality - cleanup        (yellow)     — category: refactor for reuse / quality / efficiency
+    - quality - docs           (teal)       — category: XML docs, README, CHANGELOG, samples
+    - quality - api            (light purple) — category: public/internal surface audit
+    - quality - cicd           (deep purple)  — category: Docker, CI workflow, build/publish pipeline
 
 .PARAMETER Repository
     The repository in owner/repo format. If not provided, uses the current repository.
@@ -84,9 +82,7 @@ if (-not $Repository) {
 Write-Host "`n🏷️  Creating labels for: $Repository`n" -ForegroundColor Cyan
 
 $labels = @(
-    # Dependabot / dependencies
-    @{ name = "dependabot - security";    color = "b60205"; description = "Security update from Dependabot" },
-    @{ name = "dependabot-dependencies";  color = "d93f0b"; description = "Dependency update from Dependabot" },
+    # Dependabot / dependencies — Dependabot applies these automatically per .github/dependabot.yml
     @{ name = "dependencies";             color = "0366d6"; description = "Pull requests that update a dependency file" },
     @{ name = "dotnet";                   color = "512bd4"; description = ".NET related changes" },
 
@@ -95,13 +91,13 @@ $labels = @(
     @{ name = "quality-task";             color = "1d76db"; description = "A Quality sub-issue — actionable improvement work" },
 
     # Quality framework — category labels (applied to sub-issues)
-    @{ name = "quality:security";         color = "b60205"; description = "Quality: scans, finding fixes, dependency vulnerability audit" },
-    @{ name = "quality:performance";      color = "d93f0b"; description = "Quality: profile, benchmark, optimize, validate gains" },
-    @{ name = "quality:testing";          color = "0e8a16"; description = "Quality: coverage %, integration/smoke/mutation tests, fixtures" },
-    @{ name = "quality:cleanup";          color = "fbca04"; description = "Quality: refactor for reuse, quality, efficiency" },
-    @{ name = "quality:docs";             color = "006b75"; description = "Quality: XML doc coverage, README, CHANGELOG, samples" },
-    @{ name = "quality:api";              color = "d4c5f9"; description = "Quality: public/internal surface audit, breaking-change vigilance" },
-    @{ name = "quality:cicd";             color = "5319e7"; description = "Quality: Docker, CI workflow, build/publish pipeline" }
+    @{ name = "quality - security";       color = "b60205"; description = "Quality: scans, finding fixes, dependency vulnerability audit" },
+    @{ name = "quality - performance";    color = "d93f0b"; description = "Quality: profile, benchmark, optimize, validate gains" },
+    @{ name = "quality - testing";        color = "0e8a16"; description = "Quality: coverage %, integration/smoke/mutation tests, fixtures" },
+    @{ name = "quality - cleanup";        color = "fbca04"; description = "Quality: refactor for reuse, quality, efficiency" },
+    @{ name = "quality - docs";           color = "006b75"; description = "Quality: XML doc coverage, README, CHANGELOG, samples" },
+    @{ name = "quality - api";            color = "d4c5f9"; description = "Quality: public/internal surface audit, breaking-change vigilance" },
+    @{ name = "quality - cicd";           color = "5319e7"; description = "Quality: Docker, CI workflow, build/publish pipeline" }
 )
 
 $created = 0

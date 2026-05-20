@@ -8,7 +8,7 @@
     cleanup, docs, api, cicd) across all Chris-Wolfgang .NET code repos. Each repo has
     one parent Quality issue (this script creates it) that documents candidate work by
     category. Actual tracked work lives in sub-issues labeled `quality-task` plus a
-    `quality:<category>` label, and rolls up into a cross-repo GitHub Projects v2 board.
+    `quality - <category>` label, and rolls up into a cross-repo GitHub Projects v2 board.
 
     This script is idempotent — if a `Quality: <repo>` issue with the `quality` label
     already exists in the target repository, the script reports it and exits 0.

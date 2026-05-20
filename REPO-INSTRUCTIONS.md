@@ -106,22 +106,20 @@ pwsh -File ./scripts/Setup-Labels.ps1
 
 This creates the following labels:
 
-**Dependabot / dependencies:**
-1. `dependabot - security`
-2. `dependabot-dependencies`
-3. `dependencies`
-4. `dotnet`
+**Dependabot / dependencies** (Dependabot applies these automatically per `.github/dependabot.yml`):
+1. `dependencies`
+2. `dotnet`
 
 **Quality framework** (per-repo improvement tracking):
-5. `quality` — the per-repo parent Quality issue
-6. `quality-task` — actionable Quality sub-issues
-7. `quality:security` — scans, finding fixes, dependency vulnerability audit
-8. `quality:performance` — profile, benchmark, optimize, validate gains
-9. `quality:testing` — coverage, integration/smoke/mutation tests, fixtures
-10. `quality:cleanup` — refactor for reuse, quality, efficiency
-11. `quality:docs` — XML doc coverage, README, CHANGELOG, samples
-12. `quality:api` — public/internal surface audit, breaking-change vigilance
-13. `quality:cicd` — Docker, CI workflow, build/publish pipeline
+3. `quality` — the per-repo parent Quality issue
+4. `quality-task` — actionable Quality sub-issues
+5. `quality - security` — scans, finding fixes, dependency vulnerability audit
+6. `quality - performance` — profile, benchmark, optimize, validate gains
+7. `quality - testing` — coverage, integration/smoke/mutation tests, fixtures
+8. `quality - cleanup` — refactor for reuse, quality, efficiency
+9. `quality - docs` — XML doc coverage, README, CHANGELOG, samples
+10. `quality - api` — public/internal surface audit, breaking-change vigilance
+11. `quality - cicd` — Docker, CI workflow, build/publish pipeline
 
 Requires the [GitHub CLI](https://cli.github.com/) to be installed and authenticated (`gh auth login`).
 
@@ -131,7 +129,7 @@ Requires the [GitHub CLI](https://cli.github.com/) to be installed and authentic
 The Quality framework tracks ongoing, non-feature improvement work — security scanning, performance review, test coverage, cleanup, etc. — across all repos. It has three pieces:
 
 1. **Per-repo parent issue** titled `Quality: <repo>` (labeled `quality`). This is a living "improvement menu" — stays open forever. Lists candidate work organized by category.
-2. **Sub-issues** labeled `quality-task` plus one category label (e.g., `quality:security`). Created lazily when actual work begins; closed when complete.
+2. **Sub-issues** labeled `quality-task` plus one category label (e.g., `quality - security`). Created lazily when actual work begins; closed when complete.
 3. **Cross-repo Projects v2 board** that auto-aggregates every `quality-task` issue across all repos. Provides Table, Board, and (optional) Roadmap views.
 
 ### Create the parent Quality issue
@@ -146,9 +144,9 @@ Substitute the actual Quality project URL — ask the repo owner if you don't ha
 
 ### Sub-issues are created lazily
 
-Don't pre-create one issue per category. Sub-issues only get created when there's actionable work — e.g., when a scan finds something, a profile identifies a hot path, or a coverage gap is noticed. Use the **"Quality task"** issue template (`.github/ISSUE_TEMPLATE/quality-task.yaml`) when creating one — it pre-fills the `quality-task` label and prompts for category, scope, and acceptance. After creation, **manually add the matching `quality:<category>` label** (issue forms can't apply labels dynamically based on dropdown selections yet).
+Don't pre-create one issue per category. Sub-issues only get created when there's actionable work — e.g., when a scan finds something, a profile identifies a hot path, or a coverage gap is noticed. Use the **"Quality task"** issue template (`.github/ISSUE_TEMPLATE/quality-task.yaml`) when creating one — it pre-fills the `quality-task` label and prompts for category, scope, and acceptance. After creation, **manually add the matching `quality - <category>` label** (issue forms can't apply labels dynamically based on dropdown selections yet).
 
-Repo-specific decisions that don't fit the fleet-wide pattern (a TFM drop, a one-off bug fix, a feature request) are tracked as **regular issues without the `quality:` prefix** so they stay out of the Quality project board.
+Repo-specific decisions that don't fit the fleet-wide pattern (a TFM drop, a one-off bug fix, a feature request) are tracked as **regular issues without the `quality - ` prefix** so they stay out of the Quality project board.
 
 
 ## Creating the project
