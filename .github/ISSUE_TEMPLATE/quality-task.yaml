@@ -1,0 +1,76 @@
+name: "✨ Quality task"
+description: "Track an actionable improvement under the Quality framework (security, performance, testing, cleanup, docs, api, or cicd)."
+title: "[Quality] <category>: <short description>"
+labels: [quality-task]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Quality framework sub-issue
+
+        This template creates a **`quality-task`** sub-issue under this repo's parent `Quality: <repo>` issue. The new issue will auto-appear in the cross-repo Quality project board (URL listed in the parent `Quality: <repo>` issue body).
+
+        - Pick exactly **one** category in the dropdown below. The corresponding `quality:<category>` label will need to be added manually after creation (issue forms don't yet support dynamic label addition).
+        - Fill in **Scope** (what's done & why), **Acceptance** (when do we close this?), and **Links** (PRs, scan output, related issues).
+        - If you're closing this issue via a PR, include `Fixes #<this-issue-number>` in the PR body so the auto-add workflow marks the project item as Done.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: "Pick exactly one. After creation, also add the corresponding `quality:<category>` label."
+      options:
+        - "security — scans, finding fixes, dependency vulnerability audit"
+        - "performance — profile, benchmark, optimize, validate gains"
+        - "testing — coverage, integration/smoke/mutation tests, fixtures"
+        - "cleanup — refactor for reuse / quality / efficiency"
+        - "docs — XML doc coverage, README, CHANGELOG, samples"
+        - "api — public/internal surface audit, breaking-change vigilance"
+        - "cicd — Docker, CI workflow, build/publish pipeline"
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: "What needs to be done? What's the motivation?"
+      placeholder: |
+        e.g.
+        - Profile the hot path in `Extractor.ExtractAsync` and identify the dominant allocations.
+        - Goal: reduce per-record allocations to enable streaming larger inputs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: "When do we close this issue? Concrete observable outcomes."
+      placeholder: |
+        e.g.
+        - Benchmark X shows <50% of current allocations.
+        - No regression in existing benchmark suite (>5%).
+        - Updated benchmark numbers committed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: links
+    attributes:
+      label: Links
+      description: "Related PRs, scan output, prior issues, external references."
+      placeholder: |
+        - Related PR: #...
+        - Scan output: ...
+        - Related issue: #...
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+
+        💡 **Tip for agents (Copilot etc.):** When opening a quality-task sub-issue, use this template and pick the matching category. After creation, add the `quality:<category>` label manually. See `.github/copilot-instructions.md` for the full Quality framework convention.
