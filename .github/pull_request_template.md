@@ -5,13 +5,13 @@
 Fixes/Complete # (issue)
 
 <!--
-If this PR addresses a Quality framework sub-issue, link it explicitly so the
+If this PR addresses a Maintenance framework sub-issue, link it explicitly so the
 project board auto-marks the item as Done on merge:
 
-  Fixes #<quality-task-issue-number>
+  Fixes #<maintenance-task-issue-number>
 
-The Quality framework tracks ongoing improvement work (security, performance,
-testing, cleanup, docs, api, cicd) — see the parent `Quality: <repo>` issue
+The Maintenance framework tracks ongoing improvement work (security, performance,
+testing, cleanup, docs, API, CI/CD) — see the parent `Maintenance: <repo>` issue
 for details.
 -->
 

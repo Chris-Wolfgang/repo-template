@@ -1,17 +1,17 @@
-name: "✨ Quality task"
-description: "Track an actionable improvement under the Quality framework (security, performance, testing, cleanup, docs, api, or cicd)."
-title: "[Quality] <category>: <short description>"
-labels: [quality-task]
+name: "✨ Maintenance task"
+description: "Track an actionable improvement under the Maintenance framework (security, performance, testing, cleanup, docs, API, or CI/CD)."
+title: "[Maintenance] <category>: <short description>"
+labels: [maintenance-task]
 assignees: []
 body:
   - type: markdown
     attributes:
       value: |
-        ## Quality framework sub-issue
+        ## Maintenance framework sub-issue
 
-        This template creates a **`quality-task`** sub-issue under this repo's parent `Quality: <repo>` issue. The new issue will auto-appear in the cross-repo Quality project board (URL listed in the parent `Quality: <repo>` issue body).
+        This template creates a **`maintenance-task`** sub-issue under this repo's parent `Maintenance: <repo>` issue. The new issue will auto-appear in the cross-repo Maintenance project board (URL listed in the parent `Maintenance: <repo>` issue body).
 
-        - Pick exactly **one** category in the dropdown below. The corresponding `quality:<category>` label will need to be added manually after creation (issue forms don't yet support dynamic label addition).
+        - Pick exactly **one** category in the dropdown below. The corresponding `maintenance - <category>` label will need to be added manually after creation (issue forms don't yet support dynamic label addition).
         - Fill in **Scope** (what's done & why), **Acceptance** (when do we close this?), and **Links** (PRs, scan output, related issues).
         - If you're closing this issue via a PR, include `Fixes #<this-issue-number>` in the PR body so the auto-add workflow marks the project item as Done.
 
@@ -19,15 +19,15 @@ body:
     id: category
     attributes:
       label: Category
-      description: "Pick exactly one. After creation, also add the corresponding `quality:<category>` label."
+      description: "Pick exactly one. After creation, also add the corresponding `maintenance - <category>` label."
       options:
         - "security — scans, finding fixes, dependency vulnerability audit"
         - "performance — profile, benchmark, optimize, validate gains"
         - "testing — coverage, integration/smoke/mutation tests, fixtures"
         - "cleanup — refactor for reuse / quality / efficiency"
         - "docs — XML doc coverage, README, CHANGELOG, samples"
-        - "api — public/internal surface audit, breaking-change vigilance"
-        - "cicd — Docker, CI workflow, build/publish pipeline"
+        - "API — public/internal surface audit, breaking-change vigilance"
+        - "CI/CD — Docker, CI workflow, build/publish pipeline"
     validations:
       required: true
 
@@ -73,4 +73,4 @@ body:
       value: |
         ---
 
-        💡 **Tip for agents (Copilot etc.):** When opening a quality-task sub-issue, use this template and pick the matching category. After creation, add the `quality:<category>` label manually. See `.github/copilot-instructions.md` for the full Quality framework convention.
+        💡 **Tip for agents (Copilot etc.):** When opening a maintenance-task sub-issue, use this template and pick the matching category. After creation, add the `maintenance - <category>` label manually. See `.github/copilot-instructions.md` for the full Maintenance framework convention.
