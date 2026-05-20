@@ -151,9 +151,16 @@ echo "4. Checking version folders match versions.json..."
 # On a user/org root Pages site there is no prefix; for project Pages sites
 # the prefix is '/<repo>/'. Either way, after stripping the prefix the URL
 # should map directly to a folder on gh-pages.
-REPO_NAME=$(git remote get-url origin 2>/dev/null \
-  | sed -E 's|.*[/:]([^/]+?)(\.git)?$|\1|' \
-  || echo "")
+#
+# Use shell parameter expansion rather than sed regex — BSD/macOS sed
+# doesn't support the lazy quantifier '+?' and ERE flag spellings differ
+# across implementations. Parameter expansion is POSIX and portable.
+REPO_NAME=""
+REPO_URL=$(git remote get-url origin 2>/dev/null || true)
+if [ -n "$REPO_URL" ]; then
+  REPO_URL=${REPO_URL%.git}     # strip optional trailing .git
+  REPO_NAME=${REPO_URL##*/}     # take everything after the last '/'
+fi
 
 if [ "$STEP3_OK" -ne 1 ]; then
   echo "  ⏭️  Skipped — versions.json failed validation in step 3"
@@ -165,14 +172,29 @@ import json, os, sys
 work_dir = sys.argv[1]
 repo_name = sys.argv[2] if len(sys.argv) > 2 else ""
 
+# Sentinel returned when a URL cannot be mapped to a safe folder name.
+UNSAFE = object()
+
 def url_to_folder(url, repo_name):
-    """Map a versions.json URL to a folder path relative to the gh-pages root."""
+    """Map a versions.json URL to a folder path relative to the gh-pages root.
+
+    Returns None for root-level aliases (no separate folder), UNSAFE for
+    URLs that would escape the gh-pages root, or a relative folder string."""
     if not url or url == "/":
         return None  # Root-level alias — no separate folder to check
     # Strip the project-Pages prefix '/<repo>/' if present.
     if repo_name and url.startswith(f"/{repo_name}/"):
         url = url[len(f"/{repo_name}/"):]
-    return url.strip("/")
+    folder = url.strip("/")
+    if not folder:
+        return None
+    # Reject anything that could escape the gh-pages root via parent-dir
+    # traversal, backslash injection, or absolute paths. This is defense
+    # against a malformed (or hostile) versions.json on the deployed site.
+    parts = folder.split("/")
+    if any(p in ("", "..", ".") or "\\" in p for p in parts):
+        return UNSAFE
+    return folder
 
 with open(os.path.join(work_dir, "versions.json")) as f:
     versions = json.load(f)
@@ -186,7 +208,17 @@ for v in versions:
         # Entry points at the site root (typically 'latest' on a user/org Pages
         # site). The root index.html is already validated in step 2.
         continue
+    if folder_name is UNSAFE:
+        missing.append(f"{ver}  (url {url!r} would escape gh-pages root — rejected)")
+        continue
     folder = os.path.join(work_dir, folder_name)
+    # Belt-and-suspenders: verify the resolved real path is still under
+    # work_dir (catches symlink shenanigans or anything the segment check missed).
+    real_folder = os.path.realpath(folder)
+    real_root = os.path.realpath(work_dir)
+    if os.path.commonpath([real_folder, real_root]) != real_root:
+        missing.append(f"{ver}  (resolved path '{real_folder}' is outside gh-pages root — rejected)")
+        continue
     if not os.path.isdir(folder):
         missing.append(f"{ver}  (folder '{folder_name}/' not found)")
     elif not os.path.isfile(os.path.join(folder, "index.html")):
