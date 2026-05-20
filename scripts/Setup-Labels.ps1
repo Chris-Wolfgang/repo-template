@@ -91,11 +91,11 @@ $labels = @(
     @{ name = "quality-task";             color = "5a6c7d"; description = "A Quality sub-issue — actionable improvement work" },
 
     # Quality framework — category labels (applied to sub-issues)
-    @{ name = "quality - security";       color = "d73a4a"; description = "Quality: scans, finding fixes, dependency vulnerability audit" },
+    @{ name = "quality - security";       color = "c4161c"; description = "Quality: scans, finding fixes, dependency vulnerability audit" },
     @{ name = "quality - performance";    color = "2cbe4e"; description = "Quality: profile, benchmark, optimize, validate gains" },
     @{ name = "quality - testing";        color = "f9c513"; description = "Quality: coverage %, integration/smoke/mutation tests, fixtures" },
     @{ name = "quality - cleanup";        color = "a2845e"; description = "Quality: refactor for reuse, quality, efficiency" },
-    @{ name = "quality - docs";           color = "008672"; description = "Quality: XML doc coverage, README, CHANGELOG, samples" },
+    @{ name = "quality - docs";           color = "0075ca"; description = "Quality: XML doc coverage, README, CHANGELOG, samples" },
     @{ name = "quality - API";            color = "ed7d31"; description = "Quality: public/internal surface audit, breaking-change vigilance" },
     @{ name = "quality - CICD";           color = "ec6cb9"; description = "Quality: Docker, CI workflow, build/publish pipeline" }
 )
