@@ -80,6 +80,9 @@ jobs:
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
+        # security-extended adds the broader security query pack on top of the
+        # default queries (more rules, slightly longer scans).
+        queries: security-extended
 
     - name: Setup .NET
       if: steps.check-csharp.outputs.has-csharp == 'true'
