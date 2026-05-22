@@ -2,8 +2,8 @@
   <PropertyGroup>
     <LangVersion>latest</LangVersion>
 
-    <!-- Nullable reference types on for every SDK-style project in the repo -->
-    <Nullable>enable</Nullable>
+    <!-- Nullable reference types on for every C# project (F#/VB projects excluded) -->
+    <Nullable Condition="'$(MSBuildProjectExtension)' == '.csproj'">enable</Nullable>
 
     <!-- Enable .NET analyzers -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
