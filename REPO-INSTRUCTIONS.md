@@ -106,20 +106,19 @@ pwsh -File ./scripts/Setup-Labels.ps1
 
 This creates the following labels:
 
-**Dependabot / dependencies** (Dependabot applies these automatically per `.github/dependabot.yml`):
+**Dependabot** (applied automatically per `.github/dependabot.yml`):
 1. `dependencies`
-2. `dotnet`
 
 **Maintenance framework** (per-repo improvement tracking):
-3. `maintenance` — the per-repo parent Maintenance issue
-4. `maintenance-task` — actionable Maintenance sub-issues
-5. `maintenance - security` — scans, finding fixes, dependency vulnerability audit
-6. `maintenance - performance` — profile, benchmark, optimize, validate gains
-7. `maintenance - testing` — coverage, integration/smoke/mutation tests, fixtures
-8. `maintenance - cleanup` — refactor for reuse, quality, efficiency
-9. `maintenance - docs` — XML doc coverage, README, CHANGELOG, samples
-10. `maintenance - API` — public/internal surface audit, breaking-change vigilance
-11. `maintenance - CI/CD` — Docker, CI workflow, build/publish pipeline
+2. `maintenance` — the per-repo parent Maintenance issue
+3. `maintenance-task` — actionable Maintenance sub-issues
+4. `maintenance - security` — scans, finding fixes, dependency vulnerability audit
+5. `maintenance - performance` — profile, benchmark, optimize, validate gains
+6. `maintenance - testing` — coverage, integration/smoke/mutation tests, fixtures
+7. `maintenance - cleanup` — refactor for reuse, quality, efficiency
+8. `maintenance - docs` — XML doc coverage, README, CHANGELOG, samples
+9. `maintenance - API` — public/internal surface audit, breaking-change vigilance
+10. `maintenance - CI/CD` — Docker, CI workflow, build/publish pipeline
 
 Requires the [GitHub CLI](https://cli.github.com/) to be installed and authenticated (`gh auth login`).
 
