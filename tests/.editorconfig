@@ -1,0 +1,48 @@
+# Analyzer rules relaxed for test projects
+
+[*.cs]
+
+# AsyncFixer01: Remove async/await for single-expression methods — test methods need async for Assert.ThrowsAsync
+dotnet_diagnostic.AsyncFixer01.severity = none
+
+# MA0004: Use ConfigureAwait(false) — not needed in test code
+dotnet_diagnostic.MA0004.severity = none
+
+# MA0011: Use IFormatProvider overload of ToString — not needed in test assertions
+dotnet_diagnostic.MA0011.severity = none
+
+# MA0048: File name must match type name — test files contain multiple helper types
+dotnet_diagnostic.MA0048.severity = none
+
+# MA0051: Method is too long — test methods can be longer for readability
+dotnet_diagnostic.MA0051.severity = none
+
+# MA0074: Use StringComparison overload — not critical in tests
+dotnet_diagnostic.MA0074.severity = none
+
+# S108: Empty block of code — sometimes needed in test setup
+dotnet_diagnostic.S108.severity = none
+
+# S1215: Remove use of GC.GetTotalMemory — acceptable in perf/memory tests
+dotnet_diagnostic.S1215.severity = none
+
+# S2699: Add assertion to test case — some tests verify no-throw behavior
+dotnet_diagnostic.S2699.severity = none
+
+# S6562: Provide DateTimeKind — test data doesn't need DateTimeKind
+dotnet_diagnostic.S6562.severity = none
+
+# S6610: Use char overload of StartsWith — not critical in tests
+dotnet_diagnostic.S6610.severity = none
+
+# VSTHRD200: Use Async suffix — test methods follow xunit naming conventions
+dotnet_diagnostic.VSTHRD200.severity = none
+
+# MA0003: Name the parameter — not needed in test assertions and setup
+dotnet_diagnostic.MA0003.severity = none
+
+# S1144: Remove unused private type member — test POCOs have constructors used via reflection
+dotnet_diagnostic.S1144.severity = none
+
+# xUnit2013: Use Assert.Single instead of Assert.Equal for collection size
+dotnet_diagnostic.xUnit2013.severity = none
