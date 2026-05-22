@@ -9,7 +9,6 @@
     
     Labels created:
     - dependencies             (blue)   — applied automatically by Dependabot to every update PR
-    - dotnet                   (purple) — applied by Dependabot for NuGet ecosystem PRs
     - maintenance              (steel)  — kind label, applied to the per-repo parent Maintenance issue
     - maintenance-task         (steel)  — kind label, applied to every Maintenance sub-issue
     - maintenance - security   (red)    — category: scans, finding fixes, dependency vuln audit
@@ -82,9 +81,8 @@ if (-not $Repository) {
 Write-Host "`n🏷️  Creating labels for: $Repository`n" -ForegroundColor Cyan
 
 $labels = @(
-    # Dependabot / dependencies — Dependabot applies these automatically per .github/dependabot.yml
+    # Dependabot — applies `dependencies` automatically per .github/dependabot.yml
     @{ name = "dependencies";             color = "0366d6"; description = "Pull requests that update a dependency file" },
-    @{ name = "dotnet";                   color = "512bd4"; description = ".NET related changes" },
 
     # Maintenance framework — kind labels (neutral steel: the meta is colorless)
     @{ name = "maintenance";              color = "9aa7b3"; description = "Per-repo parent Maintenance issue (living improvement menu)" },
