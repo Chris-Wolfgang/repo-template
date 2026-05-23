@@ -225,6 +225,48 @@ jobs:
             Set-Content -Path 'docfx_project/_site/versions.json' -Encoding utf8NoBOM
           Write-Host "Generated versions.json with $($versions.Count) version(s): $($versions | ForEach-Object { $_.version })"
 
+      - name: Verify previous versions preserved in versions.json
+        # Initiative D6 — guard against accidentally wiping the version selector.
+        # Fetches the currently-deployed versions.json from gh-pages and confirms
+        # the newly-generated one has at least as many entries AND retains every
+        # previously-published version label. If anything shrunk or went missing,
+        # abort the deploy so the version selector cannot be wiped by accident.
+        shell: pwsh
+        run: |
+          $newPath = 'docfx_project/_site/versions.json'
+          if (-Not (Test-Path $newPath)) {
+            Write-Host "::notice::No new versions.json produced - skipping preservation check."
+            exit 0
+          }
+          $existingUrl = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/versions.json"
+          try {
+            $existingRaw = (Invoke-WebRequest -Uri $existingUrl -UseBasicParsing -ErrorAction Stop).Content
+          } catch {
+            Write-Host "::notice::No existing versions.json at $existingUrl - first deploy, skipping preservation check."
+            exit 0
+          }
+          try {
+            $existing = $existingRaw | ConvertFrom-Json
+            $new = Get-Content $newPath -Raw | ConvertFrom-Json
+          } catch {
+            Write-Error "Failed to parse versions.json: $($_.Exception.Message)"
+            exit 1
+          }
+          $existingCount = @($existing).Count
+          $newCount = @($new).Count
+          if ($newCount -lt $existingCount) {
+            Write-Error "versions.json would lose entries: existing=$existingCount, new=$newCount. Aborting deploy."
+            exit 1
+          }
+          $existingVersions = @($existing) | ForEach-Object { $_.version }
+          $newVersions = @($new) | ForEach-Object { $_.version }
+          $missing = @($existingVersions | Where-Object { $_ -notin $newVersions })
+          if ($missing.Count -gt 0) {
+            Write-Error "Previous versions missing from new versions.json: $($missing -join ', '). Aborting deploy."
+            exit 1
+          }
+          Write-Host "versions.json preservation OK: existing=$existingCount, new=$newCount."
+
       - name: Compute destination directory
         # Determines the versioned subfolder name for the docs deployment (e.g. /v1.2.3/).
         # Uses the explicit 'version' input when provided; otherwise falls back to
