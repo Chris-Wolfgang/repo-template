@@ -101,6 +101,30 @@ jobs:
           Get-ChildItem "docfx_project/_site/api"
         shell: pwsh
 
+      - name: Generate code-coverage report into docs site (T1)
+        # Initiative T1 — publish coverage report to gh-pages alongside docs.
+        # Runs the test suite with Cobertura coverage collection, then uses
+        # ReportGenerator to render an HTML report into _site/coverage/.
+        # The published docs site gains a /coverage/ subpath.
+        # continue-on-error means a coverage failure (no tests, flaky tests,
+        # report generation issues) does not block the docs deploy.
+        if: hashFiles('tests/**/*.csproj') != ''
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --results-directory ./coverage-raw 2>&1 | Out-Host
+          dotnet tool install -g dotnet-reportgenerator-globaltool 2>$null
+          $coverageFiles = @(Get-ChildItem -Path ./coverage-raw -Recurse -Filter "coverage.cobertura.xml" -ErrorAction SilentlyContinue)
+          if ($coverageFiles.Count -eq 0) {
+            Write-Host "::notice::No coverage files generated - skipping coverage report step"
+            exit 0
+          }
+          $reports = ($coverageFiles | ForEach-Object { $_.FullName }) -join ';'
+          $outDir = "docfx_project/_site/coverage"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          reportgenerator "-reports:$reports" "-targetdir:$outDir" "-reporttypes:Html;TextSummary"
+          Write-Host "Coverage report written to $outDir"
+
       - name: Generate versions.json
         # Produces versions.json consumed by the DocFX version-switcher dropdown.
         # Site layout:
