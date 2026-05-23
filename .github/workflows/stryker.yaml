@@ -24,14 +24,23 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Detect stryker-config.json
         id: check
         shell: bash
         run: |
+          # Explicit existence checks rather than globbing — `nullglob` only
+          # drops words that look like patterns (contain *, ?, [). The bare
+          # literal `stryker-config.json` has no glob characters, so it would
+          # be preserved as a literal even when the file doesn't exist, and
+          # the workflow would mistakenly think a config was present.
           shopt -s globstar nullglob
-          configs=(stryker-config.json tests/**/stryker-config.json)
+          configs=()
+          [ -f stryker-config.json ] && configs+=(stryker-config.json)
+          for cfg in tests/**/stryker-config.json; do
+            [ -f "$cfg" ] && configs+=("$cfg")
+          done
           if (( ${#configs[@]} )); then
             printf 'found=true\n' >> "$GITHUB_OUTPUT"
             printf 'configs<<EOF\n%s\nEOF\n' "${configs[*]}" >> "$GITHUB_OUTPUT"
@@ -42,7 +51,7 @@ jobs:
 
       - name: Setup .NET
         if: steps.check.outputs.found == 'true'
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: |
             8.0.x
