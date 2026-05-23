@@ -1,0 +1,89 @@
+# Stryker mutation testing
+#
+# Runs the Stryker.NET mutation tester against the repo's test projects to
+# measure mutation score. Mutation runs are slow — triggered manually
+# (workflow_dispatch) and on a weekly schedule, not on every PR.
+#
+# The workflow looks for a stryker-config.json at the repo root or under
+# tests/**/. If none is present the run is a no-op (Stryker setup is a
+# per-repo follow-up; this file is the canonical infrastructure).
+name: Stryker (mutation testing)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 0' # weekly Sunday 06:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  stryker:
+    name: Run Stryker
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v6
+
+      - name: Detect stryker-config.json
+        id: check
+        shell: bash
+        run: |
+          # Explicit existence checks rather than globbing — `nullglob` only
+          # drops words that look like patterns (contain *, ?, [). The bare
+          # literal `stryker-config.json` has no glob characters, so it would
+          # be preserved as a literal even when the file doesn't exist, and
+          # the workflow would mistakenly think a config was present.
+          shopt -s globstar nullglob
+          configs=()
+          [ -f stryker-config.json ] && configs+=(stryker-config.json)
+          for cfg in tests/**/stryker-config.json; do
+            [ -f "$cfg" ] && configs+=("$cfg")
+          done
+          if (( ${#configs[@]} )); then
+            printf 'found=true\n' >> "$GITHUB_OUTPUT"
+            printf 'configs<<EOF\n%s\nEOF\n' "${configs[*]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No stryker-config.json found — skipping Stryker run. Add one at repo root or under tests/<project>/ to enable mutation testing."
+            printf 'found=false\n' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup .NET
+        if: steps.check.outputs.found == 'true'
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Install dotnet-stryker
+        if: steps.check.outputs.found == 'true'
+        run: dotnet tool install -g dotnet-stryker
+
+      - name: Run Stryker
+        if: steps.check.outputs.found == 'true'
+        shell: bash
+        run: |
+          set -e
+          shopt -s globstar nullglob
+          if [ -f stryker-config.json ]; then
+            dotnet stryker --config-file stryker-config.json
+          else
+            for cfg in tests/**/stryker-config.json; do
+              dir=$(dirname "$cfg")
+              echo "::group::Stryker in $dir"
+              (cd "$dir" && dotnet stryker)
+              echo "::endgroup::"
+            done
+          fi
+
+      - name: Upload Stryker report
+        if: always() && steps.check.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: stryker-report-${{ github.run_id }}
+          path: |
+            **/StrykerOutput/**
+          if-no-files-found: ignore
+          retention-days: 30
