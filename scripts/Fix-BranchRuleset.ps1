@@ -88,14 +88,25 @@ if ($Repository -eq "{{GITHUB_USERNAME}}/{{REPO_NAME}}" -or -not $Repository) {
 Write-Host "`nFetching existing rulesets..." -ForegroundColor Cyan
 
 try {
-    $rulesetsJson = gh api `
-        -H "Accept: application/vnd.github+json" `
-        -H "X-GitHub-Api-Version: 2022-11-28" `
-        "/repos/$Repository/rulesets" `
-        --paginate 2>&1
+    # Capture stderr to a temp file so gh's progress/warnings can't poison
+    # the JSON stream on stdout (mixing them via 2>&1 can break ConvertFrom-Json
+    # even on a successful API call).
+    $rulesetsErr = [System.IO.Path]::GetTempFileName()
+    try {
+        $rulesetsJson = gh api `
+            -H "Accept: application/vnd.github+json" `
+            -H "X-GitHub-Api-Version: 2022-11-28" `
+            "/repos/$Repository/rulesets" `
+            --paginate 2> $rulesetsErr
+    } finally {
+        if (Test-Path -LiteralPath $rulesetsErr) {
+            $errText = (Get-Content -LiteralPath $rulesetsErr -Raw -ErrorAction SilentlyContinue)
+            Remove-Item -LiteralPath $rulesetsErr -Force
+        }
+    }
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to fetch rulesets: $rulesetsJson"
+        Write-Error "Failed to fetch rulesets (exit code $LASTEXITCODE). gh stderr: $errText"
         exit 1
     }
 

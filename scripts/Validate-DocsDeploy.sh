@@ -162,9 +162,11 @@ if [ -n "$REPO_URL" ]; then
   REPO_NAME=${REPO_URL##*/}     # take everything after the last '/'
 fi
 
-if [ "$STEP3_OK" -ne 1 ]; then
+if [ ! -f "$WORK_DIR/versions.json" ]; then
+  echo "  ⏭️  Skipped — no versions.json present (step 3 did not run)"
+elif [ "$STEP3_OK" -ne 1 ]; then
   echo "  ⏭️  Skipped — versions.json failed validation in step 3"
-elif [ -f "$WORK_DIR/versions.json" ]; then
+else
   FOLDER_CHECK_RESULT=0
   python3 - "$WORK_DIR" "$REPO_NAME" <<'PYEOF' || FOLDER_CHECK_RESULT=1
 import json, os, sys

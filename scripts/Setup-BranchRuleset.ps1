@@ -101,18 +101,28 @@ Write-Host "📌 Protected branch: $BranchName`n" -ForegroundColor Cyan
 # Check if ruleset already exists
 Write-Host "🔍 Checking for existing rulesets..." -ForegroundColor Yellow
 try {
-    $rulesetOutput = gh api `
-        -H "Accept: application/vnd.github+json" `
-        -H "X-GitHub-Api-Version: 2022-11-28" `
-        "/repos/$Repository/rulesets" `
-        --paginate `
-        --jq '.[] | select(.name == "Protect main branch")' 2>&1
+    # Use a jq array wrapper ('[ .[] | select(...) ]') so the output is always
+    # a single valid JSON value (an array) even when multiple rulesets match —
+    # bare '.[] | select(...)' emits one JSON object per match, which is not
+    # valid JSON and breaks ConvertFrom-Json. Redirect stderr to a temp file
+    # so gh's progress/warnings can't poison the JSON stream on stdout.
+    $rulesetErr = [System.IO.Path]::GetTempFileName()
+    try {
+        $rulesetOutput = gh api `
+            -H "Accept: application/vnd.github+json" `
+            -H "X-GitHub-Api-Version: 2022-11-28" `
+            "/repos/$Repository/rulesets" `
+            --paginate `
+            --jq '[ .[] | select(.name == "Protect main branch") ]' 2> $rulesetErr
+    } finally {
+        if (Test-Path -LiteralPath $rulesetErr) { Remove-Item -LiteralPath $rulesetErr -Force }
+    }
 
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "⚠️  Could not check for existing rulesets (API returned exit code $LASTEXITCODE). Continuing..."
     } elseif ($rulesetOutput) {
         $matchingRulesets = $rulesetOutput | ConvertFrom-Json
-        $existingRuleset = $matchingRulesets | Select-Object -First 1
+        $existingRuleset = @($matchingRulesets) | Select-Object -First 1
 
         if ($existingRuleset) {
             Write-Host "✅ Ruleset 'Protect main branch' already exists!" -ForegroundColor Green
