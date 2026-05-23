@@ -366,17 +366,20 @@ jobs:
             # an existing gh-pages branch.
             $branchExists = git ls-remote --heads origin gh-pages
             if ($LASTEXITCODE -ne 0) {
-              Write-Error "git ls-remote --heads origin gh-pages failed with exit code $LASTEXITCODE — aborting before we accidentally bootstrap over an existing gh-pages branch."
-              exit 1
+              # `throw` (not `exit 1`) so the outer try/finally cleanup runs and
+              # the global http.extraheader auth header is always unset.
+              throw "git ls-remote --heads origin gh-pages failed with exit code $LASTEXITCODE — aborting before we accidentally bootstrap over an existing gh-pages branch."
             }
             $useWorktree = [bool]$branchExists
             if ($useWorktree) {
               git fetch origin gh-pages
+              if ($LASTEXITCODE -ne 0) { throw "git fetch origin gh-pages failed with exit code $LASTEXITCODE" }
               git show-ref --verify --quiet refs/heads/gh-pages
               if ($LASTEXITCODE -ne 0) { git branch gh-pages origin/gh-pages }
               git worktree remove $WORK_DIR --force 2>&1 | Out-Null
               if (Test-Path -LiteralPath $WORK_DIR) { Remove-Item -LiteralPath $WORK_DIR -Recurse -Force }
               git worktree add $WORK_DIR gh-pages
+              if ($LASTEXITCODE -ne 0) { throw "git worktree add $WORK_DIR gh-pages failed with exit code $LASTEXITCODE" }
             } else {
               Write-Host "ℹ️ gh-pages does not exist yet — starting fresh."
               New-Item -ItemType Directory -Force -Path $WORK_DIR | Out-Null
@@ -385,7 +388,9 @@ jobs:
               # Auth is provided by the global http.extraheader configured above,
               # so the remote URL does not embed the token.
               git -C $WORK_DIR init --initial-branch=gh-pages
+              if ($LASTEXITCODE -ne 0) { throw "git init in $WORK_DIR failed with exit code $LASTEXITCODE" }
               git -C $WORK_DIR remote add origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
+              if ($LASTEXITCODE -ne 0) { throw "git remote add origin failed with exit code $LASTEXITCODE" }
             }
 
             # Remove stale root files; preserve versions/, .git, .nojekyll, CNAME, dev
@@ -426,8 +431,8 @@ jobs:
               $listHtml = $listItems -join "`n"
 
               if (-not (Test-Path '.github/version-picker-template.html')) {
-                Write-Error "Error: .github/version-picker-template.html not found; cannot generate root index.html."
-                exit 1
+                # `throw` (not `exit 1`) so the outer try/finally cleanup runs.
+                throw ".github/version-picker-template.html not found; cannot generate root index.html."
               }
 
               $template = Get-Content '.github/version-picker-template.html' -Raw
