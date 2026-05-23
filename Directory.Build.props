@@ -79,4 +79,29 @@
     <AdditionalFiles Include="PublicAPI.Unshipped.txt" Condition="Exists('PublicAPI.Unshipped.txt')" />
   </ItemGroup>
 
+
+  <PropertyGroup>
+    <!-- CI3: NuGet package metadata canonical defaults. Per-repo fields
+         (Description, PackageTags, PackageProjectUrl, RepositoryUrl,
+         PackageLicenseExpression, PackageReadmeFile) stay in each src
+         csproj where they are repo-specific. -->
+    <Authors>Chris Wolfgang</Authors>
+    <Company>Chris Wolfgang</Company>
+    <Copyright>Copyright (c) Chris Wolfgang</Copyright>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SourceLink: embed source provenance into PDBs so debuggers can step
+         into NuGet package code from GitHub. -->
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
 </Project>
