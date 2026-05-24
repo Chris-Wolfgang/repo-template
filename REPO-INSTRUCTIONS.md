@@ -12,7 +12,7 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 	1. `Repository name`
  	2. `Description`
   	3. Select `Public` or `Private`
-1. `Start with a template` select `Chris-Wolfgang/repo-template`
+1. `Start with a template` select `{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}`
 1. `Include all branches` set `On` - this will include the `develop` branch. If you don't want the `develop` branch or if there are other branches you don't want you can leave this `off` and create the `develop` branch in your new repository
 
 
@@ -144,13 +144,13 @@ After creating your repository from the template, update the following files wit
 ### Update CONTRIBUTING.md
 
 1. Open `CONTRIBUTING.md`
-2. Ensure any project name placeholders (for example, `Wolfgang.Extensions.DateTime`) have been replaced with your actual project name
+2. Ensure any project name placeholders (for example, `{{PROJECT_NAME}}`) have been replaced with your actual project name
 3. Review and adjust contribution guidelines as needed for your project
 
 ### Update CODEOWNERS
 
 1. Open `.github/CODEOWNERS`
-2. Replace `@Chris-Wolfgang` with your GitHub username or team names
+2. Replace `{{GITHUB_USERNAME}}` with your GitHub username or team names
 3. Uncomment and customize the example rules if you want different owners for specific directories
 
 **Note:** The CODEOWNERS file determines who is automatically requested for review when someone opens a pull request.
@@ -164,7 +164,7 @@ If you want to publish your DocFX documentation to GitHub Pages automatically wh
    - Under "Build and deployment," select **Deploy from a branch**
    - Select the `gh-pages` branch (create it if it doesn't exist: `git checkout --orphan gh-pages && git push origin gh-pages`)
    - Save the settings
-   - Update the DocFX configuration files in `docfx_project/` to replace placeholders (e.g., `Wolfgang.D20-Dice`, `https://Chris-Wolfgang.github.io/D20-Dice/`) with your project's values
+   - Update the DocFX configuration files in `docfx_project/` to replace placeholders (e.g., `{{PROJECT_NAME}}`, `{{DOCS_URL}}`) with your project's values
 
 2. Documentation will be automatically published when you publish a GitHub Release:
    1. Go to your repository's **Releases** page
