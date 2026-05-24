@@ -2,7 +2,10 @@
   <PropertyGroup>
     <LangVersion>latest</LangVersion>
 
-    <!-- Nullable reference types on for every C# project (F#/VB projects excluded) -->
+    <!-- Enable nullable reference types for every C# project. F# (.fsproj) and
+         VB (.vbproj) projects are excluded by the .csproj-only condition;
+         legacy non-SDK C# projects that cannot opt in must set
+         <Nullable>disable</Nullable> explicitly in their own csproj. -->
     <Nullable Condition="'$(MSBuildProjectExtension)' == '.csproj'">enable</Nullable>
 
     <!-- Enable .NET analyzers -->

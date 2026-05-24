@@ -255,6 +255,11 @@ jobs:
         # the newly-generated one has at least as many entries AND retains every
         # previously-published version label. If anything shrunk or went missing,
         # abort the deploy so the version selector cannot be wiped by accident.
+        env:
+          # github.event.repository is missing under workflow_call, so derive the
+          # repo name from github.repository ("owner/repo") instead — works under
+          # workflow_call, workflow_dispatch, and release triggers.
+          GITHUB_REPOSITORY: ${{ github.repository }}
         shell: pwsh
         run: |
           $newPath = 'docfx_project/_site/versions.json'
@@ -262,9 +267,12 @@ jobs:
             Write-Host "::notice::No new versions.json produced - skipping preservation check."
             exit 0
           }
-          $existingUrl = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/versions.json"
+          $repoName = ($env:GITHUB_REPOSITORY -split '/')[-1]
+          $existingUrl = "https://${{ github.repository_owner }}.github.io/$repoName/versions.json"
           try {
-            $existingRaw = (Invoke-WebRequest -Uri $existingUrl -UseBasicParsing -ErrorAction Stop).Content
+            # -UseBasicParsing is a Windows-PowerShell-5.1 flag; pwsh (PowerShell 7+)
+            # treats it as unsupported and would error. Omit it.
+            $existingRaw = (Invoke-WebRequest -Uri $existingUrl -ErrorAction Stop).Content
           } catch {
             Write-Host "::notice::No existing versions.json at $existingUrl - first deploy, skipping preservation check."
             exit 0

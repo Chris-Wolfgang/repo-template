@@ -591,8 +591,17 @@ jobs:
         if: steps.check.outputs.found == 'true'
         uses: actions/setup-dotnet@v5
         with:
+          # Align with validate-release / pack-and-validate so verify-docs-build
+          # can restore solutions that still target older TFMs (otherwise this
+          # gate becomes an accidental release blocker for repos pinned to
+          # netcoreapp3.1 / net5.0 / etc.).
           dotnet-version: |
+            3.1.x
+            5.0.x
+            6.0.x
+            7.0.x
             8.0.x
+            9.0.x
             10.0.x
 
       - name: Restore dependencies
