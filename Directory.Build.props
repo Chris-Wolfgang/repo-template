@@ -6,7 +6,7 @@
          VB (.vbproj) projects are excluded by the .csproj-only condition;
          legacy non-SDK C# projects that cannot opt in must set
          <Nullable>disable</Nullable> explicitly in their own csproj. -->
-    <Nullable Condition="'$(MSBuildProjectExtension)' == '.csproj'">enable</Nullable>
+    <Nullable Condition="'$(MSBuildProjectExtension)' == '.csproj' and '$(UsingMicrosoftNETSdk)' == 'true'">enable</Nullable>
 
     <!-- Enable .NET analyzers -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
