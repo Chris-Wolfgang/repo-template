@@ -13,8 +13,6 @@
 #   for a maintainer to manually review and verify the changes before merging
 # - persist-credentials: false prevents the checkout token from being written to git config for subsequent git commands
 #   (it does NOT, by itself, prevent steps from accessing github.token / GITHUB_TOKEN if you explicitly expose it)
-# - After checkout, configuration files (.editorconfig, BannedSymbols.txt, etc.) are fetched from
-#   the main branch to prevent malicious PRs from disabling analyzers or bypassing code quality checks
 # - Default GITHUB_TOKEN permissions are restricted to read-only repository contents to limit impact if exposed
 
 name: PR Checks v3 (Gated)
