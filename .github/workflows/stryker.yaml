@@ -45,7 +45,11 @@ jobs:
           done
           if (( ${#configs[@]} )); then
             printf 'found=true\n' >> "$GITHUB_OUTPUT"
-            printf 'configs<<EOF\n%s\nEOF\n' "${configs[*]}" >> "$GITHUB_OUTPUT"
+            # NOTE: previously also wrote a configs<<EOF multi-line output here,
+            # but (a) the downstream Run Stryker step re-globs from scratch and
+            # didn't consume it, and (b) ${configs[*]} joins with spaces so the
+            # value was effectively a single space-separated line — not actually
+            # multi-line. Dropped the dead/broken output.
           else
             echo "::notice::No stryker-config.json found — skipping Stryker run. Add one at repo root or under tests/<project>/ to enable mutation testing."
             printf 'found=false\n' >> "$GITHUB_OUTPUT"
