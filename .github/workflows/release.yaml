@@ -569,6 +569,9 @@ jobs:
   verify-docs-build:
     name: Verify Documentation Builds
     runs-on: windows-latest
+    # Gate on the prior validation jobs so we don't burn ~5-10 min of Windows
+    # runner time on a release that's already failing earlier in the pipeline.
+    needs: [validate-release, pack-and-validate]
     if: github.repository != 'Chris-Wolfgang/repo-template'
     steps:
       - name: Checkout code
