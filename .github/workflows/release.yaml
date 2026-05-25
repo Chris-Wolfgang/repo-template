@@ -581,10 +581,10 @@ jobs:
         shell: pwsh
         run: |
           if (Test-Path "docfx_project/docfx.json") {
-            "found=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "found=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           } else {
             Write-Host "::notice::No docfx_project/docfx.json - skipping docs verification."
-            "found=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "found=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           }
 
       - name: Setup .NET
@@ -614,6 +614,7 @@ jobs:
 
       - name: Install DocFX
         if: steps.check.outputs.found == 'true'
+        shell: pwsh
         run: dotnet tool update docfx --global || dotnet tool install docfx --global
 
       - name: Build DocFX metadata
