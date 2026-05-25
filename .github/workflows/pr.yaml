@@ -51,11 +51,24 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch trusted gitleaks config from main
-        # Prevent PR from modifying .gitleaks.toml to bypass the scan
-        run: |
-          git fetch origin main --depth=1
-          git checkout origin/main -- .gitleaks.toml 2>/dev/null || true
+        # Prevent PR from modifying .gitleaks.toml to bypass the scan.
+        # Distinguish "file doesn't exist in main" (fine — gitleaks uses
+        # defaults) from "checkout failed for any other reason" (abort —
+        # silently using the PR version would defeat the guard).
         shell: bash
+        run: |
+          if ! git fetch origin main --depth=1; then
+            echo "::error::Failed to fetch origin/main — aborting before gitleaks scan."
+            exit 1
+          fi
+          if git cat-file -e origin/main:.gitleaks.toml 2>/dev/null; then
+            if ! git checkout origin/main -- .gitleaks.toml; then
+              echo "::error::Failed to checkout origin/main:.gitleaks.toml — aborting to prevent silent fall-back to PR version."
+              exit 1
+            fi
+          else
+            echo "::notice::.gitleaks.toml not present in origin/main — gitleaks will use defaults."
+          fi
 
       - name: Run gitleaks
         # gitleaks-action@v2 does not support pull_request_target, so invoke the CLI directly
