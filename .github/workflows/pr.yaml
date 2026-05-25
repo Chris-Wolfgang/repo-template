@@ -144,12 +144,20 @@ jobs:
                     exit 1
                   fi
                 fi
-              done < <(git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}")
+              # Mask grep's exit 1 on zero matches with `|| true` — under
+              # `set -eo pipefail`, an empty match would otherwise fail the step,
+              # but a pattern like `*.ruleset` legitimately has no matches in
+              # repos that don't ship one. The empty stream is fine; the while
+              # loop simply doesn't iterate.
+              done < <(git ls-tree -r --name-only main-branch | { grep -E "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
                 echo "  ✓ Copying $config_file from main branch"
-                git show "main-branch:$config_file" > "$config_file"
+                if ! git show "main-branch:$config_file" > "$config_file"; then
+                  echo "::error::Failed to copy $config_file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                  exit 1
+                fi
               else
                 echo "  ℹ️  $config_file not found in main branch, skipping"
               fi
@@ -291,12 +299,20 @@ jobs:
                     exit 1
                   fi
                 fi
-              done < <(git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}")
+              # Mask grep's exit 1 on zero matches with `|| true` — under
+              # `set -eo pipefail`, an empty match would otherwise fail the step,
+              # but a pattern like `*.ruleset` legitimately has no matches in
+              # repos that don't ship one. The empty stream is fine; the while
+              # loop simply doesn't iterate.
+              done < <(git ls-tree -r --name-only main-branch | { grep -E "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
                 echo "  ✓ Copying $config_file from main branch"
-                git show "main-branch:$config_file" > "$config_file"
+                if ! git show "main-branch:$config_file" > "$config_file"; then
+                  echo "::error::Failed to copy $config_file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                  exit 1
+                fi
               else
                 echo "  ℹ️  $config_file not found in main branch, skipping"
               fi
@@ -664,7 +680,7 @@ jobs:
             $exists = git cat-file -e "main-branch:$configFile" 2>&1
             if ($LASTEXITCODE -eq 0) {
               Write-Host "  ✓ Copying $configFile from main branch"
-              git show "main-branch:$configFile" | Out-File -FilePath $configFile -Encoding UTF8NoBOM -NoNewline
+              git show "main-branch:$configFile" | Out-File -FilePath $configFile -Encoding UTF8NoBOM
             } else {
               Write-Host "  ℹ️  $configFile not found in main branch, skipping"
             }
@@ -679,7 +695,7 @@ jobs:
                 Write-Host "  ✓ Copying $file from main branch"
                 $dir = Split-Path -Parent $file
                 if ($dir) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
-                git show "main-branch:$file" | Out-File -FilePath $file -Encoding UTF8NoBOM -NoNewline
+                git show "main-branch:$file" | Out-File -FilePath $file -Encoding UTF8NoBOM
               }
             }
           }
@@ -975,12 +991,20 @@ jobs:
                     exit 1
                   fi
                 fi
-              done < <(git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}")
+              # Mask grep's exit 1 on zero matches with `|| true` — under
+              # `set -eo pipefail`, an empty match would otherwise fail the step,
+              # but a pattern like `*.ruleset` legitimately has no matches in
+              # repos that don't ship one. The empty stream is fine; the while
+              # loop simply doesn't iterate.
+              done < <(git ls-tree -r --name-only main-branch | { grep -E "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
                 echo "  ✓ Copying $config_file from main branch"
-                git show "main-branch:$config_file" > "$config_file"
+                if ! git show "main-branch:$config_file" > "$config_file"; then
+                  echo "::error::Failed to copy $config_file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                  exit 1
+                fi
               else
                 echo "  ℹ️  $config_file not found in main branch, skipping"
               fi
@@ -1354,12 +1378,20 @@ jobs:
                     exit 1
                   fi
                 fi
-              done < <(git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}")
+              # Mask grep's exit 1 on zero matches with `|| true` — under
+              # `set -eo pipefail`, an empty match would otherwise fail the step,
+              # but a pattern like `*.ruleset` legitimately has no matches in
+              # repos that don't ship one. The empty stream is fine; the while
+              # loop simply doesn't iterate.
+              done < <(git ls-tree -r --name-only main-branch | { grep -E "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
                 echo "  ✓ Copying $config_file from main branch"
-                git show "main-branch:$config_file" > "$config_file"
+                if ! git show "main-branch:$config_file" > "$config_file"; then
+                  echo "::error::Failed to copy $config_file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                  exit 1
+                fi
               else
                 echo "  ℹ️  $config_file not found in main branch, skipping"
               fi
