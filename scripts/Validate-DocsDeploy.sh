@@ -163,7 +163,11 @@ REPO_NAME=""
 REPO_URL=$(git remote get-url origin 2>/dev/null || true)
 if [ -n "$REPO_URL" ]; then
   REPO_URL=${REPO_URL%.git}     # strip optional trailing .git
-  REPO_NAME=${REPO_URL##*/}     # take everything after the last '/'
+  # Take everything after the last '/' or ':' — handles both
+  # HTTPS (https://github.com/owner/repo) and SSH
+  # (git@github.com:owner/repo) remotes. Without the colon
+  # split, SSH-style remotes without /repo after a / fail.
+  REPO_NAME=${REPO_URL##*[/:]}
 fi
 
 if [ ! -f "$WORK_DIR/versions.json" ]; then
