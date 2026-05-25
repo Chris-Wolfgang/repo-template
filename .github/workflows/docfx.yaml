@@ -401,12 +401,20 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw "git remote add origin failed with exit code $LASTEXITCODE" }
             }
 
-            # Remove stale root files; preserve versions/, .git, .nojekyll, CNAME, dev
+            # Remove stale root files; preserve versions/, .git, .nojekyll, CNAME, dev.
             # ('dev' is where benchmark-action/github-action-benchmark stores its
             # chart + accumulated data.js — wiping it loses chart history on every release.)
-            Get-ChildItem -Path $WORK_DIR -Force | Where-Object {
-              $_.Name -notin @('.git', 'CNAME', '.nojekyll', 'versions', 'dev')
-            } | Remove-Item -Recurse -Force
+            # Gated on DEPLOY_AS_LATEST=true because the root is only repopulated
+            # (version-picker index.html, root versions.json, shared assets) in that
+            # branch below — a rebuild of an older version (deploy_as_latest=false)
+            # would otherwise strip the root and leave only /versions/<x>/ paths.
+            if ($env:DEPLOY_AS_LATEST -eq 'true') {
+              Get-ChildItem -Path $WORK_DIR -Force | Where-Object {
+                $_.Name -notin @('.git', 'CNAME', '.nojekyll', 'versions', 'dev')
+              } | Remove-Item -Recurse -Force
+            } else {
+              Write-Host "Skipping root cleanup — DEPLOY_AS_LATEST is not 'true', preserving existing site root."
+            }
 
             # Ensure .nojekyll exists so GitHub Pages does not run Jekyll
             New-Item -ItemType File -Path (Join-Path $WORK_DIR '.nojekyll') -Force | Out-Null
