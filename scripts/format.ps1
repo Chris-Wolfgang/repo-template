@@ -11,12 +11,17 @@
     If specified, only checks formatting without making changes (like CI does).
 
 .EXAMPLE
-    .\format.ps1
-    Formats all code in the repository.
+    .\scripts\format.ps1
+    Formats all code in the repository (invoke from repo root).
 
 .EXAMPLE
-    .\format.ps1 -Check
+    .\scripts\format.ps1 -Check
     Checks formatting without making changes.
+
+.NOTES
+    The script resolves the solution from the repo root regardless of
+    the caller's current directory, so invoking it from any working
+    directory inside the repo works.
 #>
 
 param(
@@ -24,6 +29,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# Pin cwd to the repo root so the solution lookup below works regardless
+# of where the caller invokes the script from (repo root, scripts/, etc).
+$repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot '..')).Path
+Push-Location $repoRoot
+try {
 
 Write-Host "🎨 Code Formatting Script" -ForegroundColor Cyan
 Write-Host ""
@@ -80,7 +91,7 @@ if ($Check)
     {
         Write-Host ""
         Write-Host "❌ Formatting issues detected!" -ForegroundColor Red
-        Write-Host "Run '.\format.ps1' (without -Check) to fix them automatically." -ForegroundColor Yellow
+        Write-Host "Run '.\scripts\format.ps1' (without -Check) to fix them automatically." -ForegroundColor Yellow
         exit 1
     }
 }
@@ -103,4 +114,7 @@ else
         Write-Host "❌ Formatting failed!" -ForegroundColor Red
         exit 1
     }
+}
+} finally {
+    Pop-Location
 }
