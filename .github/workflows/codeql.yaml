@@ -80,6 +80,10 @@ jobs:
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
+        # S1: use security-extended query suite (broader coverage than the
+        # default 'security-and-quality' default-tier — catches more variants
+        # of injection, deserialization, and dataflow vulnerabilities).
+        queries: security-extended
 
     - name: Setup .NET
       if: steps.check-csharp.outputs.has-csharp == 'true'
