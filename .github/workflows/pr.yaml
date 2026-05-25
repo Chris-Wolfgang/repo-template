@@ -128,8 +128,14 @@ jobs:
           for config_file in "${config_files[@]}"; do
             # Handle glob patterns
             if [[ "$config_file" == *"*"* ]]; then
-              # Find files matching the pattern in main branch
-              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
+              # Find files matching the pattern in main branch.
+              # NOTE: use process substitution (`done < <(...)`) instead of a
+              # plain pipeline. A piped `while` runs in a subshell — an
+              # `exit 1` from inside would only kill the subshell, not the
+              # outer step, letting a failed copy silently fall back to the
+              # PR-supplied protected config. Process substitution runs the
+              # loop in the parent shell so exit actually terminates the job.
+              while read -r file; do
                 if [ -n "$file" ]; then
                   echo "  ✓ Copying $file from main branch"
                   mkdir -p "$(dirname "$file")"
@@ -138,7 +144,7 @@ jobs:
                     exit 1
                   fi
                 fi
-              done
+              done < <(git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}")
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
@@ -269,8 +275,14 @@ jobs:
           for config_file in "${config_files[@]}"; do
             # Handle glob patterns
             if [[ "$config_file" == *"*"* ]]; then
-              # Find files matching the pattern in main branch
-              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
+              # Find files matching the pattern in main branch.
+              # NOTE: use process substitution (`done < <(...)`) instead of a
+              # plain pipeline. A piped `while` runs in a subshell — an
+              # `exit 1` from inside would only kill the subshell, not the
+              # outer step, letting a failed copy silently fall back to the
+              # PR-supplied protected config. Process substitution runs the
+              # loop in the parent shell so exit actually terminates the job.
+              while read -r file; do
                 if [ -n "$file" ]; then
                   echo "  ✓ Copying $file from main branch"
                   mkdir -p "$(dirname "$file")"
@@ -279,7 +291,7 @@ jobs:
                     exit 1
                   fi
                 fi
-              done
+              done < <(git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}")
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
@@ -933,8 +945,14 @@ jobs:
           for config_file in "${config_files[@]}"; do
             # Handle glob patterns
             if [[ "$config_file" == *"*"* ]]; then
-              # Find files matching the pattern in main branch
-              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
+              # Find files matching the pattern in main branch.
+              # NOTE: use process substitution (`done < <(...)`) instead of a
+              # plain pipeline. A piped `while` runs in a subshell — an
+              # `exit 1` from inside would only kill the subshell, not the
+              # outer step, letting a failed copy silently fall back to the
+              # PR-supplied protected config. Process substitution runs the
+              # loop in the parent shell so exit actually terminates the job.
+              while read -r file; do
                 if [ -n "$file" ]; then
                   echo "  ✓ Copying $file from main branch"
                   mkdir -p "$(dirname "$file")"
@@ -943,7 +961,7 @@ jobs:
                     exit 1
                   fi
                 fi
-              done
+              done < <(git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}")
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
@@ -1306,8 +1324,14 @@ jobs:
           for config_file in "${config_files[@]}"; do
             # Handle glob patterns
             if [[ "$config_file" == *"*"* ]]; then
-              # Find files matching the pattern in main branch
-              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
+              # Find files matching the pattern in main branch.
+              # NOTE: use process substitution (`done < <(...)`) instead of a
+              # plain pipeline. A piped `while` runs in a subshell — an
+              # `exit 1` from inside would only kill the subshell, not the
+              # outer step, letting a failed copy silently fall back to the
+              # PR-supplied protected config. Process substitution runs the
+              # loop in the parent shell so exit actually terminates the job.
+              while read -r file; do
                 if [ -n "$file" ]; then
                   echo "  ✓ Copying $file from main branch"
                   mkdir -p "$(dirname "$file")"
@@ -1316,7 +1340,7 @@ jobs:
                     exit 1
                   fi
                 fi
-              done
+              done < <(git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}")
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
