@@ -259,7 +259,7 @@ if (-not $SkipSecurity) {
             $dest = Join-Path $env:LOCALAPPDATA "gitleaks"
             New-Item -ItemType Directory -Force -Path $dest | Out-Null
             $zip = Join-Path $env:TEMP $archive
-            Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+            Invoke-WebRequest -Uri $url -OutFile $zip
             Expand-Archive -Path $zip -DestinationPath $dest -Force
             Remove-Item $zip -ErrorAction SilentlyContinue
             $env:PATH = "$dest;$env:PATH"
