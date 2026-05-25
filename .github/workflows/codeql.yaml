@@ -95,7 +95,7 @@ jobs:
         # maccatalyst/maui/tvos/tizen/browser/windows). Saves ~5-15s on pure-library
         # repos and removes a network-dependent failure mode.
         $hasWorkloadTfm = @(Get-ChildItem -Recurse -Filter *.csproj |
-                           Select-String -Pattern 'net\d+\.\d+-(android|ios|maccatalyst|maui|tvos|tizen|browser|windows)' -List).Count -gt 0
+                           Select-String -Pattern 'net\d+\.\d+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' -List).Count -gt 0
         if (-not $hasWorkloadTfm) {
           Write-Host "No workload-bearing TFMs — skipping dotnet workload restore"
           exit 0

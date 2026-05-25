@@ -308,7 +308,7 @@ jobs:
         # avoid ~5-15s of network-dependent setup and an extra failure mode.
         shell: bash
         run: |
-          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser|windows)' {} \; | grep -q .; then
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' {} \; | grep -q .; then
             echo "Workload-bearing TFMs detected — running dotnet workload restore"
             dotnet workload restore
           else
@@ -647,7 +647,7 @@ jobs:
         # avoid ~5-15s of network-dependent setup and an extra failure mode.
         shell: bash
         run: |
-          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser|windows)' {} \; | grep -q .; then
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' {} \; | grep -q .; then
             echo "Workload-bearing TFMs detected — running dotnet workload restore"
             dotnet workload restore
           else
@@ -909,7 +909,7 @@ jobs:
         # avoid ~5-15s of network-dependent setup and an extra failure mode.
         shell: bash
         run: |
-          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser|windows)' {} \; | grep -q .; then
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' {} \; | grep -q .; then
             echo "Workload-bearing TFMs detected — running dotnet workload restore"
             dotnet workload restore
           else
