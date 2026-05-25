@@ -128,7 +128,7 @@ If you plan to publish NuGet packages using the automated release workflow, you 
    - Set expiration date (recommended: 1 year)
 5. Click **"Add secret"**
 
-**Note:** The release workflow automatically publishes packages to NuGet.org when you push a version tag (e.g., `v1.0.0`).
+**Note:** The release workflow automatically publishes packages to NuGet.org when you **publish a GitHub Release** (the workflow triggers on `release: types: [published]`, not on a tag push). Create a tag like `v1.0.0`, then publish a GitHub Release from that tag to trigger the workflow.
 
 
 ## Update Template Files
