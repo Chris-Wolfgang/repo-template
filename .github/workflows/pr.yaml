@@ -485,6 +485,7 @@ jobs:
               dotnet test "$test_proj" \
                 --configuration Release \
                 --framework "$fw" \
+                --no-build --no-restore \
                 --collect:"XPlat Code Coverage" \
                 --settings coverlet.runsettings \
                 --results-directory "./TestResults" \
@@ -744,6 +745,7 @@ jobs:
                 dotnet test $testProj.FullName `
                   --configuration Release `
                   --framework $fw `
+                  --no-build --no-restore `
                   --collect:"XPlat Code Coverage" `
                   --settings coverlet.runsettings `
                   --results-directory "./TestResults" `
@@ -752,6 +754,7 @@ jobs:
                 dotnet test $testProj.FullName `
                   --configuration Release `
                   --framework $fw `
+                  --no-build --no-restore `
                   --logger "console;verbosity=normal"
               }
 
@@ -1081,6 +1084,7 @@ jobs:
               dotnet test "$test_proj" \
                 --configuration Release \
                 --framework "$fw" \
+                --no-build --no-restore \
                 --collect:"XPlat Code Coverage" \
                 --settings coverlet.runsettings \
                 --results-directory "./TestResults" \
@@ -1599,6 +1603,7 @@ jobs:
               dotnet test "$test_proj" \
                 --configuration Release \
                 --framework "$fw" \
+                --no-build --no-restore \
                 --collect:"XPlat Code Coverage" \
                 --settings coverlet.runsettings \
                 --results-directory "./TestResults" \
