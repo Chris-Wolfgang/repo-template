@@ -112,7 +112,12 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: |
-          dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --settings coverlet.runsettings --results-directory ./coverage-raw 2>&1 | Out-Host
+          # Coverage report only needs one TFM's worth of runs. The per-PR
+          # pr.yaml workflow already exercises every TFM across Stages 1/2/3,
+          # so re-running the full matrix during docs deploy multiplies job
+          # time and adds extra failure surface for older targets. Pin to
+          # net10.0 — the modern target that's always present in this fleet.
+          dotnet test --configuration Release --no-build --framework net10.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings --results-directory ./coverage-raw 2>&1 | Out-Host
           dotnet tool update -g dotnet-reportgenerator-globaltool 2>$null || dotnet tool install -g dotnet-reportgenerator-globaltool 2>$null
           $coverageFiles = @(Get-ChildItem -Path ./coverage-raw -Recurse -Filter "coverage.cobertura.xml" -ErrorAction SilentlyContinue)
           if ($coverageFiles.Count -eq 0) {
