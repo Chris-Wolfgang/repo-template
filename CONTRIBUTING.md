@@ -62,9 +62,11 @@ All code is analyzed by these tools during build:
    - Advanced C# pattern detection
 
 3. **AsyncFixer**
-   - Detects async/await anti-patterns
-   - Ensures proper `ConfigureAwait()` usage
-   - Prevents fire-and-forget async calls
+   - Detects common async/await anti-patterns (AsyncFixer01–05)
+   - Flags missing or incorrect cancellation-token propagation
+   - Prevents fire-and-forget async calls (`async void` outside event handlers)
+   - NOTE: `ConfigureAwait()` enforcement is handled by Meziantou's
+     MA0004 / SonarAnalyzer S3216 / CA2007, not by AsyncFixer.
 
 4. **Microsoft.VisualStudio.Threading.Analyzers**
    - Thread safety enforcement
