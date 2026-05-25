@@ -304,8 +304,16 @@ jobs:
       - name: Restore .NET workloads
         # Some projects (MAUI / MauiHybrid / Android / iOS / WPF) declare workloads via
         # their TFMs (e.g. net10.0-android). For workload-bearing repos this installs them
-        # before restore; for pure libraries it's a fast no-op.
-        run: dotnet workload restore
+        # before restore; for pure-library repos with no workload TFMs, skip entirely to
+        # avoid ~5-15s of network-dependent setup and an extra failure mode.
+        shell: bash
+        run: |
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser|windows)' {} \; | grep -q .; then
+            echo "Workload-bearing TFMs detected — running dotnet workload restore"
+            dotnet workload restore
+          else
+            echo "No workload-bearing TFMs in any csproj — skipping dotnet workload restore"
+          fi
 
       - name: Restore and build (exclude .NET Framework-only projects)
         run: |
@@ -635,8 +643,16 @@ jobs:
       - name: Restore .NET workloads
         # Some projects (MAUI / MauiHybrid / Android / iOS / WPF) declare workloads via
         # their TFMs (e.g. net10.0-android). For workload-bearing repos this installs them
-        # before restore; for pure libraries it's a fast no-op.
-        run: dotnet workload restore
+        # before restore; for pure-library repos with no workload TFMs, skip entirely to
+        # avoid ~5-15s of network-dependent setup and an extra failure mode.
+        shell: bash
+        run: |
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser|windows)' {} \; | grep -q .; then
+            echo "Workload-bearing TFMs detected — running dotnet workload restore"
+            dotnet workload restore
+          else
+            echo "No workload-bearing TFMs in any csproj — skipping dotnet workload restore"
+          fi
 
       - name: Restore dependencies
         run: dotnet restore
@@ -889,8 +905,16 @@ jobs:
       - name: Restore .NET workloads
         # Some projects (MAUI / MauiHybrid / Android / iOS / WPF) declare workloads via
         # their TFMs (e.g. net10.0-android). For workload-bearing repos this installs them
-        # before restore; for pure libraries it's a fast no-op.
-        run: dotnet workload restore
+        # before restore; for pure-library repos with no workload TFMs, skip entirely to
+        # avoid ~5-15s of network-dependent setup and an extra failure mode.
+        shell: bash
+        run: |
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser|windows)' {} \; | grep -q .; then
+            echo "Workload-bearing TFMs detected — running dotnet workload restore"
+            dotnet workload restore
+          else
+            echo "No workload-bearing TFMs in any csproj — skipping dotnet workload restore"
+          fi
 
       - name: Restore and build (exclude .NET Framework-only projects)
         run: |
