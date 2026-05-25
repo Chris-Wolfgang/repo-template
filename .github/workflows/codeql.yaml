@@ -92,7 +92,9 @@ jobs:
       shell: pwsh
       run: |
         # Skip entirely if no csproj declares a workload-bearing TFM (android/ios/
-        # maccatalyst/maui/tvos/tizen/browser/windows). Saves ~5-15s on pure-library
+        # maccatalyst/maui/tvos/tizen/browser) — netX.Y-windows TFMs use
+        # SDK-bundled projection assemblies, not the workload installer, so
+        # they're intentionally excluded. Saves ~5-15s on pure-library
         # repos and removes a network-dependent failure mode.
         $hasWorkloadTfm = @(Get-ChildItem -Recurse -Filter *.csproj |
                            Select-String -Pattern 'net\d+\.\d+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' -List).Count -gt 0
