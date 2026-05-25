@@ -254,7 +254,8 @@ jobs:
 
       - name: Verify previous versions preserved in versions.json
         # Initiative D6 — guard against accidentally wiping the version selector.
-        # Fetches the currently-deployed versions.json from gh-pages and confirms
+        # Fetches the currently-deployed versions.json from the published
+        # GitHub Pages URL (https://<owner>.github.io/<repo>/versions.json) and confirms
         # the newly-generated one has at least as many entries AND retains every
         # previously-published version label. If anything shrunk or went missing,
         # abort the deploy so the version selector cannot be wiped by accident.
