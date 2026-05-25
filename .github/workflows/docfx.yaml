@@ -205,8 +205,11 @@ jobs:
               $aId = $aIds[$i]
               $bId = $bIds[$i]
 
-              $aIsNum = [int]::TryParse($aId, [ref]([int]$null))
-              $bIsNum = [int]::TryParse($bId, [ref]([int]$null))
+              # TryParse needs [ref] to a real variable, not an expression.
+              # We don't use the out value (we re-parse below via [int]$aId).
+              $aOut = 0; $bOut = 0
+              $aIsNum = [int]::TryParse($aId, [ref]$aOut)
+              $bIsNum = [int]::TryParse($bId, [ref]$bOut)
 
               if ($aIsNum -and $bIsNum) {
                 $aVal = [int]$aId
