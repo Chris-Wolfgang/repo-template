@@ -579,9 +579,12 @@ jobs:
             # Stage 2's behavior — ReportGenerator Summary.txt rows often
             # have line/branch/method columns and the overall figure is at
             # end-of-line.
-            if echo "$line" | grep -qE '^[^ ].*[0-9]+%$' && ! echo "$line" | grep -q '^Summary'; then
+            if echo "$line" | grep -qE '^[^ ].*[0-9]+(\.[0-9]+)?%$' && ! echo "$line" | grep -q '^Summary'; then
               module=$(echo "$line" | awk '{print $1}')
-              percent=$(echo "$line" | awk '{print $NF}' | tr -d '%')
+              # Floor the percent to int (matches Stage 2 pwsh's [int][math]::Floor)
+              # so we can use bash's integer -lt comparator below without
+              # erroring on decimals like "90.4".
+              percent=$(echo "$line" | awk '{print $NF}' | tr -d '%' | awk '{print int($1)}')
               matched_count=$((matched_count + 1))
 
               echo "Checking module: '$module' - Coverage: ${percent}%"
