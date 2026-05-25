@@ -182,10 +182,10 @@ dotnet format
 dotnet format --verify-no-changes
 
 # PowerShell formatting script
-pwsh ./format.ps1
+pwsh ./scripts/format.ps1
 ```
 
-See [README-FORMATTING.md](README-FORMATTING.md) for detailed formatting rules.
+See [docs/README-FORMATTING.md](docs/README-FORMATTING.md) for detailed formatting rules.
 
 ---
 
