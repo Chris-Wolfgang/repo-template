@@ -276,8 +276,14 @@ jobs:
         run: |
           $newPath = 'docfx_project/_site/versions.json'
           if (-Not (Test-Path $newPath)) {
-            Write-Host "::notice::No new versions.json produced - skipping preservation check."
-            exit 0
+            # This step only runs when deploy_to_pages != false, so a real
+            # deploy is about to happen. Missing newly-generated versions.json
+            # means the docfx generate step is broken — we can't verify that
+            # we're preserving previously-published versions. Failing here is
+            # safer than letting the deploy proceed and wipe the root with
+            # whatever (possibly empty) state.
+            Write-Error "::error::Newly-generated docfx_project/_site/versions.json is missing — docfx generation is broken. Refusing to deploy without a verified version manifest."
+            exit 1
           }
           $repoName = ($env:GITHUB_REPOSITORY -split '/')[-1]
           $existingUrl = "https://${{ github.repository_owner }}.github.io/$repoName/versions.json"
