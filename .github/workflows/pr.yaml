@@ -555,15 +555,21 @@ jobs:
           
           failed_projects=""
           threshold=${CODECOV_MINIMUM:-90}
-          
+          matched_count=0
+
           while read -r line; do
-            # Match lines with module names and percentages
+            # Match lines with module names and percentages. The percent
+            # capture is the LAST %-suffixed number on the line, matching
+            # Stage 2's behavior — ReportGenerator Summary.txt rows often
+            # have line/branch/method columns and the overall figure is at
+            # end-of-line.
             if echo "$line" | grep -qE '^[^ ].*[0-9]+%$' && ! echo "$line" | grep -q '^Summary'; then
               module=$(echo "$line" | awk '{print $1}')
               percent=$(echo "$line" | awk '{print $NF}' | tr -d '%')
-              
+              matched_count=$((matched_count + 1))
+
               echo "Checking module: '$module' - Coverage: ${percent}%"
-              
+
               if [ "$percent" -lt "$threshold" ]; then
                 echo "  ❌ FAIL: Below ${threshold}% threshold"
                 failed_projects="$failed_projects $module (${percent}%)"
@@ -572,6 +578,14 @@ jobs:
               fi
             fi
           done < CoverageReport/Summary.txt
+
+          # Fail loudly when 0 modules matched - the regex is wrong or
+          # Summary.txt format changed. Silently passing the gate when we
+          # couldn't parse coverage is worse than failing.
+          if [ "$matched_count" -eq 0 ]; then
+            echo "❌ Coverage parser matched 0 modules in Summary.txt - regex or report format is out of sync. Refusing to silently pass the gate."
+            exit 1
+          fi
 
           if [ -n "$failed_projects" ]; then
             echo ""
