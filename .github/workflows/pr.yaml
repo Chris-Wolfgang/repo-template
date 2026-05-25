@@ -122,7 +122,10 @@ jobs:
                 if [ -n "$file" ]; then
                   echo "  ✓ Copying $file from main branch"
                   mkdir -p "$(dirname "$file")"
-                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
+                  if ! git show "main-branch:$file" > "$file"; then
+                    echo "::error::Failed to copy $file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                    exit 1
+                  fi
                 fi
               done
             else
@@ -260,7 +263,10 @@ jobs:
                 if [ -n "$file" ]; then
                   echo "  ✓ Copying $file from main branch"
                   mkdir -p "$(dirname "$file")"
-                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
+                  if ! git show "main-branch:$file" > "$file"; then
+                    echo "::error::Failed to copy $file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                    exit 1
+                  fi
                 fi
               done
             else
@@ -878,7 +884,10 @@ jobs:
                 if [ -n "$file" ]; then
                   echo "  ✓ Copying $file from main branch"
                   mkdir -p "$(dirname "$file")"
-                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
+                  if ! git show "main-branch:$file" > "$file"; then
+                    echo "::error::Failed to copy $file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                    exit 1
+                  fi
                 fi
               done
             else
@@ -1226,7 +1235,10 @@ jobs:
                 if [ -n "$file" ]; then
                   echo "  ✓ Copying $file from main branch"
                   mkdir -p "$(dirname "$file")"
-                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
+                  if ! git show "main-branch:$file" > "$file"; then
+                    echo "::error::Failed to copy $file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                    exit 1
+                  fi
                 fi
               done
             else
