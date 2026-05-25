@@ -51,7 +51,11 @@ check_pass "gh-pages branch exists on remote"
 # ------------------------------------------------------------------
 # Use an explicit template so this works on BSD/macOS mktemp (which rejects
 # `mktemp -d` with no template), not only GNU coreutils.
+# Reserve a unique path via mktemp -d (handles BSD/macOS too), then rmdir it
+# so `git worktree add` can create it cleanly. The directory must NOT exist
+# at the moment of worktree-add or git errors with "already exists".
 WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/gh-pages-validate.XXXXXX")
+rmdir "$WORK_DIR"
 cleanup() {
   git worktree remove "$WORK_DIR" --force 2>/dev/null || true
   rm -rf "$WORK_DIR"
