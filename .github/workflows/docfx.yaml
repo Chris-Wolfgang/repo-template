@@ -437,16 +437,28 @@ jobs:
             # Ensure .nojekyll exists so GitHub Pages does not run Jekyll
             New-Item -ItemType File -Path (Join-Path $WORK_DIR '.nojekyll') -Force | Out-Null
 
-            # Deploy versioned docs (real DocFX index.html — before version picker overwrites it)
+            # Deploy versioned docs (real DocFX index.html — before version picker
+            # overwrites it). Clear the destination first so files that were
+            # dropped from docfx output between releases don't linger forever.
             $versionedDir = Join-Path $WORK_DIR "versions/$($env:VERSION_DIR)"
-            New-Item -ItemType Directory -Force -Path $versionedDir | Out-Null
+            if (Test-Path -LiteralPath $versionedDir) {
+              Get-ChildItem -LiteralPath $versionedDir -Force | Remove-Item -Recurse -Force
+            } else {
+              New-Item -ItemType Directory -Force -Path $versionedDir | Out-Null
+            }
             Copy-Item -Path "$siteDir/*" -Destination $versionedDir -Recurse -Force
             Write-Host "✅ Copied docs to versions/$($env:VERSION_DIR)/"
 
             if ($env:DEPLOY_AS_LATEST -eq 'true') {
-              # Deploy to versions/latest/ (real DocFX index.html)
+              # Deploy to versions/latest/ (real DocFX index.html). Same clear-
+              # before-copy pattern as versions/<dir> above to prevent stale
+              # files from previous releases lingering when docfx output shrinks.
               $latestDir = Join-Path $WORK_DIR 'versions/latest'
-              New-Item -ItemType Directory -Force -Path $latestDir | Out-Null
+              if (Test-Path -LiteralPath $latestDir) {
+                Get-ChildItem -LiteralPath $latestDir -Force | Remove-Item -Recurse -Force
+              } else {
+                New-Item -ItemType Directory -Force -Path $latestDir | Out-Null
+              }
               Copy-Item -Path "$siteDir/*" -Destination $latestDir -Recurse -Force
               Write-Host "✅ Copied docs to versions/latest/"
 
