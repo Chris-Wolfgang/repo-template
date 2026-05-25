@@ -123,16 +123,16 @@ jobs:
                          Select-Object -First 1
               if ($slnFile) {
                 Write-Host "Restoring $($slnFile.Name)..."
-                dotnet restore $slnFile.FullName 2>&1 | Write-Host
+                dotnet restore $slnFile.FullName 2>&1 | Out-Host
                 Write-Host "Building $($slnFile.Name)..."
-                dotnet build $slnFile.FullName --configuration Release --no-restore 2>&1 | Write-Host
+                dotnet build $slnFile.FullName --configuration Release --no-restore 2>&1 | Out-Host
               }
 
               Write-Host "Running docfx metadata..."
-              docfx metadata docfx_project/docfx.json 2>&1 | Write-Host
+              docfx metadata docfx_project/docfx.json 2>&1 | Out-Host
 
               Write-Host "Running docfx build..."
-              docfx build docfx_project/docfx.json 2>&1 | Write-Host
+              docfx build docfx_project/docfx.json 2>&1 | Out-Host
 
               if (Test-Path 'docfx_project/_site') {
                 $dest = Join-Path $outDir 'versions' $version
