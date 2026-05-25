@@ -73,15 +73,27 @@ jobs:
         run: |
           set -e
           shopt -s globstar nullglob
+          # Run BOTH a root stryker-config.json (if present) AND any
+          # tests/**/stryker-config.json suites. The Detect step collects
+          # both shapes; running only one leaves per-test suites unscanned
+          # in repos that have both an umbrella and per-suite configs.
+          ran=0
           if [ -f stryker-config.json ]; then
+            echo "::group::Stryker with root stryker-config.json"
             dotnet stryker --config-file stryker-config.json
-          else
-            for cfg in tests/**/stryker-config.json; do
-              dir=$(dirname "$cfg")
-              echo "::group::Stryker in $dir"
-              (cd "$dir" && dotnet stryker)
-              echo "::endgroup::"
-            done
+            echo "::endgroup::"
+            ran=1
+          fi
+          for cfg in tests/**/stryker-config.json; do
+            dir=$(dirname "$cfg")
+            echo "::group::Stryker in $dir"
+            (cd "$dir" && dotnet stryker)
+            echo "::endgroup::"
+            ran=1
+          done
+          if [ "$ran" -eq 0 ]; then
+            echo "::error::Detect step said stryker-config.json was present, but Run found neither root nor tests/**/stryker-config.json. Bailing."
+            exit 1
           fi
 
       - name: Upload Stryker report
