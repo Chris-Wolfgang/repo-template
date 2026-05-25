@@ -607,6 +607,22 @@ jobs:
             9.0.x
             10.0.x
 
+      - name: Restore .NET workloads
+        # Same gated probe as pr.yaml — only run dotnet workload restore when
+        # at least one csproj declares a workload-bearing TFM. Required for
+        # repos with MAUI/Android/iOS targets (e.g. Hawsey); fast no-op
+        # otherwise. Without this, dotnet build below fails on workload-bearing
+        # projects because the SDK can't resolve the workload assemblies.
+        if: steps.check.outputs.found == 'true'
+        shell: bash
+        run: |
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' {} \; | grep -q .; then
+            echo "Workload-bearing TFMs detected — running dotnet workload restore"
+            dotnet workload restore
+          else
+            echo "No workload-bearing TFMs in any csproj — skipping dotnet workload restore"
+          fi
+
       - name: Restore dependencies
         if: steps.check.outputs.found == 'true'
         run: dotnet restore
