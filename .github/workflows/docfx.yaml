@@ -255,6 +255,9 @@ jobs:
         # the newly-generated one has at least as many entries AND retains every
         # previously-published version label. If anything shrunk or went missing,
         # abort the deploy so the version selector cannot be wiped by accident.
+        # Skipped on dry-runs (inputs.deploy_to_pages == false) — nothing is being
+        # deployed, so a transient Pages fetch failure shouldn't fail the workflow.
+        if: inputs.deploy_to_pages != false
         env:
           # github.event.repository is missing under workflow_call, so derive the
           # repo name from github.repository ("owner/repo") instead — works under
