@@ -112,7 +112,7 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: |
-          dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --results-directory ./coverage-raw 2>&1 | Out-Host
+          dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --settings coverlet.runsettings --results-directory ./coverage-raw 2>&1 | Out-Host
           dotnet tool update -g dotnet-reportgenerator-globaltool 2>$null || dotnet tool install -g dotnet-reportgenerator-globaltool 2>$null
           $coverageFiles = @(Get-ChildItem -Path ./coverage-raw -Recurse -Filter "coverage.cobertura.xml" -ErrorAction SilentlyContinue)
           if ($coverageFiles.Count -eq 0) {
