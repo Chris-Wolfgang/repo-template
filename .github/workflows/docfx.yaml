@@ -287,7 +287,7 @@ jobs:
             # we're preserving previously-published versions. Failing here is
             # safer than letting the deploy proceed and wipe the root with
             # whatever (possibly empty) state.
-            Write-Error "::error::Newly-generated docfx_project/_site/versions.json is missing — docfx generation is broken. Refusing to deploy without a verified version manifest."
+            Write-Host "::error::Newly-generated docfx_project/_site/versions.json is missing — docfx generation is broken. Refusing to deploy without a verified version manifest."
             exit 1
           }
           $repoName = ($env:GITHUB_REPOSITORY -split '/')[-1]
