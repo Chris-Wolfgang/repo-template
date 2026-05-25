@@ -173,10 +173,13 @@ jobs:
           done
           
           # Check .globalconfig, .ruleset, and workflow files using the same git diff approach
-          # --diff-filter=AMRC: Added, Modified, Renamed, Copied (excludes Deleted)
+          # --diff-filter=AMRCD: Added, Modified, Renamed, Copied, Deleted.
+          # Including D so a PR that *deletes* a protected file (workflow,
+          # .globalconfig, .ruleset) also triggers the maintainer-review gate
+          # — a silent deletion is just as security-relevant as a silent edit.
           while IFS= read -r file; do
             changed_files+=("$file")
-          done < <(git diff --name-only --diff-filter=AMRC main-branch HEAD 2>/dev/null | grep -E '(\.(globalconfig|ruleset)|^\.github/workflows/.*\.ya?ml)$' || true)
+          done < <(git diff --name-only --diff-filter=AMRCD main-branch HEAD 2>/dev/null | grep -E '(\.(globalconfig|ruleset)|^\.github/workflows/.*\.ya?ml)$' || true)
           
           if [ ${#changed_files[@]} -gt 0 ]; then
             echo ""
