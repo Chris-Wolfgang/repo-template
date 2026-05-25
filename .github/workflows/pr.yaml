@@ -1115,8 +1115,17 @@ jobs:
 
       - name: Enforce 90% coverage threshold
         run: |
+          # If no cobertura files were produced (no tests, all test projects
+          # skipped, etc.), the preceding step explicitly skipped report
+          # generation. Mirror that here — gating only when coverage was
+          # actually collected — instead of failing with "Coverage report
+          # not generated!" on jobs that legitimately had nothing to cover.
+          if ! find ./TestResults -name "coverage.cobertura.xml" -print -quit 2>/dev/null | grep -q .; then
+            echo "ℹ️  No coverage files produced — skipping coverage gate (consistent with the prior 'skipping report generation' notice)."
+            exit 0
+          fi
           if [ ! -f "CoverageReport/Summary.txt" ]; then
-            echo "❌ Coverage report not generated!"
+            echo "❌ Coverage files exist but Summary.txt is missing — ReportGenerator failed."
             exit 1
           fi
 
