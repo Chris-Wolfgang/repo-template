@@ -2,8 +2,15 @@
 
 ## Setup Instructions
 
-After you create your repo from the template you will still need to configure some settings. 
-Below is a list of what needs to be done. Once you have completed the checklist below you can delete this file
+After you create your repo from the template you will still need to configure some settings.
+Below is a list of what needs to be done. Once you have completed the checklist below you can delete this file.
+
+> **⚡ Fast path — automated setup.** The README's [Quick Start](README.md#quick-start) walks
+> through `pwsh ./scripts/setup.ps1`, which handles placeholder replacement, label
+> creation, branch-ruleset configuration, and GitHub Pages setup automatically. If
+> you ran that, you can skip most of the manual steps below — they're documented
+> here as a fallback for cases where the automated script doesn't fit (forks,
+> non-template repos adopting this layout, etc.).
 
 ## Creating Your Repository
 
