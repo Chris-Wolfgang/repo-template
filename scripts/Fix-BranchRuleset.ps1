@@ -65,6 +65,14 @@ try {
     exit 1
 }
 
+# Normalize Repository: strip leading "@" and trailing ".git" that can
+# leak in from SSH remotes (e.g. git@github.com:owner/repo.git -> @owner/repo).
+# Both prefixes make gh api /repos/... calls fail with 404.
+if ($Repository) {
+    $Repository = $Repository.TrimStart('@')
+    if ($Repository.EndsWith('.git')) { $Repository = $Repository.Substring(0, $Repository.Length - 4) }
+}
+
 # Determine repository
 if ($Repository -eq "{{GITHUB_USERNAME}}/{{REPO_NAME}}" -or -not $Repository) {
     Write-Host "Detecting current repository..." -ForegroundColor Cyan
