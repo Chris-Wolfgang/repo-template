@@ -434,15 +434,27 @@ jobs:
           # Gracefully skip if there is no ./tests directory (e.g. template-publishing
           # repos or library repos in early development that have no tests yet).
           # The downstream coverage steps already handle the no-coverage-files case.
+          # Fail loudly if the repo HAS src/ projects — the coverage gate
+          # exists to enforce test coverage on shipping code, so silently
+          # passing when tests are missing is the wrong default. Skip only
+          # for template-pack / in-dev repos with no source projects yet.
           if [ ! -d ./tests ]; then
-            echo "ℹ️  No ./tests directory — skipping test stage."
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ ./tests directory is missing but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            fi
+            echo "ℹ️  No ./tests directory and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           fi
 
           mapfile -d '' -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -not -name "*.Tests.Integration.*" -print0)
 
           if [ ${#test_projects[@]} -eq 0 ]; then
-            echo "ℹ️  No test projects found under ./tests — skipping test stage."
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            fi
+            echo "ℹ️  No test projects found under ./tests and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           fi
           
@@ -688,15 +700,29 @@ jobs:
 
           # Gracefully skip if there is no ./tests directory (e.g. template-publishing
           # repos or library repos in early development that have no tests yet).
+          # The coverage gate exists to enforce test coverage on shipping
+          # code. If ./src has projects but ./tests doesn't, fail loudly
+          # instead of silently passing the gate. Skip only for template-
+          # pack / in-dev repos that have no source projects yet.
+          $srcHasProjects = @(Get-ChildItem -Path './src' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj' -ErrorAction SilentlyContinue).Count -gt 0
+
           if (-not (Test-Path -Path './tests' -PathType Container)) {
-            Write-Host "ℹ️  No ./tests directory — skipping test stage."
+            if ($srcHasProjects) {
+              Write-Error "❌ ./tests directory is missing but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            }
+            Write-Host "ℹ️  No ./tests directory and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           }
 
           $testProjects = @(Get-ChildItem -Path './tests/*' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj')
 
           if (@($testProjects).Count -eq 0) {
-            Write-Host "ℹ️  No test projects found under ./tests — skipping test stage."
+            if ($srcHasProjects) {
+              Write-Error "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            }
+            Write-Host "ℹ️  No test projects found under ./tests and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           }
           
@@ -1029,8 +1055,16 @@ jobs:
           # Find all test projects (C#, VB.NET, F#).
           # Gracefully skip if there is no ./tests directory (e.g. template-publishing
           # repos or library repos in early development that have no tests yet).
+          # Fail loudly if the repo HAS src/ projects — the coverage gate
+          # exists to enforce test coverage on shipping code, so silently
+          # passing when tests are missing is the wrong default. Skip only
+          # for template-pack / in-dev repos with no source projects yet.
           if [ ! -d ./tests ]; then
-            echo "ℹ️  No ./tests directory — skipping test stage."
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ ./tests directory is missing but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            fi
+            echo "ℹ️  No ./tests directory and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           fi
 
@@ -1040,7 +1074,11 @@ jobs:
           done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -not -name "*.Tests.Integration.*" -print0)
 
           if [ ${#test_projects[@]} -eq 0 ]; then
-            echo "ℹ️  No test projects found under ./tests — skipping test stage."
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            fi
+            echo "ℹ️  No test projects found under ./tests and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           fi
           
@@ -1548,8 +1586,16 @@ jobs:
           # Find all test projects (C#, VB.NET, F#).
           # Gracefully skip if there is no ./tests directory (e.g. template-publishing
           # repos or library repos in early development that have no tests yet).
+          # Fail loudly if the repo HAS src/ projects — the coverage gate
+          # exists to enforce test coverage on shipping code, so silently
+          # passing when tests are missing is the wrong default. Skip only
+          # for template-pack / in-dev repos with no source projects yet.
           if [ ! -d ./tests ]; then
-            echo "ℹ️  No ./tests directory — skipping test stage."
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ ./tests directory is missing but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            fi
+            echo "ℹ️  No ./tests directory and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           fi
 
@@ -1559,7 +1605,11 @@ jobs:
           done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -not -name "*.Tests.Integration.*" -print0)
 
           if [ ${#test_projects[@]} -eq 0 ]; then
-            echo "ℹ️  No test projects found under ./tests — skipping test stage."
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            fi
+            echo "ℹ️  No test projects found under ./tests and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           fi
           
