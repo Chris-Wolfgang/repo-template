@@ -480,20 +480,37 @@ jobs:
               Write-Host "✅ Copied version picker to site root"
             }
 
-            # Single commit and push
+            # Single commit and push.
+            # `git diff --cached --quiet` exits 0 (no changes), 1 (changes
+            # exist), or >1 (error — e.g. cannot read index). Treat the
+            # three cases explicitly: commit only when there are changes
+            # (exit 1); on >1 abort the deploy with a clear error; on 0
+            # report "nothing to deploy" and exit cleanly.
             git -C $WORK_DIR add -A
             git -C $WORK_DIR diff --cached --quiet
-            if ($LASTEXITCODE -ne 0) {
+            $diffExit = $LASTEXITCODE
+            if ($diffExit -eq 1) {
               $msg = if ($env:DEPLOY_AS_LATEST -eq 'true') {
                 "docs: deploy $($env:VERSION_DIR) and update latest"
               } else {
                 "docs: deploy $($env:VERSION_DIR)"
               }
               git -C $WORK_DIR commit -m $msg
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "❌ git commit failed with exit code $LASTEXITCODE — aborting deploy."
+                throw "git commit failed"
+              }
               git -C $WORK_DIR push origin HEAD:gh-pages
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "❌ git push origin HEAD:gh-pages failed with exit code $LASTEXITCODE — deploy did not land."
+                throw "git push failed"
+              }
               Write-Host "✅ Documentation deployed in a single commit."
-            } else {
+            } elseif ($diffExit -eq 0) {
               Write-Host "ℹ️ No documentation changes to deploy."
+            } else {
+              Write-Error "❌ git diff --cached --quiet exited with $diffExit (error reading the staged index) — aborting deploy."
+              throw "git diff failed"
             }
 
             # Capture the deploy outcome before the finally block runs cleanup
