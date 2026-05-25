@@ -264,9 +264,14 @@ jobs:
         # the newly-generated one has at least as many entries AND retains every
         # previously-published version label. If anything shrunk or went missing,
         # abort the deploy so the version selector cannot be wiped by accident.
-        # Skipped on dry-runs (inputs.deploy_to_pages == false) — nothing is being
-        # deployed, so a transient Pages fetch failure shouldn't fail the workflow.
-        if: inputs.deploy_to_pages != false
+        # Only runs when an actual root-touching deploy is happening:
+        # - inputs.deploy_to_pages != false (otherwise it's a dry-run and
+        #   nothing deploys at all)
+        # - inputs.deploy_as_latest != false (otherwise the deploy writes
+        #   only versions/<dir>/ and never touches the root versions.json,
+        #   so there's nothing for the preservation guard to protect — a
+        #   transient Pages-fetch failure would block a legitimate rebuild)
+        if: inputs.deploy_to_pages != false && inputs.deploy_as_latest != false
         env:
           # github.event.repository is missing under workflow_call, so derive the
           # repo name from github.repository ("owner/repo") instead — works under
