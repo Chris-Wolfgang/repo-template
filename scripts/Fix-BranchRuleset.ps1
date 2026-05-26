@@ -101,11 +101,15 @@ try {
     # even on a successful API call).
     $rulesetsErr = [System.IO.Path]::GetTempFileName()
     try {
+        # Don't use --paginate here: it concatenates multiple JSON array
+        # payloads when results span pages, which breaks ConvertFrom-Json.
+        # Rulesets are typically few per repo; per_page=100 in a single
+        # call is enough and produces valid JSON.
         $rulesetsJson = gh api `
             -H "Accept: application/vnd.github+json" `
             -H "X-GitHub-Api-Version: 2022-11-28" `
-            "/repos/$Repository/rulesets" `
-            --paginate 2> $rulesetsErr
+            "/repos/$Repository/rulesets?per_page=100" `
+            2> $rulesetsErr
     } finally {
         if (Test-Path -LiteralPath $rulesetsErr) {
             $errText = (Get-Content -LiteralPath $rulesetsErr -Raw -ErrorAction SilentlyContinue)
