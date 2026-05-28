@@ -39,7 +39,6 @@ jobs:
   secrets-scan:
     name: "Secrets Scan (gitleaks)"
     runs-on: ubuntu-latest
-    if: github.repository != 'Chris-Wolfgang/repo-template'
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -90,7 +89,6 @@ jobs:
   detect-projects:
     name: "Detect .NET Projects"
     runs-on: ubuntu-latest
-    if: github.repository != 'Chris-Wolfgang/repo-template'
     outputs:
       has-projects: ${{ steps.check-projects.outputs.has-projects }}
     
@@ -1346,7 +1344,6 @@ jobs:
   security-scan:
     name: "Security Scan (DevSkim)"
     runs-on: ubuntu-latest
-    if: github.repository != 'Chris-Wolfgang/repo-template'
     
     steps:
       - name: Checkout code
