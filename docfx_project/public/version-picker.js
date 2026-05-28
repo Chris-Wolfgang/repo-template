@@ -10,7 +10,8 @@
 // detects the repo segment from window.location.pathname so the same
 // file works on github.io and on `docfx build --serve` localhost.
 //
-// Tracking issue: #170 (fleet-wide).
+// Canonical design + tracking lives at:
+//   https://github.com/Chris-Wolfgang/repo-template/issues/379
 (function () {
     'use strict';
 
