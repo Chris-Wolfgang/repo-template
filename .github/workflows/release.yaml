@@ -562,10 +562,107 @@ jobs:
           retention-days: 90
           if-no-files-found: warn
 
+  # Verify the documentation builds cleanly BEFORE publishing the release —
+  # initiative D8. Builds DocFX without deploying so a docs failure blocks
+  # publish-nuget rather than landing after the package is already live.
+  verify-docs-build:
+    name: Verify Documentation Builds
+    runs-on: windows-latest
+    # Gate on the prior validation jobs so we don't burn ~5-10 min of Windows
+    # runner time on a release that's already failing earlier in the pipeline.
+    needs: [validate-release, pack-and-validate]
+    if: github.repository != 'Chris-Wolfgang/repo-template'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Detect docfx project
+        id: check
+        shell: pwsh
+        run: |
+          if (Test-Path "docfx_project/docfx.json") {
+            "found=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } else {
+            Write-Host "::notice::No docfx_project/docfx.json - skipping docs verification."
+            "found=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+
+      - name: Setup .NET
+        if: steps.check.outputs.found == 'true'
+        uses: actions/setup-dotnet@v5
+        with:
+          # Install the same SDK set as validate-release so dotnet build can
+          # compile every TFM the solution targets (some test projects span
+          # netcoreapp3.1 → net10.0). Without these, the docs verify step
+          # fails on repos with broad multi-targeting.
+          dotnet-version: |
+            3.1.x
+            5.0.x
+            6.0.x
+            7.0.x
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Restore .NET workloads
+        # Same gated probe as pr.yaml — only run dotnet workload restore when
+        # at least one csproj declares a workload-bearing TFM. Required for
+        # repos with MAUI/Android/iOS targets (e.g. Hawsey); fast no-op
+        # otherwise. Without this, dotnet build below fails on workload-bearing
+        # projects because the SDK can't resolve the workload assemblies.
+        if: steps.check.outputs.found == 'true'
+        shell: bash
+        run: |
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' {} \; | grep -q .; then
+            echo "Workload-bearing TFMs detected — running dotnet workload restore"
+            dotnet workload restore
+          else
+            echo "No workload-bearing TFMs in any csproj — skipping dotnet workload restore"
+          fi
+
+      - name: Restore dependencies
+        if: steps.check.outputs.found == 'true'
+        run: dotnet restore
+
+      - name: Build solution (Release)
+        if: steps.check.outputs.found == 'true'
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Install DocFX
+        if: steps.check.outputs.found == 'true'
+        shell: pwsh
+        run: dotnet tool update docfx --global || dotnet tool install docfx --global
+
+      - name: Build DocFX metadata
+        if: steps.check.outputs.found == 'true'
+        run: docfx metadata
+        working-directory: docfx_project
+
+      - name: Build documentation (no deploy)
+        if: steps.check.outputs.found == 'true'
+        run: docfx build
+        working-directory: docfx_project
+
+      - name: Verify documentation output
+        if: steps.check.outputs.found == 'true'
+        shell: pwsh
+        run: |
+          if (-Not (Test-Path "docfx_project/_site")) {
+            Write-Error "docfx_project/_site not found after build"
+            exit 1
+          }
+          if (-Not (Test-Path "docfx_project/_site/api")) {
+            Write-Error "docfx_project/_site/api not found - API metadata generation may have failed"
+            exit 1
+          }
+          Write-Host "Documentation built successfully - release may proceed"
+
   # Publish to NuGet (only if validation passed)
   publish-nuget:
     name: Publish to NuGet.org
-    needs: pack-and-validate
+    needs: [pack-and-validate, verify-docs-build]
     if: needs.pack-and-validate.outputs.has-packages == 'true'
     runs-on: windows-latest
     steps:
