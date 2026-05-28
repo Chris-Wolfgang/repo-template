@@ -297,8 +297,23 @@ jobs:
             # treats it as unsupported and would error. Omit it.
             $existingRaw = (Invoke-WebRequest -Uri $existingUrl -ErrorAction Stop).Content
           } catch {
-            Write-Host "::notice::No existing versions.json at $existingUrl - first deploy, skipping preservation check."
-            exit 0
+            # Distinguish 404 (legitimate "first deploy" - the published site
+            # has no versions.json yet) from any other failure (transient
+            # network, DNS, 5xx, rate-limit, GitHub Pages outage). Silently
+            # treating those as "first deploy" would allow a degraded run to
+            # wipe the published version selector with whatever this deploy
+            # produced. Only 404 is a safe signal to skip the preservation
+            # check; everything else aborts the deploy.
+            $statusCode = 0
+            if ($_.Exception.PSObject.Properties.Match('Response').Count -gt 0 -and $_.Exception.Response) {
+              try { $statusCode = [int]$_.Exception.Response.StatusCode } catch { $statusCode = 0 }
+            }
+            if ($statusCode -eq 404) {
+              Write-Host "::notice::No existing versions.json at $existingUrl (HTTP 404) - first deploy, skipping preservation check."
+              exit 0
+            }
+            Write-Error "Failed to fetch existing versions.json at $existingUrl (status=$statusCode): $($_.Exception.Message). Refusing to deploy - a transient fetch failure must not be treated as a first deploy because that path can wipe previously-published version entries."
+            exit 1
           }
           try {
             $existing = $existingRaw | ConvertFrom-Json
