@@ -563,9 +563,77 @@ jobs:
           if-no-files-found: warn
 
   # Publish to NuGet (only if validation passed)
+  # Verify the documentation builds cleanly BEFORE publishing the release —
+  # initiative D8. Builds DocFX without deploying so a docs failure blocks
+  # publish-nuget rather than landing after the package is already live.
+  verify-docs-build:
+    name: Verify Documentation Builds
+    runs-on: windows-latest
+    if: github.repository != 'Chris-Wolfgang/repo-template'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Detect docfx project
+        id: check
+        shell: pwsh
+        run: |
+          if (Test-Path "docfx_project/docfx.json") {
+            "found=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            Write-Host "::notice::No docfx_project/docfx.json - skipping docs verification."
+            "found=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
+      - name: Setup .NET
+        if: steps.check.outputs.found == 'true'
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore dependencies
+        if: steps.check.outputs.found == 'true'
+        run: dotnet restore
+
+      - name: Build solution (Release)
+        if: steps.check.outputs.found == 'true'
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Install DocFX
+        if: steps.check.outputs.found == 'true'
+        run: dotnet tool update docfx --global || dotnet tool install docfx --global
+
+      - name: Build DocFX metadata
+        if: steps.check.outputs.found == 'true'
+        run: docfx metadata
+        working-directory: docfx_project
+
+      - name: Build documentation (no deploy)
+        if: steps.check.outputs.found == 'true'
+        run: docfx build
+        working-directory: docfx_project
+
+      - name: Verify documentation output
+        if: steps.check.outputs.found == 'true'
+        shell: pwsh
+        run: |
+          if (-Not (Test-Path "docfx_project/_site")) {
+            Write-Error "docfx_project/_site not found after build"
+            exit 1
+          }
+          if (-Not (Test-Path "docfx_project/_site/api")) {
+            Write-Error "docfx_project/_site/api not found - API metadata generation may have failed"
+            exit 1
+          }
+          Write-Host "Documentation built successfully - release may proceed"
+
   publish-nuget:
     name: Publish to NuGet.org
-    needs: pack-and-validate
+    needs: [pack-and-validate, verify-docs-build]
     if: needs.pack-and-validate.outputs.has-packages == 'true'
     runs-on: windows-latest
     steps:

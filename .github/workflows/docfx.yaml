@@ -101,6 +101,30 @@ jobs:
           Get-ChildItem "docfx_project/_site/api"
         shell: pwsh
 
+      - name: Generate code-coverage report into docs site (T1)
+        # Initiative T1 — publish coverage report to gh-pages alongside docs.
+        # Runs the test suite with Cobertura coverage collection, then uses
+        # ReportGenerator to render an HTML report into _site/coverage/.
+        # The published docs site gains a /coverage/ subpath.
+        # continue-on-error means a coverage failure (no tests, flaky tests,
+        # report generation issues) does not block the docs deploy.
+        if: hashFiles('tests/**/*.csproj') != ''
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --results-directory ./coverage-raw 2>&1 | Out-Host
+          dotnet tool install -g dotnet-reportgenerator-globaltool 2>$null
+          $coverageFiles = @(Get-ChildItem -Path ./coverage-raw -Recurse -Filter "coverage.cobertura.xml" -ErrorAction SilentlyContinue)
+          if ($coverageFiles.Count -eq 0) {
+            Write-Host "::notice::No coverage files generated - skipping coverage report step"
+            exit 0
+          }
+          $reports = ($coverageFiles | ForEach-Object { $_.FullName }) -join ';'
+          $outDir = "docfx_project/_site/coverage"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          reportgenerator "-reports:$reports" "-targetdir:$outDir" "-reporttypes:Html;TextSummary"
+          Write-Host "Coverage report written to $outDir"
+
       - name: Generate versions.json
         # Produces versions.json consumed by the DocFX version-switcher dropdown.
         # Site layout:
@@ -225,6 +249,48 @@ jobs:
             Set-Content -Path 'docfx_project/_site/versions.json' -Encoding utf8NoBOM
           Write-Host "Generated versions.json with $($versions.Count) version(s): $($versions | ForEach-Object { $_.version })"
 
+      - name: Verify previous versions preserved in versions.json
+        # Initiative D6 — guard against accidentally wiping the version selector.
+        # Fetches the currently-deployed versions.json from gh-pages and confirms
+        # the newly-generated one has at least as many entries AND retains every
+        # previously-published version label. If anything shrunk or went missing,
+        # abort the deploy so the version selector cannot be wiped by accident.
+        shell: pwsh
+        run: |
+          $newPath = 'docfx_project/_site/versions.json'
+          if (-Not (Test-Path $newPath)) {
+            Write-Host "::notice::No new versions.json produced - skipping preservation check."
+            exit 0
+          }
+          $existingUrl = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/versions.json"
+          try {
+            $existingRaw = (Invoke-WebRequest -Uri $existingUrl -UseBasicParsing -ErrorAction Stop).Content
+          } catch {
+            Write-Host "::notice::No existing versions.json at $existingUrl - first deploy, skipping preservation check."
+            exit 0
+          }
+          try {
+            $existing = $existingRaw | ConvertFrom-Json
+            $new = Get-Content $newPath -Raw | ConvertFrom-Json
+          } catch {
+            Write-Error "Failed to parse versions.json: $($_.Exception.Message)"
+            exit 1
+          }
+          $existingCount = @($existing).Count
+          $newCount = @($new).Count
+          if ($newCount -lt $existingCount) {
+            Write-Error "versions.json would lose entries: existing=$existingCount, new=$newCount. Aborting deploy."
+            exit 1
+          }
+          $existingVersions = @($existing) | ForEach-Object { $_.version }
+          $newVersions = @($new) | ForEach-Object { $_.version }
+          $missing = @($existingVersions | Where-Object { $_ -notin $newVersions })
+          if ($missing.Count -gt 0) {
+            Write-Error "Previous versions missing from new versions.json: $($missing -join ', '). Aborting deploy."
+            exit 1
+          }
+          Write-Host "versions.json preservation OK: existing=$existingCount, new=$newCount."
+
       - name: Compute destination directory
         # Determines the versioned subfolder name for the docs deployment (e.g. /v1.2.3/).
         # Uses the explicit 'version' input when provided; otherwise falls back to
@@ -300,17 +366,20 @@ jobs:
             # an existing gh-pages branch.
             $branchExists = git ls-remote --heads origin gh-pages
             if ($LASTEXITCODE -ne 0) {
-              Write-Error "git ls-remote --heads origin gh-pages failed with exit code $LASTEXITCODE — aborting before we accidentally bootstrap over an existing gh-pages branch."
-              exit 1
+              # `throw` (not `exit 1`) so the outer try/finally cleanup runs and
+              # the global http.extraheader auth header is always unset.
+              throw "git ls-remote --heads origin gh-pages failed with exit code $LASTEXITCODE — aborting before we accidentally bootstrap over an existing gh-pages branch."
             }
             $useWorktree = [bool]$branchExists
             if ($useWorktree) {
               git fetch origin gh-pages
+              if ($LASTEXITCODE -ne 0) { throw "git fetch origin gh-pages failed with exit code $LASTEXITCODE" }
               git show-ref --verify --quiet refs/heads/gh-pages
               if ($LASTEXITCODE -ne 0) { git branch gh-pages origin/gh-pages }
               git worktree remove $WORK_DIR --force 2>&1 | Out-Null
               if (Test-Path -LiteralPath $WORK_DIR) { Remove-Item -LiteralPath $WORK_DIR -Recurse -Force }
               git worktree add $WORK_DIR gh-pages
+              if ($LASTEXITCODE -ne 0) { throw "git worktree add $WORK_DIR gh-pages failed with exit code $LASTEXITCODE" }
             } else {
               Write-Host "ℹ️ gh-pages does not exist yet — starting fresh."
               New-Item -ItemType Directory -Force -Path $WORK_DIR | Out-Null
@@ -319,7 +388,9 @@ jobs:
               # Auth is provided by the global http.extraheader configured above,
               # so the remote URL does not embed the token.
               git -C $WORK_DIR init --initial-branch=gh-pages
+              if ($LASTEXITCODE -ne 0) { throw "git init in $WORK_DIR failed with exit code $LASTEXITCODE" }
               git -C $WORK_DIR remote add origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
+              if ($LASTEXITCODE -ne 0) { throw "git remote add origin failed with exit code $LASTEXITCODE" }
             }
 
             # Remove stale root files; preserve versions/, .git, .nojekyll, CNAME, dev
@@ -360,8 +431,8 @@ jobs:
               $listHtml = $listItems -join "`n"
 
               if (-not (Test-Path '.github/version-picker-template.html')) {
-                Write-Error "Error: .github/version-picker-template.html not found; cannot generate root index.html."
-                exit 1
+                # `throw` (not `exit 1`) so the outer try/finally cleanup runs.
+                throw ".github/version-picker-template.html not found; cannot generate root index.html."
               }
 
               $template = Get-Content '.github/version-picker-template.html' -Raw
