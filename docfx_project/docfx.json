@@ -30,7 +30,9 @@
       {
         "files": [
           "logo.svg",
-          "images/**"
+          "images/**",
+          "public/**",
+          "versions.json"
         ]
       }
     ],
@@ -45,7 +47,7 @@
       "_appTitle": "{{PROJECT_NAME}} Documentation",
       "_appLogoPath": "logo.svg",
       "_enableSearch": true,
-      "_appFooter": "Made with DocFX",
+      "_appFooter": "Made with DocFX <script>(function(){var r='/';if(window.location.hostname.endsWith('.github.io')){var s=window.location.pathname.split('/').filter(Boolean);if(s.length)r='/'+s[0]+'/';}var t=document.createElement('script');t.src=r+'public/version-picker.js';t.async=true;document.head.appendChild(t);})();</script>",
       "_disableSidebar": false,
       "_disableTocFilter": false,
       "_enableDarkMode": true,

@@ -77,7 +77,7 @@ jobs:
 
     - name: Initialize CodeQL
       if: steps.check-csharp.outputs.has-csharp == 'true'
-      uses: github/codeql-action/init@v3
+      uses: github/codeql-action/init@v4
       with:
         languages: ${{ matrix.language }}
         # S1: use security-extended query suite (broader coverage than the
@@ -160,7 +160,7 @@ jobs:
     - name: Perform CodeQL Analysis
       id: perform-codeql-analysis
       if: steps.check-csharp.outputs.has-csharp == 'true'
-      uses: github/codeql-action/analyze@v3
+      uses: github/codeql-action/analyze@v4
       with:
         category: "/language:${{matrix.language}}"
 

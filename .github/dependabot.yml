@@ -11,3 +11,16 @@ updates:
       dotnet-dependencies:
         patterns:
           - "*"
+
+  # Keep third-party GitHub Actions pinned in workflows up to date.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
