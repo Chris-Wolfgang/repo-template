@@ -157,3 +157,29 @@ try {
 } finally {
     Remove-Item -Path $bodyFile -ErrorAction SilentlyContinue
 }
+
+# Self-delete: this is a one-time bootstrap script. Also remove the body
+# template (scripts/templates/maintenance-parent-body.md), which is only
+# used by this script. Re-run by restoring both files from the template if
+# the parent Maintenance issue ever needs to be re-created.
+$bodyTemplatePath = Join-Path $scriptDir 'templates/maintenance-parent-body.md'
+if (Test-Path -LiteralPath $bodyTemplatePath) {
+    try {
+        Remove-Item -LiteralPath $bodyTemplatePath -Force
+        Write-Host ""
+        Write-Host "Removed: $bodyTemplatePath" -ForegroundColor DarkGray
+    } catch {
+        Write-Warning "Could not remove $bodyTemplatePath - delete manually."
+    }
+}
+
+$selfPath = $PSCommandPath
+if ($selfPath -and (Test-Path -LiteralPath $selfPath)) {
+    try {
+        Remove-Item -LiteralPath $selfPath -Force
+        Write-Host "Self-deleted: $selfPath (one-time bootstrap script)" -ForegroundColor DarkGray
+        Write-Host "   Restore from the template to re-run." -ForegroundColor DarkGray
+    } catch {
+        Write-Warning "Could not self-delete $selfPath - remove manually."
+    }
+}
