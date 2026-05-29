@@ -307,6 +307,20 @@ try {
         
         Write-Host "`n🔗 View ruleset at:" -ForegroundColor Cyan
         Write-Host "   https://github.com/$Repository/settings/rules" -ForegroundColor Blue
+        # Self-delete: this is a one-time bootstrap script. After a successful
+        # ruleset creation, remove the script. Re-run by restoring it from the
+        # template if you need to re-create the ruleset later.
+        $selfPath = $PSCommandPath
+        if ($selfPath -and (Test-Path -LiteralPath $selfPath)) {
+            try {
+                Remove-Item -LiteralPath $selfPath -Force
+                Write-Host ""
+                Write-Host "Self-deleted: $selfPath (one-time bootstrap script)" -ForegroundColor DarkGray
+                Write-Host "   Restore from the template to re-run." -ForegroundColor DarkGray
+            } catch {
+                Write-Warning "Could not self-delete $selfPath - remove manually."
+            }
+        }
     } else {
         Write-Error "❌ Failed to create ruleset"
         Write-Host $response -ForegroundColor Red
