@@ -81,8 +81,8 @@ jobs:
       with:
         languages: ${{ matrix.language }}
         # S1: use security-extended query suite (broader coverage than the
-        # default 'security-and-quality' default-tier — catches more variants
-        # of injection, deserialization, and dataflow vulnerabilities).
+        # CodeQL action's default suite — catches more variants of injection,
+        # deserialization, and dataflow vulnerabilities).
         queries: security-extended
 
     - name: Setup .NET
