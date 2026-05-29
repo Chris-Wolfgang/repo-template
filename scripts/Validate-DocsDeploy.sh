@@ -51,7 +51,11 @@ check_pass "gh-pages branch exists on remote"
 # ------------------------------------------------------------------
 # Use an explicit template so this works on BSD/macOS mktemp (which rejects
 # `mktemp -d` with no template), not only GNU coreutils.
+# Reserve a unique path via mktemp -d (handles BSD/macOS too), then rmdir it
+# so `git worktree add` can create it cleanly. The directory must NOT exist
+# at the moment of worktree-add or git errors with "already exists".
 WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/gh-pages-validate.XXXXXX")
+rmdir "$WORK_DIR"
 cleanup() {
   git worktree remove "$WORK_DIR" --force 2>/dev/null || true
   rm -rf "$WORK_DIR"
@@ -159,12 +163,18 @@ REPO_NAME=""
 REPO_URL=$(git remote get-url origin 2>/dev/null || true)
 if [ -n "$REPO_URL" ]; then
   REPO_URL=${REPO_URL%.git}     # strip optional trailing .git
-  REPO_NAME=${REPO_URL##*/}     # take everything after the last '/'
+  # Take everything after the last '/' or ':' — handles both
+  # HTTPS (https://github.com/owner/repo) and SSH
+  # (git@github.com:owner/repo) remotes. Without the colon
+  # split, SSH-style remotes without /repo after a / fail.
+  REPO_NAME=${REPO_URL##*[/:]}
 fi
 
-if [ "$STEP3_OK" -ne 1 ]; then
+if [ ! -f "$WORK_DIR/versions.json" ]; then
+  echo "  ⏭️  Skipped — no versions.json present (step 3 did not run)"
+elif [ "$STEP3_OK" -ne 1 ]; then
   echo "  ⏭️  Skipped — versions.json failed validation in step 3"
-elif [ -f "$WORK_DIR/versions.json" ]; then
+else
   FOLDER_CHECK_RESULT=0
   python3 - "$WORK_DIR" "$REPO_NAME" <<'PYEOF' || FOLDER_CHECK_RESULT=1
 import json, os, sys

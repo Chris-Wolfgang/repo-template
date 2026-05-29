@@ -164,7 +164,23 @@ if (-not $SkipTests -and -not $SkipCoverage -and $failed.Count -eq 0) {
         $rgPath = Get-Command reportgenerator -ErrorAction SilentlyContinue
         if (-not $rgPath) {
             Write-Host "Installing ReportGenerator..."
-            dotnet tool install -g dotnet-reportgenerator-globaltool
+            dotnet tool update -g dotnet-reportgenerator-globaltool 2>$null
+            if ($LASTEXITCODE -ne 0) { dotnet tool install -g dotnet-reportgenerator-globaltool }
+            # Ensure global tools dir is on PATH for this session. The .NET
+            # installer normally adds it to the user's profile, but a fresh
+            # shell or a pwsh-invoked-from-script session may not have it yet.
+            $globalToolsDir = if ($IsWindows -or $env:OS -eq 'Windows_NT') {
+                Join-Path $env:USERPROFILE '.dotnet\tools'
+            } else {
+                Join-Path $HOME '.dotnet/tools'
+            }
+            if (Test-Path $globalToolsDir -PathType Container) {
+                $sep = [IO.Path]::PathSeparator
+                $pathSegments = $env:PATH -split [regex]::Escape($sep)
+                if ($pathSegments -notcontains $globalToolsDir) {
+                    $env:PATH = "$globalToolsDir$sep$env:PATH"
+                }
+            }
         }
 
         reportgenerator `
@@ -259,7 +275,7 @@ if (-not $SkipSecurity) {
             $dest = Join-Path $env:LOCALAPPDATA "gitleaks"
             New-Item -ItemType Directory -Force -Path $dest | Out-Null
             $zip = Join-Path $env:TEMP $archive
-            Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+            Invoke-WebRequest -Uri $url -OutFile $zip
             Expand-Archive -Path $zip -DestinationPath $dest -Force
             Remove-Item $zip -ErrorAction SilentlyContinue
             $env:PATH = "$dest;$env:PATH"

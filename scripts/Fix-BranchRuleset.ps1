@@ -65,6 +65,14 @@ try {
     exit 1
 }
 
+# Normalize Repository: strip leading "@" and trailing ".git" that can
+# leak in from SSH remotes (e.g. git@github.com:owner/repo.git -> @owner/repo).
+# Both prefixes make gh api /repos/... calls fail with 404.
+if ($Repository) {
+    $Repository = $Repository.TrimStart('@')
+    if ($Repository.EndsWith('.git')) { $Repository = $Repository.Substring(0, $Repository.Length - 4) }
+}
+
 # Determine repository
 if ($Repository -eq "{{GITHUB_USERNAME}}/{{REPO_NAME}}" -or -not $Repository) {
     Write-Host "Detecting current repository..." -ForegroundColor Cyan
@@ -88,14 +96,29 @@ if ($Repository -eq "{{GITHUB_USERNAME}}/{{REPO_NAME}}" -or -not $Repository) {
 Write-Host "`nFetching existing rulesets..." -ForegroundColor Cyan
 
 try {
-    $rulesetsJson = gh api `
-        -H "Accept: application/vnd.github+json" `
-        -H "X-GitHub-Api-Version: 2022-11-28" `
-        "/repos/$Repository/rulesets" `
-        --paginate 2>&1
+    # Capture stderr to a temp file so gh's progress/warnings can't poison
+    # the JSON stream on stdout (mixing them via 2>&1 can break ConvertFrom-Json
+    # even on a successful API call).
+    $rulesetsErr = [System.IO.Path]::GetTempFileName()
+    try {
+        # Don't use --paginate here: it concatenates multiple JSON array
+        # payloads when results span pages, which breaks ConvertFrom-Json.
+        # Rulesets are typically few per repo; per_page=100 in a single
+        # call is enough and produces valid JSON.
+        $rulesetsJson = gh api `
+            -H "Accept: application/vnd.github+json" `
+            -H "X-GitHub-Api-Version: 2022-11-28" `
+            "/repos/$Repository/rulesets?per_page=100" `
+            2> $rulesetsErr
+    } finally {
+        if (Test-Path -LiteralPath $rulesetsErr) {
+            $errText = (Get-Content -LiteralPath $rulesetsErr -Raw -ErrorAction SilentlyContinue)
+            Remove-Item -LiteralPath $rulesetsErr -Force
+        }
+    }
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to fetch rulesets: $rulesetsJson"
+        Write-Error "Failed to fetch rulesets (exit code $LASTEXITCODE). gh stderr: $errText"
         exit 1
     }
 

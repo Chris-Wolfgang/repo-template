@@ -208,7 +208,11 @@ function Replace-Placeholders {
     }
     
     if ($modified) {
-        Set-Content -Path $FilePath -Value $content
+        # Explicit utf8NoBOM: never write a BOM (the pr.yaml protected-config
+        # guard and shebang scripts depend on BOM-free files). -NoNewline:
+        # $content came from Get-Content -Raw and already ends with the file's
+        # original terminator, so Set-Content must not append another.
+        Set-Content -Path $FilePath -Value $content -Encoding utf8NoBOM -NoNewline
         Write-Success "Updated: $FilePath"
     }
 }
