@@ -13,8 +13,6 @@
 #   for a maintainer to manually review and verify the changes before merging
 # - persist-credentials: false prevents the checkout token from being written to git config for subsequent git commands
 #   (it does NOT, by itself, prevent steps from accessing github.token / GITHUB_TOKEN if you explicitly expose it)
-# - After checkout, configuration files (.editorconfig, BannedSymbols.txt, etc.) are fetched from
-#   the main branch to prevent malicious PRs from disabling analyzers or bypassing code quality checks
 # - Default GITHUB_TOKEN permissions are restricted to read-only repository contents to limit impact if exposed
 
 name: PR Checks v3 (Gated)
@@ -41,7 +39,6 @@ jobs:
   secrets-scan:
     name: "Secrets Scan (gitleaks)"
     runs-on: ubuntu-latest
-    if: github.repository != 'Chris-Wolfgang/repo-template'
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -51,11 +48,24 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch trusted gitleaks config from main
-        # Prevent PR from modifying .gitleaks.toml to bypass the scan
-        run: |
-          git fetch origin main --depth=1
-          git checkout origin/main -- .gitleaks.toml 2>/dev/null || true
+        # Prevent PR from modifying .gitleaks.toml to bypass the scan.
+        # Distinguish "file doesn't exist in main" (fine — gitleaks uses
+        # defaults) from "checkout failed for any other reason" (abort —
+        # silently using the PR version would defeat the guard).
         shell: bash
+        run: |
+          if ! git fetch origin main --depth=1; then
+            echo "::error::Failed to fetch origin/main — aborting before gitleaks scan."
+            exit 1
+          fi
+          if git cat-file -e origin/main:.gitleaks.toml 2>/dev/null; then
+            if ! git checkout origin/main -- .gitleaks.toml; then
+              echo "::error::Failed to checkout origin/main:.gitleaks.toml — aborting to prevent silent fall-back to PR version."
+              exit 1
+            fi
+          else
+            echo "::notice::.gitleaks.toml not present in origin/main — gitleaks will use defaults."
+          fi
 
       - name: Run gitleaks
         # gitleaks-action@v2 does not support pull_request_target, so invoke the CLI directly
@@ -79,7 +89,6 @@ jobs:
   detect-projects:
     name: "Detect .NET Projects"
     runs-on: ubuntu-latest
-    if: github.repository != 'Chris-Wolfgang/repo-template'
     outputs:
       has-projects: ${{ steps.check-projects.outputs.has-projects }}
     
@@ -117,19 +126,36 @@ jobs:
           for config_file in "${config_files[@]}"; do
             # Handle glob patterns
             if [[ "$config_file" == *"*"* ]]; then
-              # Find files matching the pattern in main branch
-              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
+              # Find files matching the pattern in main branch.
+              # NOTE: use process substitution (`done < <(...)`) instead of a
+              # plain pipeline. A piped `while` runs in a subshell — an
+              # `exit 1` from inside would only kill the subshell, not the
+              # outer step, letting a failed copy silently fall back to the
+              # PR-supplied protected config. Process substitution runs the
+              # loop in the parent shell so exit actually terminates the job.
+              while read -r file; do
                 if [ -n "$file" ]; then
                   echo "  ✓ Copying $file from main branch"
                   mkdir -p "$(dirname "$file")"
-                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
+                  if ! git show "main-branch:$file" > "$file"; then
+                    echo "::error::Failed to copy $file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                    exit 1
+                  fi
                 fi
-              done
+              # Mask grep's exit 1 on zero matches with `|| true` — under
+              # `set -eo pipefail`, an empty match would otherwise fail the step,
+              # but a pattern like `*.ruleset` legitimately has no matches in
+              # repos that don't ship one. The empty stream is fine; the while
+              # loop simply doesn't iterate.
+              done < <(git ls-tree -r --name-only main-branch | { grep -E "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
                 echo "  ✓ Copying $config_file from main branch"
-                git show "main-branch:$config_file" > "$config_file"
+                if ! git show "main-branch:$config_file" > "$config_file"; then
+                  echo "::error::Failed to copy $config_file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                  exit 1
+                fi
               else
                 echo "  ℹ️  $config_file not found in main branch, skipping"
               fi
@@ -173,10 +199,13 @@ jobs:
           done
           
           # Check .globalconfig, .ruleset, and workflow files using the same git diff approach
-          # --diff-filter=AMRC: Added, Modified, Renamed, Copied (excludes Deleted)
+          # --diff-filter=AMRCD: Added, Modified, Renamed, Copied, Deleted.
+          # Including D so a PR that *deletes* a protected file (workflow,
+          # .globalconfig, .ruleset) also triggers the maintainer-review gate
+          # — a silent deletion is just as security-relevant as a silent edit.
           while IFS= read -r file; do
             changed_files+=("$file")
-          done < <(git diff --name-only --diff-filter=AMRC main-branch HEAD 2>/dev/null | grep -E '(\.(globalconfig|ruleset)|^\.github/workflows/.*\.ya?ml)$' || true)
+          done < <(git diff --name-only --diff-filter=AMRCD main-branch HEAD 2>/dev/null | grep -E '(\.(globalconfig|ruleset)|^\.github/workflows/.*\.ya?ml)$' || true)
           
           if [ ${#changed_files[@]} -gt 0 ]; then
             echo ""
@@ -252,19 +281,36 @@ jobs:
           for config_file in "${config_files[@]}"; do
             # Handle glob patterns
             if [[ "$config_file" == *"*"* ]]; then
-              # Find files matching the pattern in main branch
-              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
+              # Find files matching the pattern in main branch.
+              # NOTE: use process substitution (`done < <(...)`) instead of a
+              # plain pipeline. A piped `while` runs in a subshell — an
+              # `exit 1` from inside would only kill the subshell, not the
+              # outer step, letting a failed copy silently fall back to the
+              # PR-supplied protected config. Process substitution runs the
+              # loop in the parent shell so exit actually terminates the job.
+              while read -r file; do
                 if [ -n "$file" ]; then
                   echo "  ✓ Copying $file from main branch"
                   mkdir -p "$(dirname "$file")"
-                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
+                  if ! git show "main-branch:$file" > "$file"; then
+                    echo "::error::Failed to copy $file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                    exit 1
+                  fi
                 fi
-              done
+              # Mask grep's exit 1 on zero matches with `|| true` — under
+              # `set -eo pipefail`, an empty match would otherwise fail the step,
+              # but a pattern like `*.ruleset` legitimately has no matches in
+              # repos that don't ship one. The empty stream is fine; the while
+              # loop simply doesn't iterate.
+              done < <(git ls-tree -r --name-only main-branch | { grep -E "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
                 echo "  ✓ Copying $config_file from main branch"
-                git show "main-branch:$config_file" > "$config_file"
+                if ! git show "main-branch:$config_file" > "$config_file"; then
+                  echo "::error::Failed to copy $config_file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                  exit 1
+                fi
               else
                 echo "  ℹ️  $config_file not found in main branch, skipping"
               fi
@@ -304,8 +350,16 @@ jobs:
       - name: Restore .NET workloads
         # Some projects (MAUI / MauiHybrid / Android / iOS / WPF) declare workloads via
         # their TFMs (e.g. net10.0-android). For workload-bearing repos this installs them
-        # before restore; for pure libraries it's a fast no-op.
-        run: dotnet workload restore
+        # before restore; for pure-library repos with no workload TFMs, skip entirely to
+        # avoid ~5-15s of network-dependent setup and an extra failure mode.
+        shell: bash
+        run: |
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' {} \; | grep -q .; then
+            echo "Workload-bearing TFMs detected — running dotnet workload restore"
+            dotnet workload restore
+          else
+            echo "No workload-bearing TFMs in any csproj — skipping dotnet workload restore"
+          fi
 
       - name: Restore and build (exclude .NET Framework-only projects)
         run: |
@@ -406,15 +460,27 @@ jobs:
           # Gracefully skip if there is no ./tests directory (e.g. template-publishing
           # repos or library repos in early development that have no tests yet).
           # The downstream coverage steps already handle the no-coverage-files case.
+          # Fail loudly if the repo HAS src/ projects — the coverage gate
+          # exists to enforce test coverage on shipping code, so silently
+          # passing when tests are missing is the wrong default. Skip only
+          # for template-pack / in-dev repos with no source projects yet.
           if [ ! -d ./tests ]; then
-            echo "ℹ️  No ./tests directory — skipping test stage."
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ ./tests directory is missing but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            fi
+            echo "ℹ️  No ./tests directory and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           fi
 
-          mapfile -d '' -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
+          mapfile -d '' -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -not -name "*.Tests.Integration.*" -print0)
 
           if [ ${#test_projects[@]} -eq 0 ]; then
-            echo "ℹ️  No test projects found under ./tests — skipping test stage."
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            fi
+            echo "ℹ️  No test projects found under ./tests and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           fi
           
@@ -457,6 +523,7 @@ jobs:
               dotnet test "$test_proj" \
                 --configuration Release \
                 --framework "$fw" \
+                --no-build --no-restore \
                 --collect:"XPlat Code Coverage" \
                 --settings coverlet.runsettings \
                 --results-directory "./TestResults" \
@@ -502,15 +569,24 @@ jobs:
           
           failed_projects=""
           threshold=${CODECOV_MINIMUM:-90}
-          
+          matched_count=0
+
           while read -r line; do
-            # Match lines with module names and percentages
-            if echo "$line" | grep -qE '^[^ ].*[0-9]+%$' && ! echo "$line" | grep -q '^Summary'; then
+            # Match lines with module names and percentages. The percent
+            # capture is the LAST %-suffixed number on the line, matching
+            # Stage 2's behavior — ReportGenerator Summary.txt rows often
+            # have line/branch/method columns and the overall figure is at
+            # end-of-line.
+            if echo "$line" | grep -qE '^[^ ].*[0-9]+(\.[0-9]+)?%$' && ! echo "$line" | grep -q '^Summary'; then
               module=$(echo "$line" | awk '{print $1}')
-              percent=$(echo "$line" | awk '{print $NF}' | tr -d '%')
-              
+              # Floor the percent to int (matches Stage 2 pwsh's [int][math]::Floor)
+              # so we can use bash's integer -lt comparator below without
+              # erroring on decimals like "90.4".
+              percent=$(echo "$line" | awk '{print $NF}' | tr -d '%' | awk '{print int($1)}')
+              matched_count=$((matched_count + 1))
+
               echo "Checking module: '$module' - Coverage: ${percent}%"
-              
+
               if [ "$percent" -lt "$threshold" ]; then
                 echo "  ❌ FAIL: Below ${threshold}% threshold"
                 failed_projects="$failed_projects $module (${percent}%)"
@@ -519,6 +595,14 @@ jobs:
               fi
             fi
           done < CoverageReport/Summary.txt
+
+          # Fail loudly when 0 modules matched - the regex is wrong or
+          # Summary.txt format changed. Silently passing the gate when we
+          # couldn't parse coverage is worse than failing.
+          if [ "$matched_count" -eq 0 ]; then
+            echo "❌ Coverage parser matched 0 modules in Summary.txt - regex or report format is out of sync. Refusing to silently pass the gate."
+            exit 1
+          fi
 
           if [ -n "$failed_projects" ]; then
             echo ""
@@ -597,7 +681,7 @@ jobs:
             $exists = git cat-file -e "main-branch:$configFile" 2>&1
             if ($LASTEXITCODE -eq 0) {
               Write-Host "  ✓ Copying $configFile from main branch"
-              git show "main-branch:$configFile" | Out-File -FilePath $configFile -Encoding UTF8NoBOM -NoNewline
+              git show "main-branch:$configFile" | Out-File -FilePath $configFile -Encoding UTF8NoBOM
             } else {
               Write-Host "  ℹ️  $configFile not found in main branch, skipping"
             }
@@ -612,7 +696,7 @@ jobs:
                 Write-Host "  ✓ Copying $file from main branch"
                 $dir = Split-Path -Parent $file
                 if ($dir) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
-                git show "main-branch:$file" | Out-File -FilePath $file -Encoding UTF8NoBOM -NoNewline
+                git show "main-branch:$file" | Out-File -FilePath $file -Encoding UTF8NoBOM
               }
             }
           }
@@ -635,8 +719,16 @@ jobs:
       - name: Restore .NET workloads
         # Some projects (MAUI / MauiHybrid / Android / iOS / WPF) declare workloads via
         # their TFMs (e.g. net10.0-android). For workload-bearing repos this installs them
-        # before restore; for pure libraries it's a fast no-op.
-        run: dotnet workload restore
+        # before restore; for pure-library repos with no workload TFMs, skip entirely to
+        # avoid ~5-15s of network-dependent setup and an extra failure mode.
+        shell: bash
+        run: |
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' {} \; | grep -q .; then
+            echo "Workload-bearing TFMs detected — running dotnet workload restore"
+            dotnet workload restore
+          else
+            echo "No workload-bearing TFMs in any csproj — skipping dotnet workload restore"
+          fi
 
       - name: Restore dependencies
         run: dotnet restore
@@ -651,15 +743,29 @@ jobs:
 
           # Gracefully skip if there is no ./tests directory (e.g. template-publishing
           # repos or library repos in early development that have no tests yet).
+          # The coverage gate exists to enforce test coverage on shipping
+          # code. If ./src has projects but ./tests doesn't, fail loudly
+          # instead of silently passing the gate. Skip only for template-
+          # pack / in-dev repos that have no source projects yet.
+          $srcHasProjects = @(Get-ChildItem -Path './src' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj' -ErrorAction SilentlyContinue).Count -gt 0
+
           if (-not (Test-Path -Path './tests' -PathType Container)) {
-            Write-Host "ℹ️  No ./tests directory — skipping test stage."
+            if ($srcHasProjects) {
+              Write-Error "❌ ./tests directory is missing but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            }
+            Write-Host "ℹ️  No ./tests directory and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           }
 
           $testProjects = @(Get-ChildItem -Path './tests/*' -Recurse -File -Include '*.csproj','*.vbproj','*.fsproj')
 
           if (@($testProjects).Count -eq 0) {
-            Write-Host "ℹ️  No test projects found under ./tests — skipping test stage."
+            if ($srcHasProjects) {
+              Write-Error "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            }
+            Write-Host "ℹ️  No test projects found under ./tests and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           }
           
@@ -708,6 +814,7 @@ jobs:
                 dotnet test $testProj.FullName `
                   --configuration Release `
                   --framework $fw `
+                  --no-build --no-restore `
                   --collect:"XPlat Code Coverage" `
                   --settings coverlet.runsettings `
                   --results-directory "./TestResults" `
@@ -716,6 +823,7 @@ jobs:
                 dotnet test $testProj.FullName `
                   --configuration Release `
                   --framework $fw `
+                  --no-build --no-restore `
                   --logger "console;verbosity=normal"
               }
 
@@ -767,11 +875,34 @@ jobs:
 
           $threshold = if ($env:CODECOV_MINIMUM) { [int]$env:CODECOV_MINIMUM } else { 90 }
           $failedProjects = @()
+          $matchedCount   = 0
 
           foreach ($line in (Get-Content "CoverageReport/Summary.txt")) {
-            if ($line -match '^\s*(\S+)\s+(\d+(?:\.\d+)?)%\s*$' -and $line -notmatch '^\s*Summary') {
+            # Only consider top-level assembly rows: non-space first char,
+            # then anything, then whitespace + the final percent at EOL.
+            # Matches Stage 1's `^[^ ].*[0-9]+(\.[0-9]+)?%$` filter (which
+            # uses awk $NF for the percent — robust to extra columns like
+            # line/branch/method that ReportGenerator can emit on the same
+            # row).
+            #
+            # Bug previously here: a `.*` between the module name and the
+            # trailing `(\d+)%` was greedy and could eat all but the last
+            # digit of the percent — turning "100" into "0" and failing
+            # the gate on actually-100%-covered modules. Two changes:
+            #  - Anchor on `^(\S+)` so indented sub-class rows are skipped
+            #    (their parent assembly row carries the same number, so
+            #    nothing is lost — and Stage 1 ignores them too).
+            #  - Require whitespace immediately before the final `\d+%`
+            #    (`\s(\d+...)%\s*$`). This still allows intermediate
+            #    columns between the module name and the final percent
+            #    (the `.*` consumes them), but `.*` can't terminate
+            #    mid-digit-run — the regex engine MUST place `\s` before
+            #    the digits, which forces the last %-suffixed number on
+            #    the line to be captured intact.
+            if ($line -match '^(\S+).*\s(\d+(?:\.\d+)?)%\s*$' -and $line -notmatch '^Summary') {
               $module  = $Matches[1]
               $percent = [int][math]::Floor([double]$Matches[2])
+              $matchedCount++
 
               Write-Host "Checking module: '$module' - Coverage: ${percent}%"
 
@@ -782,6 +913,14 @@ jobs:
                 Write-Host "  ✅ PASS: Meets ${threshold}% threshold" -ForegroundColor Green
               }
             }
+          }
+
+          # Fail loudly when 0 modules matched — the regex is wrong or
+          # Summary.txt format changed. Silently passing the gate when we
+          # couldn't read coverage is worse than failing.
+          if ($matchedCount -eq 0) {
+            Write-Error "❌ Coverage parser matched 0 modules in Summary.txt — regex or report format is out of sync. Refusing to silently pass the gate."
+            exit 1
           }
 
           if ($failedProjects.Count -gt 0) {
@@ -854,19 +993,36 @@ jobs:
           for config_file in "${config_files[@]}"; do
             # Handle glob patterns
             if [[ "$config_file" == *"*"* ]]; then
-              # Find files matching the pattern in main branch
-              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
+              # Find files matching the pattern in main branch.
+              # NOTE: use process substitution (`done < <(...)`) instead of a
+              # plain pipeline. A piped `while` runs in a subshell — an
+              # `exit 1` from inside would only kill the subshell, not the
+              # outer step, letting a failed copy silently fall back to the
+              # PR-supplied protected config. Process substitution runs the
+              # loop in the parent shell so exit actually terminates the job.
+              while read -r file; do
                 if [ -n "$file" ]; then
                   echo "  ✓ Copying $file from main branch"
                   mkdir -p "$(dirname "$file")"
-                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
+                  if ! git show "main-branch:$file" > "$file"; then
+                    echo "::error::Failed to copy $file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                    exit 1
+                  fi
                 fi
-              done
+              # Mask grep's exit 1 on zero matches with `|| true` — under
+              # `set -eo pipefail`, an empty match would otherwise fail the step,
+              # but a pattern like `*.ruleset` legitimately has no matches in
+              # repos that don't ship one. The empty stream is fine; the while
+              # loop simply doesn't iterate.
+              done < <(git ls-tree -r --name-only main-branch | { grep -E "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
                 echo "  ✓ Copying $config_file from main branch"
-                git show "main-branch:$config_file" > "$config_file"
+                if ! git show "main-branch:$config_file" > "$config_file"; then
+                  echo "::error::Failed to copy $config_file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                  exit 1
+                fi
               else
                 echo "  ℹ️  $config_file not found in main branch, skipping"
               fi
@@ -889,8 +1045,16 @@ jobs:
       - name: Restore .NET workloads
         # Some projects (MAUI / MauiHybrid / Android / iOS / WPF) declare workloads via
         # their TFMs (e.g. net10.0-android). For workload-bearing repos this installs them
-        # before restore; for pure libraries it's a fast no-op.
-        run: dotnet workload restore
+        # before restore; for pure-library repos with no workload TFMs, skip entirely to
+        # avoid ~5-15s of network-dependent setup and an extra failure mode.
+        shell: bash
+        run: |
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' {} \; | grep -q .; then
+            echo "Workload-bearing TFMs detected — running dotnet workload restore"
+            dotnet workload restore
+          else
+            echo "No workload-bearing TFMs in any csproj — skipping dotnet workload restore"
+          fi
 
       - name: Restore and build (exclude .NET Framework-only projects)
         run: |
@@ -989,18 +1153,30 @@ jobs:
           # Find all test projects (C#, VB.NET, F#).
           # Gracefully skip if there is no ./tests directory (e.g. template-publishing
           # repos or library repos in early development that have no tests yet).
+          # Fail loudly if the repo HAS src/ projects — the coverage gate
+          # exists to enforce test coverage on shipping code, so silently
+          # passing when tests are missing is the wrong default. Skip only
+          # for template-pack / in-dev repos with no source projects yet.
           if [ ! -d ./tests ]; then
-            echo "ℹ️  No ./tests directory — skipping test stage."
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ ./tests directory is missing but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            fi
+            echo "ℹ️  No ./tests directory and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           fi
 
           test_projects=()
           while IFS= read -r -d '' file; do
           test_projects+=("$file")
-          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
+          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -not -name "*.Tests.Integration.*" -print0)
 
           if [ ${#test_projects[@]} -eq 0 ]; then
-            echo "ℹ️  No test projects found under ./tests — skipping test stage."
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the coverage gate."
+              exit 1
+            fi
+            echo "ℹ️  No test projects found under ./tests and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           fi
           
@@ -1044,6 +1220,7 @@ jobs:
               dotnet test "$test_proj" \
                 --configuration Release \
                 --framework "$fw" \
+                --no-build --no-restore \
                 --collect:"XPlat Code Coverage" \
                 --settings coverlet.runsettings \
                 --results-directory "./TestResults" \
@@ -1068,8 +1245,17 @@ jobs:
 
       - name: Enforce 90% coverage threshold
         run: |
+          # If no cobertura files were produced (no tests, all test projects
+          # skipped, etc.), the preceding step explicitly skipped report
+          # generation. Mirror that here — gating only when coverage was
+          # actually collected — instead of failing with "Coverage report
+          # not generated!" on jobs that legitimately had nothing to cover.
+          if ! find ./TestResults -name "coverage.cobertura.xml" -print -quit 2>/dev/null | grep -q .; then
+            echo "ℹ️  No coverage files produced — skipping coverage gate (consistent with the prior 'skipping report generation' notice)."
+            exit 0
+          fi
           if [ ! -f "CoverageReport/Summary.txt" ]; then
-            echo "❌ Coverage report not generated!"
+            echo "❌ Coverage files exist but Summary.txt is missing — ReportGenerator failed."
             exit 1
           fi
 
@@ -1158,7 +1344,6 @@ jobs:
   security-scan:
     name: "Security Scan (DevSkim)"
     runs-on: ubuntu-latest
-    if: github.repository != 'Chris-Wolfgang/repo-template'
     
     steps:
       - name: Checkout code
@@ -1194,19 +1379,36 @@ jobs:
           for config_file in "${config_files[@]}"; do
             # Handle glob patterns
             if [[ "$config_file" == *"*"* ]]; then
-              # Find files matching the pattern in main branch
-              git ls-tree -r --name-only main-branch | grep -E "${config_file//\*/.*}" | while read -r file; do
+              # Find files matching the pattern in main branch.
+              # NOTE: use process substitution (`done < <(...)`) instead of a
+              # plain pipeline. A piped `while` runs in a subshell — an
+              # `exit 1` from inside would only kill the subshell, not the
+              # outer step, letting a failed copy silently fall back to the
+              # PR-supplied protected config. Process substitution runs the
+              # loop in the parent shell so exit actually terminates the job.
+              while read -r file; do
                 if [ -n "$file" ]; then
                   echo "  ✓ Copying $file from main branch"
                   mkdir -p "$(dirname "$file")"
-                  git show "main-branch:$file" > "$file" || echo "  ⚠️  Failed to copy $file"
+                  if ! git show "main-branch:$file" > "$file"; then
+                    echo "::error::Failed to copy $file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                    exit 1
+                  fi
                 fi
-              done
+              # Mask grep's exit 1 on zero matches with `|| true` — under
+              # `set -eo pipefail`, an empty match would otherwise fail the step,
+              # but a pattern like `*.ruleset` legitimately has no matches in
+              # repos that don't ship one. The empty stream is fine; the while
+              # loop simply doesn't iterate.
+              done < <(git ls-tree -r --name-only main-branch | { grep -E "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
                 echo "  ✓ Copying $config_file from main branch"
-                git show "main-branch:$config_file" > "$config_file"
+                if ! git show "main-branch:$config_file" > "$config_file"; then
+                  echo "::error::Failed to copy $config_file from main-branch — aborting to prevent silent fall-back to PR-supplied protected config."
+                  exit 1
+                fi
               else
                 echo "  ℹ️  $config_file not found in main branch, skipping"
               fi

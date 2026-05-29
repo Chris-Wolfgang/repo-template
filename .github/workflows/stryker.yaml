@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Check out repo
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Detect stryker-config.json
         id: check
@@ -43,7 +45,11 @@ jobs:
           done
           if (( ${#configs[@]} )); then
             printf 'found=true\n' >> "$GITHUB_OUTPUT"
-            printf 'configs<<EOF\n%s\nEOF\n' "${configs[*]}" >> "$GITHUB_OUTPUT"
+            # NOTE: previously also wrote a configs<<EOF multi-line output here,
+            # but (a) the downstream Run Stryker step re-globs from scratch and
+            # didn't consume it, and (b) ${configs[*]} joins with spaces so the
+            # value was effectively a single space-separated line — not actually
+            # multi-line. Dropped the dead/broken output.
           else
             echo "::notice::No stryker-config.json found — skipping Stryker run. Add one at repo root or under tests/<project>/ to enable mutation testing."
             printf 'found=false\n' >> "$GITHUB_OUTPUT"
@@ -59,7 +65,7 @@ jobs:
 
       - name: Install dotnet-stryker
         if: steps.check.outputs.found == 'true'
-        run: dotnet tool install -g dotnet-stryker
+        run: dotnet tool update -g dotnet-stryker || dotnet tool install -g dotnet-stryker
 
       - name: Run Stryker
         if: steps.check.outputs.found == 'true'
@@ -67,20 +73,32 @@ jobs:
         run: |
           set -e
           shopt -s globstar nullglob
+          # Run BOTH a root stryker-config.json (if present) AND any
+          # tests/**/stryker-config.json suites. The Detect step collects
+          # both shapes; running only one leaves per-test suites unscanned
+          # in repos that have both an umbrella and per-suite configs.
+          ran=0
           if [ -f stryker-config.json ]; then
+            echo "::group::Stryker with root stryker-config.json"
             dotnet stryker --config-file stryker-config.json
-          else
-            for cfg in tests/**/stryker-config.json; do
-              dir=$(dirname "$cfg")
-              echo "::group::Stryker in $dir"
-              (cd "$dir" && dotnet stryker)
-              echo "::endgroup::"
-            done
+            echo "::endgroup::"
+            ran=1
+          fi
+          for cfg in tests/**/stryker-config.json; do
+            dir=$(dirname "$cfg")
+            echo "::group::Stryker in $dir"
+            (cd "$dir" && dotnet stryker)
+            echo "::endgroup::"
+            ran=1
+          done
+          if [ "$ran" -eq 0 ]; then
+            echo "::error::Detect step said stryker-config.json was present, but Run found neither root nor tests/**/stryker-config.json. Bailing."
+            exit 1
           fi
 
       - name: Upload Stryker report
         if: always() && steps.check.outputs.found == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: stryker-report-${{ github.run_id }}
           path: |
