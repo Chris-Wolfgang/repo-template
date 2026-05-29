@@ -119,20 +119,20 @@ jobs:
             try {
               # Attempt dotnet restore + build; failures are non-fatal because
               # DocFX can still extract metadata from source files.
-              $slnFile = Get-ChildItem -Filter '*.sln' -ErrorAction SilentlyContinue |
+              $slnFile = Get-ChildItem -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in '.sln','.slnx' } |
                          Select-Object -First 1
               if ($slnFile) {
                 Write-Host "Restoring $($slnFile.Name)..."
-                dotnet restore $slnFile.FullName 2>&1 | Write-Host
+                dotnet restore $slnFile.FullName 2>&1 | Out-Host
                 Write-Host "Building $($slnFile.Name)..."
-                dotnet build $slnFile.FullName --configuration Release --no-restore 2>&1 | Write-Host
+                dotnet build $slnFile.FullName --configuration Release --no-restore 2>&1 | Out-Host
               }
 
               Write-Host "Running docfx metadata..."
-              docfx metadata docfx_project/docfx.json 2>&1 | Write-Host
+              docfx metadata docfx_project/docfx.json 2>&1 | Out-Host
 
               Write-Host "Running docfx build..."
-              docfx build docfx_project/docfx.json 2>&1 | Write-Host
+              docfx build docfx_project/docfx.json 2>&1 | Out-Host
 
               if (Test-Path 'docfx_project/_site') {
                 $dest = Join-Path $outDir 'versions' $version
@@ -207,7 +207,7 @@ jobs:
 
           Push-Location $latestWorkDir
           try {
-            $slnFile = Get-ChildItem -Filter '*.sln' -ErrorAction SilentlyContinue |
+            $slnFile = Get-ChildItem -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in '.sln','.slnx' } |
                        Select-Object -First 1
             if ($slnFile) {
               Write-Host "Restoring $($slnFile.Name)..."
@@ -285,9 +285,22 @@ jobs:
             Sort-Object -Property Major, Minor, Patch, Stable -Descending |
             Select-Object -ExpandProperty Tag
 
+          # Only emit version-picker entries for tags whose docs were actually
+          # built and copied under $outDir/versions/<tag>/. Skipped tags (worktree
+          # add failed, DocFX produced no _site, etc.) would otherwise appear in
+          # versions.json as links to 404s on gh-pages.
+          $versionsDir = Join-Path $outDir 'versions'
+          $builtTags = if (Test-Path $versionsDir) {
+            Get-ChildItem -Path $versionsDir -Directory | Select-Object -ExpandProperty Name
+          } else { @() }
+
           [array]$versions = @([PSCustomObject]@{ version = 'latest'; url = "${base}versions/latest/" })
           foreach ($t in $orderedTags) {
-            $versions += [PSCustomObject]@{ version = $t; url = "${base}versions/$t/" }
+            if ($builtTags -contains $t) {
+              $versions += [PSCustomObject]@{ version = $t; url = "${base}versions/$t/" }
+            } else {
+              Write-Host "::notice::Skipping versions.json entry for $t — no built docs under versions/$t/"
+            }
           }
 
           $versionsJson = ConvertTo-Json -InputObject $versions -Depth 3

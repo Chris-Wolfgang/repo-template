@@ -101,6 +101,35 @@ jobs:
           Get-ChildItem "docfx_project/_site/api"
         shell: pwsh
 
+      - name: Generate code-coverage report into docs site (T1)
+        # Initiative T1 — publish coverage report to gh-pages alongside docs.
+        # Runs the test suite with Cobertura coverage collection, then uses
+        # ReportGenerator to render an HTML report into _site/coverage/.
+        # The published docs site gains a /coverage/ subpath.
+        # continue-on-error means a coverage failure (no tests, flaky tests,
+        # report generation issues) does not block the docs deploy.
+        if: hashFiles('tests/**/*.csproj') != ''
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          # Coverage report only needs one TFM's worth of runs. The per-PR
+          # pr.yaml workflow already exercises every TFM across Stages 1/2/3,
+          # so re-running the full matrix during docs deploy multiplies job
+          # time and adds extra failure surface for older targets. Pin to
+          # net10.0 — the modern target that's always present in this fleet.
+          dotnet test --configuration Release --no-build --no-restore --framework net10.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings --results-directory ./coverage-raw 2>&1 | Out-Host
+          dotnet tool update -g dotnet-reportgenerator-globaltool 2>$null || dotnet tool install -g dotnet-reportgenerator-globaltool 2>$null
+          $coverageFiles = @(Get-ChildItem -Path ./coverage-raw -Recurse -Filter "coverage.cobertura.xml" -ErrorAction SilentlyContinue)
+          if ($coverageFiles.Count -eq 0) {
+            Write-Host "::notice::No coverage files generated - skipping coverage report step"
+            exit 0
+          }
+          $reports = ($coverageFiles | ForEach-Object { $_.FullName }) -join ';'
+          $outDir = "docfx_project/_site/coverage"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          reportgenerator "-reports:$reports" "-targetdir:$outDir" "-reporttypes:Html;TextSummary"
+          Write-Host "Coverage report written to $outDir"
+
       - name: Generate versions.json
         # Produces versions.json consumed by the DocFX version-switcher dropdown.
         # Site layout:
@@ -181,8 +210,11 @@ jobs:
               $aId = $aIds[$i]
               $bId = $bIds[$i]
 
-              $aIsNum = [int]::TryParse($aId, [ref]([int]$null))
-              $bIsNum = [int]::TryParse($bId, [ref]([int]$null))
+              # TryParse needs [ref] to a real variable, not an expression.
+              # We don't use the out value (we re-parse below via [int]$aId).
+              $aOut = 0; $bOut = 0
+              $aIsNum = [int]::TryParse($aId, [ref]$aOut)
+              $bIsNum = [int]::TryParse($bId, [ref]$bOut)
 
               if ($aIsNum -and $bIsNum) {
                 $aVal = [int]$aId
@@ -224,6 +256,86 @@ jobs:
           ConvertTo-Json -InputObject $versions -Depth 3 |
             Set-Content -Path 'docfx_project/_site/versions.json' -Encoding utf8NoBOM
           Write-Host "Generated versions.json with $($versions.Count) version(s): $($versions | ForEach-Object { $_.version })"
+
+      - name: Verify previous versions preserved in versions.json
+        # Initiative D6 — guard against accidentally wiping the version selector.
+        # Fetches the currently-deployed versions.json from the published
+        # GitHub Pages URL (https://<owner>.github.io/<repo>/versions.json) and confirms
+        # the newly-generated one has at least as many entries AND retains every
+        # previously-published version label. If anything shrunk or went missing,
+        # abort the deploy so the version selector cannot be wiped by accident.
+        # Only runs when an actual root-touching deploy is happening:
+        # - inputs.deploy_to_pages != false (otherwise it's a dry-run and
+        #   nothing deploys at all)
+        # - inputs.deploy_as_latest != false (otherwise the deploy writes
+        #   only versions/<dir>/ and never touches the root versions.json,
+        #   so there's nothing for the preservation guard to protect — a
+        #   transient Pages-fetch failure would block a legitimate rebuild)
+        if: inputs.deploy_to_pages != false && inputs.deploy_as_latest != false
+        env:
+          # github.event.repository is missing under workflow_call, so derive the
+          # repo name from github.repository ("owner/repo") instead — works under
+          # workflow_call, workflow_dispatch, and release triggers.
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        shell: pwsh
+        run: |
+          $newPath = 'docfx_project/_site/versions.json'
+          if (-Not (Test-Path $newPath)) {
+            # This step only runs when deploy_to_pages != false, so a real
+            # deploy is about to happen. Missing newly-generated versions.json
+            # means the docfx generate step is broken — we can't verify that
+            # we're preserving previously-published versions. Failing here is
+            # safer than letting the deploy proceed and wipe the root with
+            # whatever (possibly empty) state.
+            Write-Host "::error::Newly-generated docfx_project/_site/versions.json is missing — docfx generation is broken. Refusing to deploy without a verified version manifest."
+            exit 1
+          }
+          $repoName = ($env:GITHUB_REPOSITORY -split '/')[-1]
+          $existingUrl = "https://${{ github.repository_owner }}.github.io/$repoName/versions.json"
+          try {
+            # -UseBasicParsing is a Windows-PowerShell-5.1 flag; pwsh (PowerShell 7+)
+            # treats it as unsupported and would error. Omit it.
+            $existingRaw = (Invoke-WebRequest -Uri $existingUrl -ErrorAction Stop).Content
+          } catch {
+            # Distinguish 404 (legitimate "first deploy" - the published site
+            # has no versions.json yet) from any other failure (transient
+            # network, DNS, 5xx, rate-limit, GitHub Pages outage). Silently
+            # treating those as "first deploy" would allow a degraded run to
+            # wipe the published version selector with whatever this deploy
+            # produced. Only 404 is a safe signal to skip the preservation
+            # check; everything else aborts the deploy.
+            $statusCode = 0
+            if ($_.Exception.PSObject.Properties.Match('Response').Count -gt 0 -and $_.Exception.Response) {
+              try { $statusCode = [int]$_.Exception.Response.StatusCode } catch { $statusCode = 0 }
+            }
+            if ($statusCode -eq 404) {
+              Write-Host "::notice::No existing versions.json at $existingUrl (HTTP 404) - first deploy, skipping preservation check."
+              exit 0
+            }
+            Write-Error "Failed to fetch existing versions.json at $existingUrl (status=$statusCode): $($_.Exception.Message). Refusing to deploy - a transient fetch failure must not be treated as a first deploy because that path can wipe previously-published version entries."
+            exit 1
+          }
+          try {
+            $existing = $existingRaw | ConvertFrom-Json
+            $new = Get-Content $newPath -Raw | ConvertFrom-Json
+          } catch {
+            Write-Error "Failed to parse versions.json: $($_.Exception.Message)"
+            exit 1
+          }
+          $existingCount = @($existing).Count
+          $newCount = @($new).Count
+          if ($newCount -lt $existingCount) {
+            Write-Error "versions.json would lose entries: existing=$existingCount, new=$newCount. Aborting deploy."
+            exit 1
+          }
+          $existingVersions = @($existing) | ForEach-Object { $_.version }
+          $newVersions = @($new) | ForEach-Object { $_.version }
+          $missing = @($existingVersions | Where-Object { $_ -notin $newVersions })
+          if ($missing.Count -gt 0) {
+            Write-Error "Previous versions missing from new versions.json: $($missing -join ', '). Aborting deploy."
+            exit 1
+          }
+          Write-Host "versions.json preservation OK: existing=$existingCount, new=$newCount."
 
       - name: Compute destination directory
         # Determines the versioned subfolder name for the docs deployment (e.g. /v1.2.3/).
@@ -300,17 +412,20 @@ jobs:
             # an existing gh-pages branch.
             $branchExists = git ls-remote --heads origin gh-pages
             if ($LASTEXITCODE -ne 0) {
-              Write-Error "git ls-remote --heads origin gh-pages failed with exit code $LASTEXITCODE — aborting before we accidentally bootstrap over an existing gh-pages branch."
-              exit 1
+              # `throw` (not `exit 1`) so the outer try/finally cleanup runs and
+              # the global http.extraheader auth header is always unset.
+              throw "git ls-remote --heads origin gh-pages failed with exit code $LASTEXITCODE — aborting before we accidentally bootstrap over an existing gh-pages branch."
             }
             $useWorktree = [bool]$branchExists
             if ($useWorktree) {
               git fetch origin gh-pages
+              if ($LASTEXITCODE -ne 0) { throw "git fetch origin gh-pages failed with exit code $LASTEXITCODE" }
               git show-ref --verify --quiet refs/heads/gh-pages
               if ($LASTEXITCODE -ne 0) { git branch gh-pages origin/gh-pages }
               git worktree remove $WORK_DIR --force 2>&1 | Out-Null
               if (Test-Path -LiteralPath $WORK_DIR) { Remove-Item -LiteralPath $WORK_DIR -Recurse -Force }
               git worktree add $WORK_DIR gh-pages
+              if ($LASTEXITCODE -ne 0) { throw "git worktree add $WORK_DIR gh-pages failed with exit code $LASTEXITCODE" }
             } else {
               Write-Host "ℹ️ gh-pages does not exist yet — starting fresh."
               New-Item -ItemType Directory -Force -Path $WORK_DIR | Out-Null
@@ -319,29 +434,51 @@ jobs:
               # Auth is provided by the global http.extraheader configured above,
               # so the remote URL does not embed the token.
               git -C $WORK_DIR init --initial-branch=gh-pages
+              if ($LASTEXITCODE -ne 0) { throw "git init in $WORK_DIR failed with exit code $LASTEXITCODE" }
               git -C $WORK_DIR remote add origin "https://github.com/$($env:GITHUB_REPOSITORY).git"
+              if ($LASTEXITCODE -ne 0) { throw "git remote add origin failed with exit code $LASTEXITCODE" }
             }
 
-            # Remove stale root files; preserve versions/, .git, .nojekyll, CNAME, dev
+            # Remove stale root files; preserve versions/, .git, .nojekyll, CNAME, dev.
             # ('dev' is where benchmark-action/github-action-benchmark stores its
             # chart + accumulated data.js — wiping it loses chart history on every release.)
-            Get-ChildItem -Path $WORK_DIR -Force | Where-Object {
-              $_.Name -notin @('.git', 'CNAME', '.nojekyll', 'versions', 'dev')
-            } | Remove-Item -Recurse -Force
+            # Gated on DEPLOY_AS_LATEST=true because the root is only repopulated
+            # (version-picker index.html, root versions.json, shared assets) in that
+            # branch below — a rebuild of an older version (deploy_as_latest=false)
+            # would otherwise strip the root and leave only /versions/<x>/ paths.
+            if ($env:DEPLOY_AS_LATEST -eq 'true') {
+              Get-ChildItem -Path $WORK_DIR -Force | Where-Object {
+                $_.Name -notin @('.git', 'CNAME', '.nojekyll', 'versions', 'dev')
+              } | Remove-Item -Recurse -Force
+            } else {
+              Write-Host "Skipping root cleanup — DEPLOY_AS_LATEST is not 'true', preserving existing site root."
+            }
 
             # Ensure .nojekyll exists so GitHub Pages does not run Jekyll
             New-Item -ItemType File -Path (Join-Path $WORK_DIR '.nojekyll') -Force | Out-Null
 
-            # Deploy versioned docs (real DocFX index.html — before version picker overwrites it)
+            # Deploy versioned docs (real DocFX index.html — before version picker
+            # overwrites it). Clear the destination first so files that were
+            # dropped from docfx output between releases don't linger forever.
             $versionedDir = Join-Path $WORK_DIR "versions/$($env:VERSION_DIR)"
-            New-Item -ItemType Directory -Force -Path $versionedDir | Out-Null
+            if (Test-Path -LiteralPath $versionedDir) {
+              Get-ChildItem -LiteralPath $versionedDir -Force | Remove-Item -Recurse -Force
+            } else {
+              New-Item -ItemType Directory -Force -Path $versionedDir | Out-Null
+            }
             Copy-Item -Path "$siteDir/*" -Destination $versionedDir -Recurse -Force
             Write-Host "✅ Copied docs to versions/$($env:VERSION_DIR)/"
 
             if ($env:DEPLOY_AS_LATEST -eq 'true') {
-              # Deploy to versions/latest/ (real DocFX index.html)
+              # Deploy to versions/latest/ (real DocFX index.html). Same clear-
+              # before-copy pattern as versions/<dir> above to prevent stale
+              # files from previous releases lingering when docfx output shrinks.
               $latestDir = Join-Path $WORK_DIR 'versions/latest'
-              New-Item -ItemType Directory -Force -Path $latestDir | Out-Null
+              if (Test-Path -LiteralPath $latestDir) {
+                Get-ChildItem -LiteralPath $latestDir -Force | Remove-Item -Recurse -Force
+              } else {
+                New-Item -ItemType Directory -Force -Path $latestDir | Out-Null
+              }
               Copy-Item -Path "$siteDir/*" -Destination $latestDir -Recurse -Force
               Write-Host "✅ Copied docs to versions/latest/"
 
@@ -360,8 +497,8 @@ jobs:
               $listHtml = $listItems -join "`n"
 
               if (-not (Test-Path '.github/version-picker-template.html')) {
-                Write-Error "Error: .github/version-picker-template.html not found; cannot generate root index.html."
-                exit 1
+                # `throw` (not `exit 1`) so the outer try/finally cleanup runs.
+                throw ".github/version-picker-template.html not found; cannot generate root index.html."
               }
 
               $template = Get-Content '.github/version-picker-template.html' -Raw
@@ -375,20 +512,37 @@ jobs:
               Write-Host "✅ Copied version picker to site root"
             }
 
-            # Single commit and push
+            # Single commit and push.
+            # `git diff --cached --quiet` exits 0 (no changes), 1 (changes
+            # exist), or >1 (error — e.g. cannot read index). Treat the
+            # three cases explicitly: commit only when there are changes
+            # (exit 1); on >1 abort the deploy with a clear error; on 0
+            # report "nothing to deploy" and exit cleanly.
             git -C $WORK_DIR add -A
             git -C $WORK_DIR diff --cached --quiet
-            if ($LASTEXITCODE -ne 0) {
+            $diffExit = $LASTEXITCODE
+            if ($diffExit -eq 1) {
               $msg = if ($env:DEPLOY_AS_LATEST -eq 'true') {
                 "docs: deploy $($env:VERSION_DIR) and update latest"
               } else {
                 "docs: deploy $($env:VERSION_DIR)"
               }
               git -C $WORK_DIR commit -m $msg
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "❌ git commit failed with exit code $LASTEXITCODE — aborting deploy."
+                throw "git commit failed"
+              }
               git -C $WORK_DIR push origin HEAD:gh-pages
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "❌ git push origin HEAD:gh-pages failed with exit code $LASTEXITCODE — deploy did not land."
+                throw "git push failed"
+              }
               Write-Host "✅ Documentation deployed in a single commit."
-            } else {
+            } elseif ($diffExit -eq 0) {
               Write-Host "ℹ️ No documentation changes to deploy."
+            } else {
+              Write-Error "❌ git diff --cached --quiet exited with $diffExit (error reading the staged index) — aborting deploy."
+              throw "git diff failed"
             }
 
             # Capture the deploy outcome before the finally block runs cleanup
