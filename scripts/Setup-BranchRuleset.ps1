@@ -107,6 +107,7 @@ try {
     # valid JSON and breaks ConvertFrom-Json. Redirect stderr to a temp file
     # so gh's progress/warnings can't poison the JSON stream on stdout.
     $rulesetErr = [System.IO.Path]::GetTempFileName()
+    $rulesetErrText = $null
     try {
         $rulesetOutput = gh api `
             -H "Accept: application/vnd.github+json" `
@@ -115,11 +116,17 @@ try {
             --paginate `
             --jq '[ .[] | select(.name == "Protect main branch") ]' 2> $rulesetErr
     } finally {
-        if (Test-Path -LiteralPath $rulesetErr) { Remove-Item -LiteralPath $rulesetErr -Force }
+        if (Test-Path -LiteralPath $rulesetErr) {
+            # Capture stderr before deletion so the warning below has
+            # diagnostic content. Mirrors Fix-BranchRuleset.ps1 (~line 115).
+            $rulesetErrText = (Get-Content -LiteralPath $rulesetErr -Raw -ErrorAction SilentlyContinue)
+            Remove-Item -LiteralPath $rulesetErr -Force
+        }
     }
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Warning "⚠️  Could not check for existing rulesets (API returned exit code $LASTEXITCODE). Continuing..."
+        $errSuffix = if ([string]::IsNullOrWhiteSpace($rulesetErrText)) { '' } else { " gh stderr: $($rulesetErrText.Trim())" }
+        Write-Warning "⚠️  Could not check for existing rulesets (API returned exit code $LASTEXITCODE).$errSuffix Continuing..."
     } elseif ($rulesetOutput) {
         $matchingRulesets = $rulesetOutput | ConvertFrom-Json
         $existingRuleset = @($matchingRulesets) | Select-Object -First 1
