@@ -717,3 +717,16 @@ try {
 
 Write-Host "`n🎉 GitHub Pages setup complete!" -ForegroundColor Green
 Write-Host ""
+# Self-delete: this is a one-time bootstrap script. After successful Pages
+# configuration, remove the script. Re-run by restoring it from the template
+# if Pages ever needs to be re-bootstrapped.
+$selfPath = $PSCommandPath
+if ($selfPath -and (Test-Path -LiteralPath $selfPath)) {
+    try {
+        Remove-Item -LiteralPath $selfPath -Force
+        Write-Host "Self-deleted: $selfPath (one-time bootstrap script)" -ForegroundColor DarkGray
+        Write-Host "   Restore from the template to re-run." -ForegroundColor DarkGray
+    } catch {
+        Write-Warning "Could not self-delete $selfPath - remove manually."
+    }
+}
