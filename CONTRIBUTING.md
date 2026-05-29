@@ -147,7 +147,7 @@ var now = DateTimeOffset.UtcNow;
 ## Build and Test Instructions
 
 ### Prerequisites
-- .NET 10.0 SDK or later (required for the repo's net10.0 target; older SDKs cannot load the csproj)
+- Latest .NET SDK recommended (the CI matrix tests .NET 5.0-10.0 and .NET Framework 4.6.2-4.8.1; the SDK you actually need depends on your project's target frameworks. The template itself contains no csproj.)
 - PowerShell Core (optional, for formatting scripts)
 
 ### Build the Project
