@@ -25,16 +25,50 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 
 ## Add Branch Protection Rules
 
-Configure branch protection rules for the `main` branch:
+The fastest path is the bundled script. It provisions the full canonical
+ruleset (required status checks, code-scanning gate, force-push protection,
+conversation-resolution requirement, Copilot code review) in one command:
 
-1. Go to your repository’s Settings → Branches.
-2. Under “Branch protection rules,” click `Add branch ruleset`
-3. `Ruleset Name` enter `main`
-4. `Target branches` click `Add target`
-5. Select `Include by pattern`
-6. `Branch naming pattern` enter `main`
-7. Click `Add Inclusion pattern`
+```powershell
+pwsh -File ./scripts/Setup-BranchRuleset.ps1
+```
 
+The script auto-detects the current repository, prompts you to pick
+**single-developer** (no approvals required - you can merge your own PRs)
+vs. **multi-developer** (one approval + code-owner review), and self-deletes
+when it succeeds. Restore it from the template if the ruleset ever needs to
+be re-created.
+
+If the live ruleset drifts (e.g. a required check name changes upstream and
+PRs get stuck waiting for a check that will never report), run:
+
+```powershell
+pwsh -File ./scripts/Fix-BranchRuleset.ps1
+```
+
+This inspects the live ruleset and prompts to repair any divergence from the
+canonical shape.
+
+### Manual fallback (UI only)
+
+Only use this path if `Setup-BranchRuleset.ps1` does not fit your scenario
+(e.g. you are adopting this layout in a non-template repo that does not have
+the script).
+
+1. Go to your repository''s **Settings > Rules > Rulesets**.
+2. Click **New ruleset > New branch ruleset**.
+3. **Ruleset Name** enter `Protect main branch`.
+4. **Enforcement status** set to **Active**.
+5. **Target branches > Add target > Include by pattern** enter `main`.
+6. Under **Branch rules**, enable:
+   - Restrict creations / deletions / non-fast-forward updates
+   - Require a pull request before merging, with conversation-resolution required
+   - Require status checks to pass - add the contexts listed in
+     [scripts/Setup-BranchRuleset.ps1](scripts/Setup-BranchRuleset.ps1)
+     (Stage 1/2/3 Linux/Windows/macOS, Detect .NET Projects, Secrets Scan
+     (gitleaks), Security Scan (DevSkim), Security Scan (CodeQL) (csharp))
+   - Require code scanning results from CodeQL, errors threshold
+7. Save the ruleset.
 
 ## Security Settings
 
@@ -181,27 +215,43 @@ After creating your repository from the template, update the following files wit
 
 ### Setup GitHub Pages for Documentation (Optional)
 
-If you want to publish your DocFX documentation to GitHub Pages automatically when you publish a GitHub Release:
+The fastest path is the bundled script. It creates the `gh-pages` branch if
+needed, enables Pages on it, substitutes the docfx placeholders for the
+current repo, and self-deletes when it succeeds:
 
-1. Set up GitHub Pages manually:
-   - Go to your repository's **Settings → Pages**
-   - Under "Build and deployment," select **Deploy from a branch**
-   - Select the `gh-pages` branch (create it if it doesn't exist: `git checkout --orphan gh-pages && git push origin gh-pages`)
-   - Save the settings
-   - Update the DocFX configuration files in `docfx_project/` to replace placeholders (e.g., `{{PROJECT_NAME}}`, `{{DOCS_URL}}`) with your project's values
+```powershell
+pwsh -File ./scripts/Setup-GitHubPages.ps1
+```
 
-2. Documentation will be automatically published when you publish a GitHub Release:
-   1. Go to your repository's **Releases** page
-   2. Click **"Draft a new release"**
-   3. Choose or create a version tag (e.g., `v1.0.0`)
-   4. Click **"Publish release"**
+After this runs, publishing a GitHub Release fires `release.yaml`, which
+calls `docfx.yaml` to build the docs and publish them to `gh-pages`. Docs
+are served at `https://[username].github.io/[repo-name]/`.
 
-3. The documentation will be available at: `https://[username].github.io/[repo-name]/`
+After a docs deploy, validate the result with:
 
-**Note:** The DocFX workflow (`.github/workflows/docfx.yaml`) is configured to trigger via:
-- **`workflow_call`**: Called automatically by `release.yaml` after a GitHub Release is published (passes the release tag as the version)
-- **`workflow_dispatch`**: Manual trigger for ad-hoc builds or dry-runs (available from the Actions tab)
+```bash
+bash ./scripts/Validate-DocsDeploy.sh
+```
 
+This inspects the live `gh-pages` content (`index.html`, `versions.json`,
+every version folder, the `latest/` alias) and reports drift from the
+expected layout. Useful for catching botched deploys before readers notice.
+
+**The DocFX workflow trigger**:
+- **`workflow_call`** - invoked by `release.yaml` after a GitHub Release is
+  published (passes the release tag as the version)
+- **`workflow_dispatch`** - manual trigger for ad-hoc builds or dry-runs
+
+#### Manual fallback (UI only)
+
+Only use this path if `Setup-GitHubPages.ps1` does not fit your scenario.
+
+1. **Settings > Pages**: set source to **Deploy from a branch**, branch
+   `gh-pages` (`git checkout --orphan gh-pages && git push origin gh-pages`
+   if it does not exist).
+2. Edit `docfx_project/docfx.json` and surrounding files to replace
+   `{{PROJECT_NAME}}`, `{{DOCS_URL}}`, etc. with your project values.
+3. Publish a GitHub Release to fire the workflow.
 
 ### Update Documentation (Optional)
 
@@ -236,3 +286,30 @@ When you publish a new release (e.g. `v1.0.0`):
 The DocFX modern template is configured to default to dark mode. This is controlled by:
 - `"colorMode": "dark"` in `docfx_project/docfx.json` → `build.globalMetadata`
 - `"_enableDarkMode": true` enables the light/dark toggle so visitors can switch themes
+
+## Maintenance & Repair Scripts
+
+After the one-time setup scripts have self-deleted, these helpers stay around
+because they are useful in steady-state:
+
+| Script | When to use |
+|---|---|
+| `scripts/Fix-BranchRuleset.ps1` | Repair the branch ruleset if a check name changes upstream and the rule gets stuck waiting. Inspects and patches in place; does not recreate from scratch. |
+| `scripts/Setup-Labels.ps1` | Re-run when new canonical labels are added (e.g. a new `maintenance - X` kind). Idempotent. |
+| `scripts/Validate-DocsDeploy.sh` | Post-deploy validation of the `gh-pages` branch. See the **Setup GitHub Pages** section above. |
+| `scripts/build-pr.ps1` | Local dry-run of the full PR CI matrix (Linux Stage 1 + Windows Stage 2 + macOS Stage 3). Useful before pushing a workflow change to confirm it still passes. |
+| `scripts/format.ps1` | One-shot formatter (CSharpier + analyzer auto-fixups). Mirrors what the CI build expects, so running it locally avoids surprise CI failures. |
+
+
+## Mutation Testing (Optional)
+
+`.github/workflows/stryker.yaml` provides a Stryker.NET mutation-testing
+workflow. The workflow runs on demand only (`workflow_dispatch`). To enable
+for your repo, drop a `stryker-config.json` next to your test project; the
+workflow picks it up automatically. Per-repo enablement is a separate
+decision - the canonical workflow lives in the template so every repo can
+opt in without re-deriving the YAML.
+
+Mutation testing is expensive (it re-runs the suite once per mutated source
+line). Run it ad-hoc when you want a sanity check on test-suite quality;
+do not gate every PR on it.
