@@ -86,6 +86,23 @@ The canonical list lives in `scripts/Setup-Labels.ps1`; today it is:
 
 Requires the [GitHub CLI](https://cli.github.com/) to be installed and authenticated (`gh auth login`).
 
+## Set Up the Maintenance Framework
+
+After the labels exist, provision the per-repo parent **Maintenance** issue
+and its standard sub-issues (security, performance, testing, cleanup, docs,
+API, CI/CD). The `Maintenance: <repo>` parent issue is referenced by
+`.github/copilot-instructions.md` and the downstream maintenance workflows;
+if you skip this step those references point at a non-existent issue.
+
+```powershell
+pwsh -File ./scripts/Setup-Maintenance.ps1
+```
+
+This is a one-time step per repo. The script is idempotent - re-running it
+updates the existing parent issue rather than creating duplicates.
+
+Requires `gh auth login` (same prerequisite as the labels script).
+
 
 ## Creating the project
 
