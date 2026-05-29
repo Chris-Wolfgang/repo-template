@@ -850,21 +850,23 @@ function Start-Setup {
     # Optional cleanup
     Write-Step "Cleanup"
     Write-Host ""
-    Write-Host "Remove template-specific files? (y/N)" -ForegroundColor Yellow
+    Write-Host "Remove template-only files? (y/N)" -ForegroundColor Yellow
     Write-Host "  Files to remove:" -ForegroundColor Gray
     Write-Host "    - scripts/setup.ps1 (this script)" -ForegroundColor Gray
-    Write-Host "    - LICENSE-SELECTION.md" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Note: TEMPLATE-PLACEHOLDERS.md will remain for your reference." -ForegroundColor Cyan
-    Write-Host "        Delete it manually when you've reviewed it and no longer need it." -ForegroundColor Cyan
+    Write-Host "        Delete it manually when you have reviewed it and no longer need it." -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Note: Setup-BranchRuleset.ps1, Setup-GitHubPages.ps1, and Setup-Maintenance.ps1" -ForegroundColor Cyan
+    Write-Host "        each self-delete when you run them successfully - this script only needs" -ForegroundColor Cyan
+    Write-Host "        to remove itself here." -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Remove template files? (y/N): " -NoNewline -ForegroundColor Yellow
     $cleanup = Read-Host
     
     if ($cleanup -eq 'y' -or $cleanup -eq 'Y') {
         $filesToRemove = @(
-            'scripts/setup.ps1',
-            'LICENSE-SELECTION.md'
+            'scripts/setup.ps1'
         )
         
         foreach ($file in $filesToRemove) {
@@ -1018,16 +1020,24 @@ function Start-Setup {
     # Next steps
     Write-Host "✅ Next Steps:" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "1. Configure branch protection (see REPO-INSTRUCTIONS.md if kept)" -ForegroundColor Yellow
+    Write-Host "1. Configure branch protection rules (creates the canonical ruleset)" -ForegroundColor Yellow
+    Write-Host "   pwsh ./scripts/Setup-BranchRuleset.ps1" -ForegroundColor Gray
+    Write-Host "   # Self-deletes on success. Restore from the template to re-run." -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "2. Provision custom labels (includes the Maintenance framework labels)" -ForegroundColor Yellow
     Write-Host "   pwsh ./scripts/Setup-Labels.ps1" -ForegroundColor Gray
+    Write-Host "   # Idempotent - re-run when the canonical label list changes." -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "3. Create the parent Maintenance issue for this repo" -ForegroundColor Yellow
     Write-Host "   pwsh ./scripts/Setup-Maintenance.ps1 -MaintenanceProjectUrl '<url>'" -ForegroundColor Gray
     Write-Host "   # The cross-repo Maintenance project URL — ask the repo owner if you don't have it" -ForegroundColor DarkGray
+    Write-Host "   # Self-deletes on success along with scripts/templates/maintenance-parent-body.md." -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "4. Start developing!" -ForegroundColor Yellow
+    Write-Host "4. (Optional) Set up GitHub Pages for documentation" -ForegroundColor Yellow
+    Write-Host "   pwsh ./scripts/Setup-GitHubPages.ps1" -ForegroundColor Gray
+    Write-Host "   # Self-deletes on success. Restore from the template to re-run." -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "5. Start developing!" -ForegroundColor Yellow
     if ($solutionName) {
         Write-Host "   # Solution file created: $solutionName.slnx" -ForegroundColor Gray
         Write-Host "   # Add your projects to src/ and tests/" -ForegroundColor Gray
