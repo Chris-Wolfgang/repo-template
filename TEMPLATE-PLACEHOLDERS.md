@@ -211,7 +211,7 @@ $corePlaceholders = @(
 - No placeholders (license text is complete)
 - Copyright notice added separately if needed
 
-### 6. docfx_project/docfx.json
+### 7. docfx_project/docfx.json
 
 | Line(s) | Placeholder | Context |
 |---------|-------------|---------|
@@ -219,7 +219,7 @@ $corePlaceholders = @(
 | 47 | `{{PROJECT_NAME}}` | Application title |
 | 53 | `{{DOCS_URL}}` | Base URL for documentation |
 
-### 7. docfx_project/index.md
+### 8. docfx_project/index.md
 
 | Line(s) | Placeholder | Context |
 |---------|-------------|---------|
@@ -231,40 +231,19 @@ $corePlaceholders = @(
 | 22 | `{{PACKAGE_NAME}}` | Installation command |
 | 35-37 | `{{GITHUB_REPO_URL}}` | Additional resources links (3 occurrences) |
 
-### 8. docfx_project/api/index.md
+### 9. docfx_project/api/index.md
 
 | Line(s) | Placeholder | Context |
 |---------|-------------|---------|
 | 3 | `{{PROJECT_NAME}}` | Welcome message |
 
-### 9. docfx_project/docs/toc.yml
-
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| Various | `{{GITHUB_REPO_URL}}` | Project website link |
-
-### 10. docfx_project/docs/introduction.md
-
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| Various | `{{PROJECT_NAME}}`, `{{PROJECT_DESCRIPTION}}` | Introduction headings and descriptive text |
-| Various | `{{GITHUB_REPO_URL}}` | Links back to the GitHub repository from the introduction |
-
-### 11. docfx_project/docs/getting-started.md
-
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| Various | `{{PROJECT_NAME}}` | Getting started headings and examples |
-| Various | `{{PACKAGE_NAME}}` | NuGet installation and package reference snippets |
-| Various | `{{GITHUB_REPO_URL}}` | Links to source code, issues, and documentation on GitHub |
-
-### 9. docfx_project/docs/toc.yml
+### 10. docfx_project/docs/toc.yml
 
 | Line(s) | Placeholder | Context |
 |---------|-------------|---------|
 | 8 | `{{GITHUB_REPO_URL}}` | Project website link |
 
-### 10. docfx_project/docs/introduction.md
+### 11. docfx_project/docs/introduction.md
 
 | Line(s) | Placeholder | Context |
 |---------|-------------|---------|
@@ -274,7 +253,7 @@ $corePlaceholders = @(
 | 25 | `{{GITHUB_REPO_URL}}` | GitHub repository link |
 | 26 | `{{GITHUB_REPO_URL}}` | GitHub issues link |
 
-### 11. docfx_project/docs/getting-started.md
+### 12. docfx_project/docs/getting-started.md
 
 | Line(s) | Placeholder | Context |
 |---------|-------------|---------|
@@ -324,7 +303,6 @@ If you must replace manually:
      - `CONTRIBUTING.md`
      - `.github/CODEOWNERS`
      - `REPO-INSTRUCTIONS.md`
-     - `LICENSE-SELECTION.md`
      - `docfx_project/docfx.json`
      - `docfx_project/index.md`
      - `docfx_project/api/index.md`
@@ -339,7 +317,7 @@ If you must replace manually:
    # Note: README.md will still contain optional placeholders like {{QUICK_START_EXAMPLE}},
    # {{FEATURES_TABLE}}, {{FEATURE_EXAMPLES}}, {{TARGET_FRAMEWORKS}}, {{ACKNOWLEDGMENTS}}
    # which you fill in as you develop your project
-   grep -r "{{.*}}" CONTRIBUTING.md .github/CODEOWNERS REPO-INSTRUCTIONS.md LICENSE-SELECTION.md docfx_project/ || echo "No required placeholders found in core files"
+   grep -r "{{.*}}" CONTRIBUTING.md .github/CODEOWNERS REPO-INSTRUCTIONS.md docfx_project/ || echo "No required placeholders found in core files"
    
    # Check README.md separately for required placeholders only
    grep -E "{{(PROJECT_NAME|PROJECT_DESCRIPTION|PACKAGE_NAME|GITHUB_REPO_URL|REPO_NAME|DOCS_URL|LICENSE_TYPE|NUGET_STATUS)}}" README.md && echo "⚠️  Found required placeholders in README.md - please replace them" || echo "✓ All required placeholders replaced in README.md"
@@ -360,7 +338,7 @@ Here's a complete example for a hypothetical project:
 {{GITHUB_USERNAME}}           → @Chris-Wolfgang
 {{DOCS_URL}}                  → https://chris-wolfgang.github.io/HttpClient-Extensions/
 {{LICENSE_TYPE}}              → MIT
-{{YEAR}}                      → 2024
+{{YEAR}}                      → 2026
 {{COPYRIGHT_HOLDER}}          → Chris Wolfgang
 {{NUGET_STATUS}}              → Coming soon to NuGet.org
 {{TEMPLATE_REPO_OWNER}}       → Chris-Wolfgang
@@ -409,7 +387,6 @@ After replacement, verify:
 ## Additional Resources
 
 - **Setup Script:** `pwsh ./scripts/setup.ps1`
-- **License Selection Guide:** [LICENSE-SELECTION.md](LICENSE-SELECTION.md)
 - **Repository Instructions:** [REPO-INSTRUCTIONS.md](REPO-INSTRUCTIONS.md)
 - **Template README:** [README.md](README.md) (describes template)
 - **Project README Template:** [README-TEMPLATE.md](README-TEMPLATE.md)
