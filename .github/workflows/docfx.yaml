@@ -21,6 +21,11 @@ on:
         required: false
         type: boolean
         default: true
+      overlay_canonical_docs_assets:
+        description: 'Before docfx build, overlay docfx_project/{public,versions.json,logo.svg,docfx.json} from origin/main onto the checked-out ref. Lets you backfill the canonical version-picker UI onto older tags whose original docfx_project predated it. Leave on for old-tag rebuilds; harmless no-op when running from main.'
+        required: false
+        type: boolean
+        default: true
   # Manual trigger for ad-hoc builds or dry-runs.
   # Leave 'version' blank to use the selected branch or tag name as the destination.
   workflow_dispatch:
