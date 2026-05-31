@@ -37,6 +37,10 @@ on:
         description: 'Also deploy to the site root (/) and versions/latest/ (uncheck when rebuilding older versions)'
         type: boolean
         default: true
+      overlay_canonical_docs_assets:
+        description: 'Before docfx build, overlay docfx_project/{public,versions.json,logo.svg,docfx.json} from origin/main onto the checked-out ref. Lets you backfill the canonical version-picker UI onto older tags whose original docfx_project predated it. Leave on for old-tag rebuilds; harmless no-op when running from main.'
+        type: boolean
+        default: true
 
 permissions:
   contents: read  # Default to read-only; the build-and-deploy job overrides with write
@@ -55,6 +59,67 @@ jobs:
         with:
           fetch-depth: 0  # Full history needed to enumerate all v* tags
           persist-credentials: false
+
+      # When backfilling docs for a tag that predates the canonical
+      # version-picker assets, the checked-out tag has no
+      # docfx_project/public/version-picker.js and its docfx.json
+      # has no picker-bootstrap <script> in globalMetadata._appFooter
+      # — so the rebuilt docs would deploy without the dropdown.
+      #
+      # Overlay the canonical assets from origin/main onto whatever ref
+      # we just checked out. When triggered from main (release.yaml's
+      # workflow_call, or workflow_dispatch from main), this is a no-op
+      # because the files are already at main's content. When triggered
+      # from an older tag, this swaps just the docs-tooling files so
+      # the picker appears on the rebuilt versioned docs.
+      #
+      # Scope is deliberately narrow: only docs tooling files, never
+      # source/csproj/tests/scripts. Set
+      # overlay_canonical_docs_assets=false to skip (e.g. when
+      # intentionally rebuilding a tag's original docs config).
+      - name: Overlay canonical docs assets from origin/main
+        if: inputs.overlay_canonical_docs_assets != false
+        shell: pwsh
+        run: |
+          # The checkout above did fetch-depth: 0, so origin/main is
+          # already in the local refs — no fresh fetch needed.
+          $assets = @(
+            'docfx_project/public',
+            'docfx_project/versions.json',
+            'docfx_project/logo.svg',
+            'docfx_project/docfx.json'
+          )
+
+          # Detect whether the current HEAD already matches origin/main.
+          # When it does (push to main, workflow_dispatch from main),
+          # the overlay is a no-op and skipping it keeps the run log
+          # clean.
+          $headSha = (git rev-parse HEAD).Trim()
+          $mainSha = (git rev-parse origin/main).Trim()
+          if ($headSha -eq $mainSha) {
+            Write-Host "HEAD == origin/main — overlay is a no-op, skipping."
+            exit 0
+          }
+
+          Write-Host "Overlaying canonical docs assets from origin/main"
+          Write-Host "  HEAD = $headSha"
+          Write-Host "  main = $mainSha"
+          foreach ($path in $assets) {
+            # Use git ls-tree to check whether the path exists on main
+            # before trying to checkout — avoids spurious errors for
+            # repos that don't carry every asset yet.
+            $existsOnMain = (git ls-tree -r --name-only origin/main -- $path)
+            if (-not $existsOnMain) {
+              Write-Host "  skip: $path (not present on main)"
+              continue
+            }
+            git checkout origin/main -- $path
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to overlay $path from origin/main"
+              exit $LASTEXITCODE
+            }
+            Write-Host "  overlaid: $path"
+          }
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
