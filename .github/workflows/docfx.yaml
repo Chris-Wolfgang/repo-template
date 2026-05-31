@@ -86,8 +86,6 @@ jobs:
         if: inputs.overlay_canonical_docs_assets != false
         shell: pwsh
         run: |
-          # The checkout above did fetch-depth: 0, so origin/main is
-          # already in the local refs — no fresh fetch needed.
           $assets = @(
             'docfx_project/public',
             'docfx_project/versions.json',
@@ -95,12 +93,24 @@ jobs:
             'docfx_project/docfx.json'
           )
 
-          # Detect whether the current HEAD already matches origin/main.
-          # When it does (push to main, workflow_dispatch from main),
-          # the overlay is a no-op and skipping it keeps the run log
-          # clean.
+          # actions/checkout does not guarantee origin/main is present when
+          # the triggered ref is a tag or non-main branch (it fetches the
+          # triggered ref, and fetch-depth: 0 deepens that ref's history but
+          # does not reliably populate refs/remotes/origin/main). Fetch main
+          # explicitly into the remote-tracking ref; if it can't be fetched,
+          # skip the overlay rather than fail the docs deploy.
+          git fetch --no-tags origin main:refs/remotes/origin/main 2>$null
+          $mainSha = (git rev-parse --verify --quiet refs/remotes/origin/main)
+          if (-not $mainSha) {
+            Write-Host "origin/main unavailable after fetch — skipping overlay."
+            exit 0
+          }
+          $mainSha = $mainSha.Trim()
+
+          # When HEAD already matches origin/main (push to main,
+          # workflow_dispatch from main), the overlay is a no-op; skipping
+          # keeps the run log clean.
           $headSha = (git rev-parse HEAD).Trim()
-          $mainSha = (git rev-parse origin/main).Trim()
           if ($headSha -eq $mainSha) {
             Write-Host "HEAD == origin/main — overlay is a no-op, skipping."
             exit 0
