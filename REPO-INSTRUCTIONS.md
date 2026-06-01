@@ -310,11 +310,18 @@ TFMs, which only build on Windows; a Linux runner would silently mutate
 only the .NET (Core) TFMs and miss any bugs that reproduce only on
 Framework.
 
-**The workflow always runs** - no opt-in is required. Stryker discovers
-each test project automatically; if you want to tune the run for a
-specific repo (excluded files, specific mutators, mutation level, etc.),
-drop a `stryker-config.json` next to the test project and `dotnet stryker`
-will pick it up.
+**The workflow always runs** - no opt-in is required.
+
+Two configuration modes are supported:
+
+- **Root-level umbrella** - if a `stryker-config.json` exists at the repo
+  root, it is treated as the umbrella config: Stryker is invoked once with
+  it and per-project runs are skipped (avoids duplicating the same work).
+  Use this when one Stryker invocation should cover multiple test projects.
+- **Per-project (default)** - if no root config exists, Stryker runs once
+  per test project under `tests/`. A per-project `stryker-config.json` next
+  to a test project overrides Stryker's defaults (excluded files, specific
+  mutators, mutation level, etc.).
 
 Triggers:
 
