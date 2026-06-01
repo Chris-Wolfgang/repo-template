@@ -1,12 +1,22 @@
 # Stryker mutation testing
 #
-# Runs the Stryker.NET mutation tester against the repo's test projects to
-# measure mutation score. Mutation runs are slow — triggered manually
-# (workflow_dispatch) and on a weekly schedule, not on every PR.
+# Mutation testing is canonical for every repo created from this template.
+# The workflow runs Stryker.NET against every test project under tests/ on
+# a Windows runner so it can compile every TFM the repo targets - including
+# .NET Framework 4.6.2-4.8.1, which a Linux runner cannot build.
 #
-# The workflow looks for a stryker-config.json at the repo root or under
-# tests/**/. If none is present the run is a no-op (Stryker setup is a
-# per-repo follow-up; this file is the canonical infrastructure).
+# Triggers:
+# - workflow_dispatch: manual ad-hoc runs (e.g. while iterating on tests)
+# - schedule (weekly Sunday 06:00 UTC): catch quality regressions between
+#   releases without burning CI time on every PR (mutation testing is slow)
+#
+# Stryker discovers each test project's mutation targets via the standard
+# project-reference graph. Two configuration modes are supported:
+# - Root stryker-config.json (umbrella): if present, runs Stryker once with
+#   the umbrella config and skips per-project runs (avoids duplicate work).
+# - Per-project stryker-config.json (or none): if no root config exists, runs
+#   Stryker once per test project; per-project configs override Stryker's
+#   defaults when present.
 name: Stryker (mutation testing)
 
 on:
@@ -20,84 +30,99 @@ permissions:
 jobs:
   stryker:
     name: Run Stryker
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Windows runner so Stryker can compile every TFM the repo targets,
+    # including .NET Framework 4.6.2-4.8.1. Linux runners cannot build
+    # net4x, so they would silently mutate only the non-Framework TFMs
+    # and miss bugs that only reproduce on Framework.
+    runs-on: windows-latest
+    # Skip on the template repo itself - it has no test projects, so the
+    # workflow would just no-op every Sunday at 06:00 UTC, wasting a
+    # Windows runner allocation. Matches the same-pattern guard used by
+    # the .NET test-stage jobs in pr.yaml.
+    if: github.repository != 'Chris-Wolfgang/repo-template'
+    timeout-minutes: 120
     steps:
       - name: Check out repo
         uses: actions/checkout@v6
         with:
           persist-credentials: false
 
-      - name: Detect stryker-config.json
-        id: check
-        shell: bash
-        run: |
-          # Explicit existence checks rather than globbing — `nullglob` only
-          # drops words that look like patterns (contain *, ?, [). The bare
-          # literal `stryker-config.json` has no glob characters, so it would
-          # be preserved as a literal even when the file doesn't exist, and
-          # the workflow would mistakenly think a config was present.
-          shopt -s globstar nullglob
-          configs=()
-          [ -f stryker-config.json ] && configs+=(stryker-config.json)
-          for cfg in tests/**/stryker-config.json; do
-            [ -f "$cfg" ] && configs+=("$cfg")
-          done
-          if (( ${#configs[@]} )); then
-            printf 'found=true\n' >> "$GITHUB_OUTPUT"
-            # NOTE: previously also wrote a configs<<EOF multi-line output here,
-            # but (a) the downstream Run Stryker step re-globs from scratch and
-            # didn't consume it, and (b) ${configs[*]} joins with spaces so the
-            # value was effectively a single space-separated line — not actually
-            # multi-line. Dropped the dead/broken output.
-          else
-            echo "::notice::No stryker-config.json found — skipping Stryker run. Add one at repo root or under tests/<project>/ to enable mutation testing."
-            printf 'found=false\n' >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Setup .NET
-        if: steps.check.outputs.found == 'true'
+        # Install every SDK in the canonical test matrix (.NET Core 3.1
+        # through .NET 10.0). Stryker has to be able to build whichever
+        # TFM each test project targets; pinning to a subset would
+        # silently fail repos that target older runtimes.
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: |
+            3.1.x
+            5.0.x
+            6.0.x
+            7.0.x
             8.0.x
+            9.0.x
             10.0.x
 
       - name: Install dotnet-stryker
-        if: steps.check.outputs.found == 'true'
-        run: dotnet tool update -g dotnet-stryker || dotnet tool install -g dotnet-stryker
+        shell: pwsh
+        run: |
+          dotnet tool update -g dotnet-stryker
+          if ($LASTEXITCODE -ne 0) {
+            dotnet tool install -g dotnet-stryker
+          }
 
       - name: Run Stryker
-        if: steps.check.outputs.found == 'true'
-        shell: bash
+        shell: pwsh
         run: |
-          set -e
-          shopt -s globstar nullglob
-          # Run BOTH a root stryker-config.json (if present) AND any
-          # tests/**/stryker-config.json suites. The Detect step collects
-          # both shapes; running only one leaves per-test suites unscanned
-          # in repos that have both an umbrella and per-suite configs.
-          ran=0
-          if [ -f stryker-config.json ]; then
-            echo "::group::Stryker with root stryker-config.json"
+          # Configuration mode resolution:
+          #   1. If a root stryker-config.json exists, it is the umbrella -
+          #      run Stryker once with it and stop (per-project runs would
+          #      duplicate the same work the umbrella already covers).
+          #   2. Otherwise, run Stryker against every test project under
+          #      tests/. A per-project stryker-config.json next to a test
+          #      project overrides Stryker's defaults when present.
+
+          $failed = 0
+
+          if (Test-Path 'stryker-config.json') {
+            Write-Host "::group::Stryker with root umbrella stryker-config.json"
             dotnet stryker --config-file stryker-config.json
-            echo "::endgroup::"
-            ran=1
-          fi
-          for cfg in tests/**/stryker-config.json; do
-            dir=$(dirname "$cfg")
-            echo "::group::Stryker in $dir"
-            (cd "$dir" && dotnet stryker)
-            echo "::endgroup::"
-            ran=1
-          done
-          if [ "$ran" -eq 0 ]; then
-            echo "::error::Detect step said stryker-config.json was present, but Run found neither root nor tests/**/stryker-config.json. Bailing."
+            if ($LASTEXITCODE -ne 0) { $failed++ }
+            Write-Host "::endgroup::"
+          }
+          else {
+            $tests = @(Get-ChildItem -Path tests -Recurse -Filter '*Test*.csproj' -ErrorAction SilentlyContinue)
+
+            if ($tests.Count -eq 0) {
+              Write-Host "::notice::No test projects found under tests/ - skipping Stryker run."
+              exit 0
+            }
+
+            Write-Host "Found $($tests.Count) test project(s):"
+            $tests | ForEach-Object { Write-Host "  $($_.FullName)" }
+            Write-Host ""
+
+            foreach ($proj in $tests) {
+              $dir = $proj.DirectoryName
+              Write-Host "::group::Stryker in $dir"
+              Push-Location $dir
+              try {
+                dotnet stryker
+                if ($LASTEXITCODE -ne 0) { $failed++ }
+              } finally {
+                Pop-Location
+              }
+              Write-Host "::endgroup::"
+            }
+          }
+
+          if ($failed -gt 0) {
+            Write-Host "::error::$failed Stryker run(s) failed"
             exit 1
-          fi
+          }
 
       - name: Upload Stryker report
-        if: always() && steps.check.outputs.found == 'true'
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: stryker-report-${{ github.run_id }}
