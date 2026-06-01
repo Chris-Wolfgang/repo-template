@@ -301,15 +301,28 @@ because they are useful in steady-state:
 | `scripts/format.ps1` | One-shot formatter (CSharpier + analyzer auto-fixups). Mirrors what the CI build expects, so running it locally avoids surprise CI failures. |
 
 
-## Mutation Testing (Optional)
+## Mutation Testing
 
-`.github/workflows/stryker.yaml` provides a Stryker.NET mutation-testing
-workflow. The workflow runs on demand only (`workflow_dispatch`). To enable
-for your repo, drop a `stryker-config.json` next to your test project; the
-workflow picks it up automatically. Per-repo enablement is a separate
-decision - the canonical workflow lives in the template so every repo can
-opt in without re-deriving the YAML.
+`.github/workflows/stryker.yaml` runs Stryker.NET mutation testing against
+every test project under `tests/` on a **Windows** runner. Windows is
+required because the test matrix can include .NET Framework 4.6.2-4.8.1
+TFMs, which only build on Windows; a Linux runner would silently mutate
+only the .NET (Core) TFMs and miss any bugs that reproduce only on
+Framework.
 
-Mutation testing is expensive (it re-runs the suite once per mutated source
-line). Run it ad-hoc when you want a sanity check on test-suite quality;
-do not gate every PR on it.
+**The workflow always runs** - no opt-in is required. Stryker discovers
+each test project automatically; if you want to tune the run for a
+specific repo (excluded files, specific mutators, mutation level, etc.),
+drop a `stryker-config.json` next to the test project and `dotnet stryker`
+will pick it up.
+
+Triggers:
+
+- `workflow_dispatch` - manual ad-hoc runs (e.g. while iterating on tests)
+- `schedule` - weekly Sunday 06:00 UTC; catches quality regressions between
+  releases without burning CI time on every PR (mutation testing is slow)
+
+The Stryker HTML report is uploaded as a workflow artifact
+(`stryker-report-<run-id>`) and retained for 30 days. Download it from the
+workflow run page to see per-mutator survival rates and the surviving
+mutant locations.
