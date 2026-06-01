@@ -91,7 +91,7 @@ jobs:
             Write-Host "::endgroup::"
           }
           else {
-            $tests = @(Get-ChildItem -Path tests -Recurse -Filter '*.csproj' -ErrorAction SilentlyContinue)
+            $tests = @(Get-ChildItem -Path tests -Recurse -Filter '*Test*.csproj' -ErrorAction SilentlyContinue)
 
             if ($tests.Count -eq 0) {
               Write-Host "::notice::No test projects found under tests/ - skipping Stryker run."
