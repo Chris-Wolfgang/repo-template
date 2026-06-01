@@ -11,9 +11,12 @@
 #   releases without burning CI time on every PR (mutation testing is slow)
 #
 # Stryker discovers each test project's mutation targets via the standard
-# project-reference graph. If a repo wants to tune the run (excluded files,
-# specific mutators, etc.) drop a stryker-config.json next to the test
-# project - dotnet stryker picks it up automatically.
+# project-reference graph. Two configuration modes are supported:
+# - Root stryker-config.json (umbrella): if present, runs Stryker once with
+#   the umbrella config and skips per-project runs (avoids duplicate work).
+# - Per-project stryker-config.json (or none): if no root config exists, runs
+#   Stryker once per test project; per-project configs override Stryker's
+#   defaults when present.
 name: Stryker (mutation testing)
 
 on:
@@ -32,6 +35,11 @@ jobs:
     # net4x, so they would silently mutate only the non-Framework TFMs
     # and miss bugs that only reproduce on Framework.
     runs-on: windows-latest
+    # Skip on the template repo itself - it has no test projects, so the
+    # workflow would just no-op every Sunday at 06:00 UTC, wasting a
+    # Windows runner allocation. Matches the same-pattern guard used by
+    # the .NET test-stage jobs in pr.yaml.
+    if: github.repository != 'Chris-Wolfgang/repo-template'
     timeout-minutes: 120
     steps:
       - name: Check out repo
@@ -40,10 +48,19 @@ jobs:
           persist-credentials: false
 
       - name: Setup .NET
+        # Install every SDK in the canonical test matrix (.NET Core 3.1
+        # through .NET 10.0). Stryker has to be able to build whichever
+        # TFM each test project targets; pinning to a subset would
+        # silently fail repos that target older runtimes.
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: |
+            3.1.x
+            5.0.x
+            6.0.x
+            7.0.x
             8.0.x
+            9.0.x
             10.0.x
 
       - name: Install dotnet-stryker
@@ -54,44 +71,49 @@ jobs:
             dotnet tool install -g dotnet-stryker
           }
 
-      - name: Run Stryker against every test project
+      - name: Run Stryker
         shell: pwsh
         run: |
-          # Canonical behavior: no stryker-config.json gate. Stryker runs
-          # against every test project under tests/ using dotnet stryker
-          # defaults; a per-project stryker-config.json overrides those
-          # defaults if present.
-          $tests = @(Get-ChildItem -Path tests -Recurse -Filter '*.csproj' -ErrorAction SilentlyContinue)
-
-          if ($tests.Count -eq 0) {
-            Write-Host "::notice::No test projects found under tests/ - skipping Stryker run."
-            exit 0
-          }
-
-          Write-Host "Found $($tests.Count) test project(s):"
-          $tests | ForEach-Object { Write-Host "  $($_.FullName)" }
-          Write-Host ""
+          # Configuration mode resolution:
+          #   1. If a root stryker-config.json exists, it is the umbrella -
+          #      run Stryker once with it and stop (per-project runs would
+          #      duplicate the same work the umbrella already covers).
+          #   2. Otherwise, run Stryker against every test project under
+          #      tests/. A per-project stryker-config.json next to a test
+          #      project overrides Stryker's defaults when present.
 
           $failed = 0
-          foreach ($proj in $tests) {
-            $dir = $proj.DirectoryName
-            Write-Host "::group::Stryker in $dir"
-            Push-Location $dir
-            try {
-              dotnet stryker
-              if ($LASTEXITCODE -ne 0) { $failed++ }
-            } finally {
-              Pop-Location
-            }
-            Write-Host "::endgroup::"
-          }
 
-          # Also honor a root-level umbrella config if the repo provides one
           if (Test-Path 'stryker-config.json') {
-            Write-Host "::group::Stryker with root stryker-config.json"
+            Write-Host "::group::Stryker with root umbrella stryker-config.json"
             dotnet stryker --config-file stryker-config.json
             if ($LASTEXITCODE -ne 0) { $failed++ }
             Write-Host "::endgroup::"
+          }
+          else {
+            $tests = @(Get-ChildItem -Path tests -Recurse -Filter '*.csproj' -ErrorAction SilentlyContinue)
+
+            if ($tests.Count -eq 0) {
+              Write-Host "::notice::No test projects found under tests/ - skipping Stryker run."
+              exit 0
+            }
+
+            Write-Host "Found $($tests.Count) test project(s):"
+            $tests | ForEach-Object { Write-Host "  $($_.FullName)" }
+            Write-Host ""
+
+            foreach ($proj in $tests) {
+              $dir = $proj.DirectoryName
+              Write-Host "::group::Stryker in $dir"
+              Push-Location $dir
+              try {
+                dotnet stryker
+                if ($LASTEXITCODE -ne 0) { $failed++ }
+              } finally {
+                Pop-Location
+              }
+              Write-Host "::endgroup::"
+            }
           }
 
           if ($failed -gt 0) {
