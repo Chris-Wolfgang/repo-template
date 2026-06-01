@@ -310,7 +310,7 @@ TFMs, which only build on Windows; a Linux runner would silently mutate
 only the .NET (Core) TFMs and miss any bugs that reproduce only on
 Framework.
 
-**The workflow always runs** - no opt-in is required.
+**No opt-in is required** - Stryker runs without a `stryker-config.json`. (Triggers are still schedule + manual dispatch only; mutation testing is not a per-PR check.)
 
 Two configuration modes are supported:
 
