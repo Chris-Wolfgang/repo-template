@@ -90,7 +90,7 @@ jobs:
 
       - name: Run benchmarks
         if: steps.detect.outputs.exists == 'true'
-        working-directory: benchmarks/Wolfgang.Extensions.ICollection.Benchmarks
+        working-directory: benchmarks/{{PROJECT_NAME}}.Benchmarks
         # ShortRun keeps total runtime small (~3-5 min). GitHub-hosted runners
         # are noisy, so chart trends are reliable for allocations and double-digit
         # time changes; smaller deltas are not.
@@ -99,7 +99,7 @@ jobs:
       - name: Merge per-class BDN reports
         if: steps.detect.outputs.exists == 'true'
         id: locate
-        working-directory: benchmarks/Wolfgang.Extensions.ICollection.Benchmarks
+        working-directory: benchmarks/{{PROJECT_NAME}}.Benchmarks
         run: |
           # BDN's --exporters json writes one *-report-full-compressed.json per
           # benchmark class. github-action-benchmark consumes a single file, so
@@ -120,7 +120,7 @@ jobs:
             HostEnvironmentInfo: .[0].HostEnvironmentInfo,
             Benchmarks: [.[].Benchmarks[]]
           }' "${reports[@]}" > benchmarks-result.json
-          echo "report=benchmarks/Wolfgang.Extensions.ICollection.Benchmarks/benchmarks-result.json" >> "$GITHUB_OUTPUT"
+          echo "report=benchmarks/{{PROJECT_NAME}}.Benchmarks/benchmarks-result.json" >> "$GITHUB_OUTPUT"
 
       - name: Publish chart to gh-pages
         if: steps.detect.outputs.exists == 'true'
