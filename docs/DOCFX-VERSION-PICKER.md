@@ -116,26 +116,33 @@ canonical version-selector UI.
 
 `docfx.yaml` is **not** triggered directly by `push` or by pushing a
 tag — it has only `workflow_call` (invoked by `release.yaml` after a
-GitHub Release is published) and `workflow_dispatch` (manual). So
-the actual chain that deploys the picker is:
+GitHub Release is published) and `workflow_dispatch` (manual). Two
+paths reach it:
 
 ```
-GitHub Release published   (or manual workflow_dispatch)
-  └─ release.yaml fires    (only on the published-release flow)
+Path 1 — normal: a GitHub Release is published
+  └─ release.yaml fires (on `release: types: [published]`)
        └─ release.yaml → calls docfx.yaml as a reusable workflow
-            └─ docfx.yaml fires
-                 ├─ docfx build  → _site/  (includes public/version-picker.js,
-                 │                          inline bootstrap in every page's
-                 │                          footer via _appFooter)
-                 ├─ Generate versions.json from v* tags → _site/versions.json
-                 ├─ Deploy _site/ to gh-pages /versions/<v>/ + /versions/latest/
-                 └─ Generate root index.html from version-picker-template.html
-                            → deploy to gh-pages /
+            └─ docfx.yaml runs the deploy steps below
+
+Path 2 — manual: a maintainer runs docfx.yaml from the Actions tab
+  └─ docfx.yaml fires directly (on `workflow_dispatch`)
+       └─ docfx.yaml runs the deploy steps below
+
+The deploy steps that docfx.yaml runs in both cases:
+  ├─ docfx build  → _site/  (includes public/version-picker.js,
+  │                          inline bootstrap in every page's
+  │                          footer via _appFooter)
+  ├─ Generate versions.json from v* tags → _site/versions.json
+  ├─ Deploy _site/ to gh-pages /versions/<v>/ + /versions/latest/
+  └─ Generate root index.html from version-picker-template.html
+             → deploy to gh-pages /
 ```
 
 A plain `git push` to `main` does **not** redeploy the docs — the
-gh-pages content updates only when a GitHub Release is published
-(or when someone runs `docfx.yaml` manually via the Actions tab).
+gh-pages content updates only via Path 1 (publishing a GitHub
+Release) or Path 2 (manually running `docfx.yaml` from the Actions
+tab).
 
 Result on gh-pages:
 
