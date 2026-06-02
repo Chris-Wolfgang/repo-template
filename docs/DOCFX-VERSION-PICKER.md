@@ -114,17 +114,28 @@ canonical version-selector UI.
 
 ## How it gets to gh-pages
 
+`docfx.yaml` is **not** triggered directly by `push` or by pushing a
+tag — it has only `workflow_call` (invoked by `release.yaml` after a
+GitHub Release is published) and `workflow_dispatch` (manual). So
+the actual chain that deploys the picker is:
+
 ```
-push to main / release tag
-  └─ docfx.yaml fires
-       ├─ docfx build  → _site/  (includes public/version-picker.js,
-       │                          inline bootstrap in every page's
-       │                          footer via _appFooter)
-       ├─ Generate versions.json from v* tags → _site/versions.json
-       ├─ Deploy _site/ to gh-pages /versions/<v>/ + /versions/latest/
-       └─ Generate root index.html from version-picker-template.html
-                  → deploy to gh-pages /
+GitHub Release published   (or manual workflow_dispatch)
+  └─ release.yaml fires    (only on the published-release flow)
+       └─ release.yaml → calls docfx.yaml as a reusable workflow
+            └─ docfx.yaml fires
+                 ├─ docfx build  → _site/  (includes public/version-picker.js,
+                 │                          inline bootstrap in every page's
+                 │                          footer via _appFooter)
+                 ├─ Generate versions.json from v* tags → _site/versions.json
+                 ├─ Deploy _site/ to gh-pages /versions/<v>/ + /versions/latest/
+                 └─ Generate root index.html from version-picker-template.html
+                            → deploy to gh-pages /
 ```
+
+A plain `git push` to `main` does **not** redeploy the docs — the
+gh-pages content updates only when a GitHub Release is published
+(or when someone runs `docfx.yaml` manually via the Actions tab).
 
 Result on gh-pages:
 
