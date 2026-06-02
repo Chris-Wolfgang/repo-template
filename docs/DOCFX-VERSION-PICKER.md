@@ -134,15 +134,28 @@ The deploy steps that docfx.yaml runs in both cases:
   │                          inline bootstrap in every page's
   │                          footer via _appFooter)
   ├─ Generate versions.json from v* tags → _site/versions.json
-  ├─ Deploy _site/ to gh-pages /versions/<v>/ + /versions/latest/
+  ├─ Deploy _site/ to gh-pages /versions/<v>/  (always)
+  │
+  │  --- The remaining two steps only run when `deploy_as_latest`
+  │      is true (the default; uncheck on workflow_dispatch when
+  │      you're rebuilding an OLDER version and don't want to move
+  │      the "latest" alias):
+  │
+  ├─ Deploy _site/ to gh-pages /versions/latest/   [deploy_as_latest only]
   └─ Generate root index.html from version-picker-template.html
-             → deploy to gh-pages /
+             → deploy to gh-pages /                [deploy_as_latest only]
 ```
 
 A plain `git push` to `main` does **not** redeploy the docs — the
 gh-pages content updates only via Path 1 (publishing a GitHub
 Release) or Path 2 (manually running `docfx.yaml` from the Actions
 tab).
+
+`deploy_as_latest` defaults to true. The escape hatch is for the
+Path 2 manual case where you want to rebuild and republish the
+docs for an older version (e.g. backporting a doc fix to `v1.0.0`)
+without overwriting the `/versions/latest/` alias and the site-root
+index that the picker bootstrap reads.
 
 Result on gh-pages:
 
