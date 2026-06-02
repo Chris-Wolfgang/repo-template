@@ -117,16 +117,32 @@
         select.addEventListener('change', function (e) {
             var target = e.target.value;
             if (!target) return;
+
+            // Defensive: refuse to navigate to non-http(s) schemes. The
+            // value comes from versions.json — a compromised or malicious
+            // file could try to slip in `javascript:`/`data:` to run code
+            // in the docs origin. Only allow root-relative paths or
+            // explicit http(s) absolute URLs.
+            if (!/^(?:\/[^\/]|https?:\/\/)/i.test(target)) {
+                return;
+            }
+
             // versions.json's `url` fields include the gh-pages repo prefix
             // (e.g. /DateTime-Extensions/versions/v1.2.0/) because that's
             // the correct absolute path on github.io. On localhost or on a
             // CNAME-served custom domain, that prefix isn't a directory
-            // and the navigation 404s. Strip the first path segment when
-            // we're not on github.io so the URL becomes relative to the
-            // actual document root.
-            if (!window.location.hostname.endsWith('.github.io') && target.charAt(0) === '/') {
-                target = target.replace(/^\/[^\/]+\//, '/');
+            // and the navigation 404s. Strip the first path segment only
+            // when (a) we're not on github.io AND (b) the current page's
+            // pathname doesn't already start with that same prefix —
+            // otherwise we'd break navigation on a CNAME setup that DOES
+            // serve `/<prefix>/...`.
+            if (target.charAt(0) === '/' && !window.location.hostname.endsWith('.github.io')) {
+                var firstSeg = target.match(/^(\/[^\/]+)\//);
+                if (firstSeg && !window.location.pathname.startsWith(firstSeg[1] + '/')) {
+                    target = target.replace(/^\/[^\/]+\//, '/');
+                }
             }
+
             window.location.href = target;
         });
 
