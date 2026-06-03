@@ -1,0 +1,141 @@
+name: Benchmarks
+
+# Runs BenchmarkDotNet after a merge to main, then publishes the results to
+# the gh-pages branch under /dev/bench/ where benchmark-action/github-action-benchmark
+# renders an interactive line chart.
+#
+# This workflow is decoupled from PR validation and release: it does NOT gate
+# merging or publishing — it just adds one data point per qualifying push.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'benchmarks/**'
+      - '.github/workflows/benchmarks.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Serialize all writes to the gh-pages branch — both within this workflow
+# (two main pushes close together) and across workflows that also publish
+# to gh-pages (docfx.yaml, release.yaml). The shared `gh-pages` group name
+# means GitHub Actions queues any of those jobs behind the others when
+# they overlap, preventing non-fast-forward push failures and lost
+# updates. cancel-in-progress: false — every merge represents a meaningful
+# data point, so we queue rather than discard.
+#
+# NOTE: docfx.yaml and release.yaml currently have no `concurrency:` block,
+# so cross-workflow serialization is only partial today. Adding the same
+# `gh-pages` group to those workflows is tracked as a fleet-wide follow-up.
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    name: Run BenchmarkDotNet & publish chart
+    runs-on: ubuntu-latest
+
+    permissions:
+      # Required to push the rendered chart + history to the gh-pages branch.
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Detect benchmark project
+        # Gracefully skip the rest of the job when the benchmark csproj
+        # isn't in the tree on main. The workflow may ship via the
+        # canonical protected-files sync ahead of the feature stack that
+        # introduces the project, so during that window every qualifying
+        # push to main would otherwise fail at 'dotnet restore'.
+        #
+        # NOTE: hashFiles() is only available in step-level `if:`
+        # expressions and `with:` parameters — putting it on the job-level
+        # `if:` makes the workflow fail to parse with
+        # "Unrecognized function: 'hashFiles'". We set a step output
+        # instead and gate subsequent steps on it.
+        id: detect
+        shell: bash
+        run: |
+          csproj='benchmarks/{{PROJECT_NAME}}.Benchmarks/{{PROJECT_NAME}}.Benchmarks.csproj'
+          if [ -f "$csproj" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Benchmark project found: $csproj"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Benchmark project '$csproj' not present; skipping the run."
+          fi
+
+      - name: Setup .NET
+        if: steps.detect.outputs.exists == 'true'
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            10.0.x
+
+      - name: Restore
+        if: steps.detect.outputs.exists == 'true'
+        run: dotnet restore benchmarks/{{PROJECT_NAME}}.Benchmarks/{{PROJECT_NAME}}.Benchmarks.csproj
+
+      - name: Build (Release)
+        if: steps.detect.outputs.exists == 'true'
+        run: dotnet build -c Release --no-restore benchmarks/{{PROJECT_NAME}}.Benchmarks/{{PROJECT_NAME}}.Benchmarks.csproj
+
+      - name: Run benchmarks
+        if: steps.detect.outputs.exists == 'true'
+        working-directory: benchmarks/{{PROJECT_NAME}}.Benchmarks
+        # ShortRun keeps total runtime small (~3-5 min). GitHub-hosted runners
+        # are noisy, so chart trends are reliable for allocations and double-digit
+        # time changes; smaller deltas are not.
+        run: dotnet run -c Release --no-build -- --filter "*" --job short --memory --exporters json
+
+      - name: Merge per-class BDN reports
+        if: steps.detect.outputs.exists == 'true'
+        id: locate
+        working-directory: benchmarks/{{PROJECT_NAME}}.Benchmarks
+        run: |
+          # BDN's --exporters json writes one *-report-full-compressed.json per
+          # benchmark class. github-action-benchmark consumes a single file, so
+          # we combine the .Benchmarks arrays into one synthetic report.
+          # nullglob: empty match expands to nothing (instead of the literal
+          # pattern), so the explicit "no report found" branch can run before
+          # set -e + pipefail aborts the step.
+          shopt -s nullglob
+          reports=(BenchmarkDotNet.Artifacts/results/*-report-full-compressed.json)
+          if [ ${#reports[@]} -eq 0 ]; then
+            echo "::error::No BenchmarkDotNet JSON report found"
+            exit 1
+          fi
+          echo "Merging ${#reports[@]} report(s):"
+          printf '  %s\n' "${reports[@]}"
+          jq -s '{
+            Title: "BenchmarkDotNet combined report",
+            HostEnvironmentInfo: .[0].HostEnvironmentInfo,
+            Benchmarks: [.[].Benchmarks[]]
+          }' "${reports[@]}" > benchmarks-result.json
+          echo "report=benchmarks/{{PROJECT_NAME}}.Benchmarks/benchmarks-result.json" >> "$GITHUB_OUTPUT"
+
+      - name: Publish chart to gh-pages
+        if: steps.detect.outputs.exists == 'true'
+        # Pinned to v1.22.1 commit per repo convention (third-party actions
+        # publishing to gh-pages are pinned by SHA, not mutable tag).
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba  # v1.22.1
+        with:
+          name: BenchmarkDotNet
+          tool: 'benchmarkdotnet'
+          output-file-path: ${{ steps.locate.outputs.report }}
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench
+          auto-push: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Don't fail the workflow if a metric regresses — this is a tracker,
+          # not a gate. Tighten later if the noise floor settles.
+          alert-threshold: '200%'
+          fail-on-alert: false

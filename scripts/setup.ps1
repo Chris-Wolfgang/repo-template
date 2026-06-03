@@ -507,7 +507,8 @@ function Start-Setup {
         'docfx_project/docs/toc.yml',
         'docfx_project/docs/introduction.md',
         'docfx_project/docs/getting-started.md',
-        'BannedSymbols.txt'
+        'BannedSymbols.txt',
+        '.github/workflows/benchmarks.yaml'
     )
     
     foreach ($file in $filesToUpdate) {
