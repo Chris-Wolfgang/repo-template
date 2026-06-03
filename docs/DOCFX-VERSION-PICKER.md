@@ -94,21 +94,35 @@ synced fleet-wide.
 with mock entries (see "Testing locally" below). The picker
 gracefully falls back to "no dropdown" if the stub is empty.
 
-### 4. `.github/version-picker-template.html`
+### 4. Root `index.html` redirect — inlined in the workflows
 
-Used by the `docfx.yaml` "Generate version-picker index.html" step.
-Renders an auto-redirect page at the gh-pages root:
+> **Note (2026-06):** Previous canonical kept the redirect HTML in a
+> separate `.github/version-picker-template.html` file. That file is
+> gone — both workflows now build the markup inline as a PowerShell
+> string-array. The only dynamic piece is the page title (the repo
+> name), so the template-file indirection was pure overhead. See the
+> D20-Dice commit `b58861a` (and the follow-up `1b9a7c7` that fixed
+> a YAML literal-block-scalar trap from an attempted here-string)
+> for the original design.
+>
+> Where to find the generation in each workflow:
+>
+> - **`docfx.yaml`** — the inline HTML is built **inside** the
+>   `Deploy docs to GitHub Pages` step (not a step of its own). Look
+>   for the `Generated root index.html (meta-refresh → versions/latest/).`
+>   log line in that step's output.
+> - **`build-all-versions.yaml`** — distinct step named
+>   `Generate root index.html (meta-refresh → versions/latest/)`,
+>   visible at the top level of the workflow run.
 
-- `meta http-equiv="refresh"` for instant redirect
-- `setTimeout` JS backup if meta-refresh is blocked
-- `<noscript>` link covers the everything-else case
+The inline HTML:
 
-`{{TITLE}}` is substituted with the repo name at deploy time;
-`{{VERSION_LIST}}` is intentionally omitted from the template. A missing
-pattern is a true no-op for PowerShell's `-replace` (returns the original
-string unchanged), so the workflow runs unchanged; nothing gets injected
-into the root redirect page because the in-page dropdown is now the
-canonical version-selector UI.
+- `meta http-equiv="refresh" content="0; url=versions/latest/"` for the instant redirect. **Relative** link — resolves correctly under the GitHub Pages project path `/<repo>/`.
+- `link rel="canonical" href="versions/latest/"` for SEO.
+- `setTimeout(function(){ window.location.replace('versions/latest/'); }, 0)` JS backup if meta-refresh is blocked.
+- `<noscript>` link covers the everything-else case.
+
+Only the repo name is interpolated via `$repoName` / `$title`. No `{{TITLE}}` / `{{VERSION_LIST}}` placeholders, no template-file read, no `-replace` substitution — the workflow shows you exactly what HTML it produces.
 
 ---
 
@@ -142,7 +156,7 @@ The deploy steps that docfx.yaml runs in both cases:
   │      the "latest" alias):
   │
   ├─ Deploy _site/ to gh-pages /versions/latest/   [deploy_as_latest only]
-  └─ Generate root index.html from version-picker-template.html
+  └─ Generate root index.html (meta-refresh, inline HTML)
              → deploy to gh-pages /                [deploy_as_latest only]
 ```
 
@@ -220,7 +234,7 @@ because we're not on github.io).
 | Dropdown empty | `versions.json` fetch failed or returned an array without any non-"latest" entries | DevTools → Network. The page should fetch `/<repo>/versions.json` (or `/versions.json` on localhost) and get a JSON array with `version`+`url` entries. |
 | Popup text invisible (light-on-light or dark-on-dark) | `color-scheme: light dark` missing or Bootstrap CSS vars not loaded | Verify `version-picker.js` is the current version |
 | Picker appears as sibling of `<header>` instead of inside it | Anchor fallback selected `header` with the wrong insertion mode | Verify the anchors table has `['header', 'append']` (not `'before'`) |
-| Root `/` shows old "Select a documentation version" landing page | The `version-picker-template.html` change didn't deploy | Check the workflow run's "Generate version-picker index.html" step output |
+| Root `/` shows old "Select a documentation version" landing page | The inline-HTML refactor hasn't deployed yet | In `docfx.yaml`, look inside the `Deploy docs to GitHub Pages` step for the `Generated root index.html (meta-refresh → versions/latest/).` log line. In `build-all-versions.yaml`, look at the distinct step named `Generate root index.html (meta-refresh → versions/latest/)`. |
 
 For workflow-level issues (failed deploys, stale `versions.json`,
 missing version subtrees), the `docfx.yaml` run's per-step output is

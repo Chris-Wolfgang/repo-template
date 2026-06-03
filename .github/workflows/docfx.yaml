@@ -552,34 +552,57 @@ jobs:
               Copy-Item -Path "$siteDir/*" -Destination $latestDir -Recurse -Force
               Write-Host "✅ Copied docs to versions/latest/"
 
-              # Generate version-picker index.html and overwrite _site/index.html.
-              # This happens AFTER the versioned copies above, so those directories
-              # retain the real DocFX landing page while the root gets the picker.
+              # Generate root index.html (meta-refresh → versions/latest/) and
+              # overwrite _site/index.html. The link is intentionally relative
+              # (`versions/latest/`, not `/versions/latest/`) so it resolves
+              # correctly under the GitHub Pages project path `/<repo>/`. This
+              # happens AFTER the versioned copies above, so those directories
+              # retain the real DocFX landing page while the root just redirects.
+              #
+              # Why inline rather than reading a template file: the only dynamic
+              # piece is the page title (repo name). The in-page version picker
+              # (docfx_project/public/version-picker.js) handles version
+              # switching from any docs page, so the root no longer needs to
+              # display a list of versions to pick from — a static meta-refresh
+              # + JS fallback + <noscript> link is all that's needed.
               $repoName = ($env:GITHUB_REPOSITORY -split '/')[-1]
               $title    = if ($repoName) { "$repoName Documentation" } else { "Documentation" }
-              $versions = Get-Content "$siteDir/versions.json" -Raw | ConvertFrom-Json
 
-              $listItems = foreach ($v in $versions) {
-                $liClass = if ($v.version -eq 'latest') { ' class="latest"' } else { '' }
-                $label   = if ($v.version -eq 'latest') { 'latest (stable)' } else { $v.version }
-                "      <li${liClass}><a href=`"$($v.url)`">$label</a></li>"
-              }
-              $listHtml = $listItems -join "`n"
-
-              if (-not (Test-Path '.github/version-picker-template.html')) {
-                # `throw` (not `exit 1`) so the outer try/finally cleanup runs.
-                throw ".github/version-picker-template.html not found; cannot generate root index.html."
-              }
-
-              $template = Get-Content '.github/version-picker-template.html' -Raw
-              $html = $template -replace '\{\{TITLE\}\}', $title `
-                                -replace '\{\{VERSION_LIST\}\}', $listHtml
+              # Build the HTML as a string array joined with LF. Avoids a
+              # PowerShell here-string whose unindented inner lines would
+              # break the surrounding YAML literal-block scalar (they'd
+              # drop below the block's required indentation and terminate
+              # the scalar prematurely).
+              $htmlLines = @(
+                '<!DOCTYPE html>',
+                '<html lang="en">',
+                '<head>',
+                '  <meta charset="UTF-8">',
+                '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+                "  <title>$title</title>",
+                '  <meta http-equiv="refresh" content="0; url=versions/latest/">',
+                '  <link rel="canonical" href="versions/latest/">',
+                '  <style>',
+                '    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;',
+                '           background: #1e1e2e; color: #cdd6f4; display: flex; flex-direction: column;',
+                '           align-items: center; justify-content: center; padding: 3rem 1rem; min-height: 100vh; margin: 0; }',
+                '    a { color: #89b4fa; }',
+                '  </style>',
+                "  <script>setTimeout(function(){ window.location.replace('versions/latest/'); }, 0);</script>",
+                '</head>',
+                '<body>',
+                '  <p>Redirecting to the latest documentation&hellip;</p>',
+                '  <noscript><p><a href="versions/latest/">Continue to the latest documentation</a></p></noscript>',
+                '</body>',
+                '</html>'
+              )
+              $html = $htmlLines -join "`n"
               $html | Set-Content -Path "$siteDir/index.html" -Encoding utf8NoBOM
-              Write-Host "Generated version-picker index.html with $($versions.Count) version link(s)."
+              Write-Host "Generated root index.html (meta-refresh → versions/latest/)."
 
-              # Deploy version picker + shared assets to site root
+              # Deploy site-root assets (root index.html + picker JS at /public/, etc.)
               Copy-Item -Path "$siteDir/*" -Destination $WORK_DIR -Recurse -Force
-              Write-Host "✅ Copied version picker to site root"
+              Write-Host "✅ Copied site-root assets"
             }
 
             # Single commit and push.
