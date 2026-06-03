@@ -312,10 +312,13 @@ jobs:
 
           Write-Host "Generated versions.json with $($versions.Count) entries: $($versions | ForEach-Object { $_.version })"
 
-      - name: Generate root index.html
-        # Builds index.html from the shared template (.github/version-picker-template.html)
-        # so the page layout is maintained in one place and both this workflow and
-        # docfx.yaml produce identical markup.
+      - name: Generate root index.html (meta-refresh → versions/latest/)
+        # Inline the redirect HTML directly. Only the page title (repo name)
+        # is dynamic; the in-page version picker
+        # (docfx_project/public/version-picker.js) handles version switching
+        # from any docs page, so the root no longer needs a clickable list.
+        # Both this workflow and docfx.yaml use the same inline pattern, so
+        # the produced root index.html is identical regardless of trigger.
         shell: pwsh
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -325,27 +328,39 @@ jobs:
           $repoName = ($env:GITHUB_REPOSITORY -split '/')[-1]
           $title    = if ($repoName) { "$repoName Documentation" } else { "Documentation" }
 
-          $versionsJsonPath = Join-Path $outDir 'versions' 'latest' 'versions.json'
-          $versions = Get-Content $versionsJsonPath -Raw | ConvertFrom-Json
-
-          $listItems = foreach ($v in $versions) {
-            $liClass = if ($v.version -eq 'latest') { ' class="latest"' } else { '' }
-            $label   = if ($v.version -eq 'latest') { 'latest (stable)' } else { $v.version }
-            "      <li${liClass}><a href=`"$($v.url)`">$label</a></li>"
-          }
-          $listHtml = $listItems -join "`n"
-
-          $templatePath = '.github/version-picker-template.html'
-          if (-not (Test-Path $templatePath)) {
-            Write-Error "Template file '$templatePath' not found. This file is required."
-            exit 1
-          }
-          $template = Get-Content $templatePath -Raw
-          $html = $template -replace '\{\{TITLE\}\}', $title `
-                            -replace '\{\{VERSION_LIST\}\}', $listHtml
-
+          # Build the HTML as a string array joined with LF. Avoids a
+          # PowerShell here-string whose unindented inner lines would
+          # break the surrounding YAML literal-block scalar (they'd
+          # drop below the block's required indentation and terminate
+          # the scalar prematurely). Use a relative `versions/latest/`
+          # link so it resolves under the GitHub Pages project path
+          # `/<repo>/`.
+          $htmlLines = @(
+            '<!DOCTYPE html>',
+            '<html lang="en">',
+            '<head>',
+            '  <meta charset="UTF-8">',
+            '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+            "  <title>$title</title>",
+            '  <meta http-equiv="refresh" content="0; url=versions/latest/">',
+            '  <link rel="canonical" href="versions/latest/">',
+            '  <style>',
+            '    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;',
+            '           background: #1e1e2e; color: #cdd6f4; display: flex; flex-direction: column;',
+            '           align-items: center; justify-content: center; padding: 3rem 1rem; min-height: 100vh; margin: 0; }',
+            '    a { color: #89b4fa; }',
+            '  </style>',
+            "  <script>setTimeout(function(){ window.location.replace('versions/latest/'); }, 0);</script>",
+            '</head>',
+            '<body>',
+            '  <p>Redirecting to the latest documentation&hellip;</p>',
+            '  <noscript><p><a href="versions/latest/">Continue to the latest documentation</a></p></noscript>',
+            '</body>',
+            '</html>'
+          )
+          $html = $htmlLines -join "`n"
           $html | Set-Content -Path (Join-Path $outDir 'index.html') -Encoding utf8NoBOM
-          Write-Host "Generated index.html with $($versions.Count) version link(s)."
+          Write-Host "Generated root index.html (meta-refresh → versions/latest/)."
 
       - name: Deploy all versioned docs to gh-pages at root
         # Publishes the entire all_version_docs/ output directory to gh-pages

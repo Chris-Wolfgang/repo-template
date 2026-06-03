@@ -552,10 +552,12 @@ jobs:
               Copy-Item -Path "$siteDir/*" -Destination $latestDir -Recurse -Force
               Write-Host "✅ Copied docs to versions/latest/"
 
-              # Generate root index.html (meta-refresh → /versions/latest/) and
-              # overwrite _site/index.html. This happens AFTER the versioned
-              # copies above, so those directories retain the real DocFX landing
-              # page while the root just redirects.
+              # Generate root index.html (meta-refresh → versions/latest/) and
+              # overwrite _site/index.html. The link is intentionally relative
+              # (`versions/latest/`, not `/versions/latest/`) so it resolves
+              # correctly under the GitHub Pages project path `/<repo>/`. This
+              # happens AFTER the versioned copies above, so those directories
+              # retain the real DocFX landing page while the root just redirects.
               #
               # Why inline rather than reading a template file: the only dynamic
               # piece is the page title (repo name). The in-page version picker
