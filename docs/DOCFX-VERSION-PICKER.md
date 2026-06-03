@@ -155,7 +155,8 @@ tab).
 Path 2 manual case where you want to rebuild and republish the
 docs for an older version (e.g. backporting a doc fix to `v1.0.0`)
 without overwriting the `/versions/latest/` alias and the site-root
-index that the picker bootstrap reads.
+`index.html` (which loads the picker bootstrap; the picker JS itself
+reads `versions.json` for the version list).
 
 Result on gh-pages:
 
