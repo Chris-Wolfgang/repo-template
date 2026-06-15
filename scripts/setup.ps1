@@ -224,6 +224,30 @@ function Start-Setup {
     # Ensure we're in the repository root
     Set-RepositoryRoot
     
+    # Bootstrap re-run guard: setup.ps1 is a one-time orchestrator. On first
+    # run it renames README-TEMPLATE.md -> README.md and substitutes a bunch
+    # of placeholders. If README-TEMPLATE.md is gone, the repo is already
+    # bootstrapped - re-running would do nothing useful at best and destroy
+    # the customized README at worst (see the bug fixed in this commit:
+    # Remove-Item README.md happened before the existence check for
+    # README-TEMPLATE.md, so a re-run on a bootstrapped repo left the repo
+    # with no README).
+    if (-not (Test-Path 'README-TEMPLATE.md')) {
+        Write-Host ""
+        Write-TemplateError "This repository appears to already be set up."
+        Write-Host "  README-TEMPLATE.md was not found in the repo root - that is the" -ForegroundColor Yellow
+        Write-Host "  marker setup.ps1 renames to README.md on first run, so its absence" -ForegroundColor Yellow
+        Write-Host "  is the canonical signal that bootstrap is complete." -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  setup.ps1 is a one-time bootstrap and is not safe to re-run on a" -ForegroundColor Yellow
+        Write-Host "  configured repo. If you genuinely need to re-bootstrap, restore" -ForegroundColor Yellow
+        Write-Host "  README-TEMPLATE.md (and any other deleted template files) from" -ForegroundColor Yellow
+        Write-Host "  Chris-Wolfgang/repo-template before re-running." -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  Otherwise, delete this script: scripts/setup.ps1" -ForegroundColor Cyan
+        exit 1
+    }
+    
     Write-Info "This script will configure your new repository."
     Write-Info "It will prompt you for project information and replace all placeholders."
     Write-Host ""
@@ -477,19 +501,27 @@ function Start-Setup {
     
     # Step 1: README swap
     Write-Info "Step 1/${totalSteps}: Swapping README files..."
+    
+    # Verify README-TEMPLATE.md exists BEFORE deleting README.md. The
+    # original code deleted first and only then checked, which left the
+    # repo with NO README at all when README-TEMPLATE.md was missing
+    # (e.g. on a re-run of an already-bootstrapped repo). The re-run
+    # guard at the top of Start-Setup catches the obvious case; this
+    # is defense in depth.
+    if (-not (Test-Path 'README-TEMPLATE.md')) {
+        Write-TemplateError "README-TEMPLATE.md not found - cannot safely swap READMEs."
+        Write-Host "  Restore README-TEMPLATE.md from Chris-Wolfgang/repo-template before" -ForegroundColor Yellow
+        Write-Host "  re-running, or delete scripts/setup.ps1 if the repo is already set up." -ForegroundColor Yellow
+        exit 1
+    }
+    
     if (Test-Path 'README.md') {
         Remove-Item 'README.md' -Force
         Write-Success "Deleted template README.md"
     }
     
-    if (Test-Path 'README-TEMPLATE.md') {
-        Rename-Item 'README-TEMPLATE.md' 'README.md'
-        Write-Success "Renamed README-TEMPLATE.md → README.md"
-    }
-    else {
-        Write-Error "README-TEMPLATE.md not found!"
-        exit 1
-    }
+    Rename-Item 'README-TEMPLATE.md' 'README.md'
+    Write-Success "Renamed README-TEMPLATE.md to README.md"
     
     # Step 2: Replace placeholders
     Write-Info "Step 2/${totalSteps}: Replacing placeholders in files..."
