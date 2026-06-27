@@ -60,7 +60,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0  # Full history needed to enumerate all v* tags
           persist-credentials: false
@@ -197,8 +197,30 @@ jobs:
           $reports = ($coverageFiles | ForEach-Object { $_.FullName }) -join ';'
           $outDir = "docfx_project/_site/coverage"
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-          reportgenerator "-reports:$reports" "-targetdir:$outDir" "-reporttypes:Html;TextSummary"
-          Write-Host "Coverage report written to $outDir"
+
+          # Coverage TREND (T1, #65): ReportGenerator renders a historical line
+          # chart when given a -historydir containing prior snapshots. We persist
+          # that history under _site/coverage/history so it deploys to gh-pages,
+          # and restore the previously-published snapshots from gh-pages before
+          # generating, so the trend accumulates across releases instead of
+          # resetting each deploy. Best-effort: any failure here just yields a
+          # point-in-time report (the step is continue-on-error regardless).
+          $historyDir = "$outDir/history"
+          New-Item -ItemType Directory -Force -Path $historyDir | Out-Null
+          try {
+            git fetch --no-tags --depth=1 origin gh-pages 2>&1 | Out-Host
+            $prior = @(git ls-tree -r --name-only FETCH_HEAD 2>$null | Where-Object { $_ -like 'coverage/history/*' })
+            foreach ($path in $prior) {
+              $leaf = Split-Path $path -Leaf
+              git show "FETCH_HEAD:$path" 2>$null | Set-Content -Path (Join-Path $historyDir $leaf) -Encoding utf8NoBOM
+            }
+            Write-Host "Restored $($prior.Count) prior coverage-history snapshot(s)."
+          } catch {
+            Write-Host "::notice::Could not restore prior coverage history ($($_.Exception.Message)) - starting fresh."
+          }
+
+          reportgenerator "-reports:$reports" "-targetdir:$outDir" "-reporttypes:Html;TextSummary" "-historydir:$historyDir"
+          Write-Host "Coverage report (with trend) written to $outDir"
 
       - name: Generate versions.json
         # Produces versions.json consumed by the DocFX version-switcher dropdown.
@@ -385,12 +407,30 @@ jobs:
             Write-Error "Failed to fetch existing versions.json at $existingUrl (status=$statusCode): $($_.Exception.Message). Refusing to deploy - a transient fetch failure must not be treated as a first deploy because that path can wipe previously-published version entries."
             exit 1
           }
+          # Parse the newly-generated local manifest first. A failure here is
+          # fatal — it means docfx generation is broken.
           try {
-            $existing = $existingRaw | ConvertFrom-Json
-            $new = Get-Content $newPath -Raw | ConvertFrom-Json
+            $new = Get-Content $newPath -Raw | ConvertFrom-Json -ErrorAction Stop
           } catch {
-            Write-Error "Failed to parse versions.json: $($_.Exception.Message)"
+            Write-Error "Failed to parse newly-generated ${newPath}: $($_.Exception.Message). docfx generation is broken — refusing to deploy."
             exit 1
+          }
+          # The fetch returned HTTP 200, but a freshly-created gh-pages branch
+          # (or a site still propagating its first deploy) can serve a generic
+          # GitHub 404 HTML page with status 200, or otherwise non-JSON content.
+          # Treat an existing body that isn't a parseable versions array the
+          # same as a 404 first deploy — there is no prior manifest to preserve
+          # — rather than aborting the very first deploy that would create
+          # versions.json.
+          try {
+            $existing = $existingRaw | ConvertFrom-Json -ErrorAction Stop
+          } catch {
+            Write-Host "::notice::Existing content at $existingUrl is not valid JSON (likely a 200 placeholder served on first deploy) — treating as first deploy, skipping preservation check."
+            exit 0
+          }
+          if (@($existing | Where-Object { $_.PSObject.Properties.Name -contains 'version' }).Count -eq 0) {
+            Write-Host "::notice::Existing versions.json at $existingUrl has no version entries (not a versions manifest) — treating as first deploy, skipping preservation check."
+            exit 0
           }
           $existingCount = @($existing).Count
           $newCount = @($new).Count
