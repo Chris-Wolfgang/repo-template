@@ -8,6 +8,13 @@ on:
 permissions:
   contents: read  # Default to read-only; individual jobs declare write where required
 
+concurrency:
+  # Serialize releases so a duplicate / re-published Release event can't run two
+  # publish pipelines against NuGet and gh-pages at once. Never cancel an
+  # in-flight release — a half-published package family is worse than a queued one.
+  group: release-${{ github.event.release.tag_name || github.ref }}
+  cancel-in-progress: false
+
 env:
   CODECOV_MINIMUM: 90
 
