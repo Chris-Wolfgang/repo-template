@@ -204,10 +204,12 @@ if (-not $SkipTests -and -not $SkipCoverage -and $failed.Count -eq 0) {
             Write-Host ""
 
             $failedProjects = @()
+            $matched = 0
             foreach ($line in (Get-Content "CoverageReport/Summary.txt")) {
                 if ($line -match '^\s*(\S+)\s+(\d+(?:\.\d+)?)%\s*$' -and $line -notmatch '^\s*Summary') {
                     $module = $Matches[1]
                     $percent = [int][math]::Floor([double]$Matches[2])
+                    $matched++
 
                     if ($percent -lt $CoverageThreshold) {
                         Write-Fail "  $module — ${percent}% (below ${CoverageThreshold}%)"
@@ -219,7 +221,13 @@ if (-not $SkipTests -and -not $SkipCoverage -and $failed.Count -eq 0) {
                 }
             }
 
-            if ($failedProjects.Count -gt 0) {
+            if ($matched -eq 0) {
+                # Mirror pr.yaml: a parser/format drift that matches zero modules
+                # must fail loudly, not silently pass the gate.
+                Write-Fail "Coverage parser matched 0 modules in Summary.txt — regex or report format is out of sync. Refusing to silently pass the gate."
+                $failed += "Coverage"
+            }
+            elseif ($failedProjects.Count -gt 0) {
                 Write-Fail "Coverage gate FAILED: $($failedProjects -join ', ')"
                 $failed += "Coverage"
             }
@@ -289,7 +297,10 @@ if (-not $SkipSecurity) {
             $dest = Join-Path $env:LOCALAPPDATA "gitleaks"
             New-Item -ItemType Directory -Force -Path $dest | Out-Null
             $zip = Join-Path $env:TEMP $archive
-            Invoke-WebRequest -Uri $url -OutFile $zip
+            # -UseBasicParsing: required on Windows PowerShell 5.1, where the
+            # default parser uses the IE engine and throws on stock/minimal
+            # Windows installs. PowerShell 7+ accepts it as a no-op.
+            Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
             Expand-Archive -Path $zip -DestinationPath $dest -Force
             Remove-Item $zip -ErrorAction SilentlyContinue
             $env:PATH = "$dest;$env:PATH"

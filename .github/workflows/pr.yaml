@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
@@ -94,7 +94,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
@@ -249,7 +249,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
@@ -475,6 +475,14 @@ jobs:
 
           mapfile -d '' -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -not -name "*.Tests.Integration.*" -print0)
 
+          # Report any integration test projects deliberately excluded from the
+          # coverage gate, so the skip is visible rather than silent (they are
+          # expected to run in a separate workflow).
+          mapfile -d '' -t excluded_integration < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -name "*.Tests.Integration.*" -print0)
+          if [ ${#excluded_integration[@]} -gt 0 ]; then
+            echo "::notice::Excluded ${#excluded_integration[@]} integration test project(s) from the coverage gate (expected to run in a separate workflow): ${excluded_integration[*]}"
+          fi
+
           if [ ${#test_projects[@]} -eq 0 ]; then
             if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
               echo "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the coverage gate."
@@ -650,7 +658,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
@@ -961,7 +969,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
@@ -1171,6 +1179,14 @@ jobs:
           test_projects+=("$file")
           done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -not -name "*.Tests.Integration.*" -print0)
 
+          # Report any integration test projects deliberately excluded from the
+          # coverage gate, so the skip is visible rather than silent (they are
+          # expected to run in a separate workflow).
+          mapfile -d '' -t excluded_integration < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -name "*.Tests.Integration.*" -print0)
+          if [ ${#excluded_integration[@]} -gt 0 ]; then
+            echo "::notice::Excluded ${#excluded_integration[@]} integration test project(s) from the coverage gate (expected to run in a separate workflow): ${excluded_integration[*]}"
+          fi
+
           if [ ${#test_projects[@]} -eq 0 ]; then
             if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
               echo "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the coverage gate."
@@ -1265,11 +1281,13 @@ jobs:
 
           THRESHOLD=${CODECOV_MINIMUM:-90}
           FAILED=0
+          MATCHED=0
 
           while IFS= read -r line; do
             if echo "$line" | grep -qE '^[^ ]+.*[0-9]+%$' && ! echo "$line" | grep -q '^Summary'; then
               MODULE=$(echo "$line" | awk '{print $1}')
               PERCENT=$(echo "$line" | grep -oE '[0-9]+(\.[0-9]+)?%' | tail -1 | grep -oE '^[0-9]+')
+              MATCHED=$((MATCHED + 1))
               echo "Checking module: '$MODULE' - Coverage: ${PERCENT}%"
               if [ "$PERCENT" -lt "$THRESHOLD" ]; then
                 echo "  ❌ FAIL: Below ${THRESHOLD}% threshold"
@@ -1279,6 +1297,14 @@ jobs:
               fi
             fi
           done < CoverageReport/Summary.txt
+
+          # Fail loudly when 0 modules matched — the regex is wrong or the
+          # Summary.txt format changed. Silently passing here would make Stage 3
+          # the weak link while Stages 1/2 fail loudly on the same drift.
+          if [ "$MATCHED" -eq 0 ]; then
+            echo "❌ Coverage parser matched 0 modules in Summary.txt — regex or report format is out of sync. Refusing to silently pass the gate."
+            exit 1
+          fi
 
           if [ "$FAILED" -ne 0 ]; then
             echo ""
@@ -1347,7 +1373,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
