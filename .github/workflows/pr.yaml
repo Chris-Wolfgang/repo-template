@@ -231,10 +231,10 @@ jobs:
         id: check-projects
         run: |
           if git ls-files '*.csproj' '*.vbproj' '*.fsproj' | grep -q .; then
-            echo "has-projects=true" >> $GITHUB_OUTPUT
+            echo "has-projects=true" >> "$GITHUB_OUTPUT"
             echo "✅ Found .NET project files - .NET build and test jobs will run"
           else
-            echo "has-projects=false" >> $GITHUB_OUTPUT
+            echo "has-projects=false" >> "$GITHUB_OUTPUT"
             echo "ℹ️  No .NET project files found - skipping .NET build and test jobs"
           fi
 
@@ -544,10 +544,10 @@ jobs:
         id: check-coverage
         run: |
           if find TestResults -type f -name "coverage.cobertura.xml" 2>/dev/null | grep -q .; then
-            echo "has-coverage=true" >> $GITHUB_OUTPUT
+            echo "has-coverage=true" >> "$GITHUB_OUTPUT"
             echo "✅ Coverage files found"
           else
-            echo "has-coverage=false" >> $GITHUB_OUTPUT
+            echo "has-coverage=false" >> "$GITHUB_OUTPUT"
             echo "ℹ️  No coverage files found - skipping coverage report generation"
           fi
 
