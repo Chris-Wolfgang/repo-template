@@ -197,8 +197,30 @@ jobs:
           $reports = ($coverageFiles | ForEach-Object { $_.FullName }) -join ';'
           $outDir = "docfx_project/_site/coverage"
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-          reportgenerator "-reports:$reports" "-targetdir:$outDir" "-reporttypes:Html;TextSummary"
-          Write-Host "Coverage report written to $outDir"
+
+          # Coverage TREND (T1, #65): ReportGenerator renders a historical line
+          # chart when given a -historydir containing prior snapshots. We persist
+          # that history under _site/coverage/history so it deploys to gh-pages,
+          # and restore the previously-published snapshots from gh-pages before
+          # generating, so the trend accumulates across releases instead of
+          # resetting each deploy. Best-effort: any failure here just yields a
+          # point-in-time report (the step is continue-on-error regardless).
+          $historyDir = "$outDir/history"
+          New-Item -ItemType Directory -Force -Path $historyDir | Out-Null
+          try {
+            git fetch --no-tags --depth=1 origin gh-pages 2>&1 | Out-Host
+            $prior = @(git ls-tree -r --name-only FETCH_HEAD 2>$null | Where-Object { $_ -like 'coverage/history/*' })
+            foreach ($path in $prior) {
+              $leaf = Split-Path $path -Leaf
+              git show "FETCH_HEAD:$path" 2>$null | Set-Content -Path (Join-Path $historyDir $leaf) -Encoding utf8NoBOM
+            }
+            Write-Host "Restored $($prior.Count) prior coverage-history snapshot(s)."
+          } catch {
+            Write-Host "::notice::Could not restore prior coverage history ($($_.Exception.Message)) - starting fresh."
+          }
+
+          reportgenerator "-reports:$reports" "-targetdir:$outDir" "-reporttypes:Html;TextSummary" "-historydir:$historyDir"
+          Write-Host "Coverage report (with trend) written to $outDir"
 
       - name: Generate versions.json
         # Produces versions.json consumed by the DocFX version-switcher dropdown.
