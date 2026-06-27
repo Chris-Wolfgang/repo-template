@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
@@ -94,7 +94,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
@@ -249,7 +249,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
@@ -475,6 +475,14 @@ jobs:
 
           mapfile -d '' -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -not -name "*.Tests.Integration.*" -print0)
 
+          # Report any integration test projects deliberately excluded from the
+          # coverage gate, so the skip is visible rather than silent (they are
+          # expected to run in a separate workflow).
+          mapfile -d '' -t excluded_integration < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -name "*.Tests.Integration.*" -print0)
+          if [ ${#excluded_integration[@]} -gt 0 ]; then
+            echo "::notice::Excluded ${#excluded_integration[@]} integration test project(s) from the coverage gate (expected to run in a separate workflow): ${excluded_integration[*]}"
+          fi
+
           if [ ${#test_projects[@]} -eq 0 ]; then
             if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
               echo "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the coverage gate."
@@ -650,7 +658,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
@@ -961,7 +969,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
@@ -1171,6 +1179,14 @@ jobs:
           test_projects+=("$file")
           done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -not -name "*.Tests.Integration.*" -print0)
 
+          # Report any integration test projects deliberately excluded from the
+          # coverage gate, so the skip is visible rather than silent (they are
+          # expected to run in a separate workflow).
+          mapfile -d '' -t excluded_integration < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -name "*.Tests.Integration.*" -print0)
+          if [ ${#excluded_integration[@]} -gt 0 ]; then
+            echo "::notice::Excluded ${#excluded_integration[@]} integration test project(s) from the coverage gate (expected to run in a separate workflow): ${excluded_integration[*]}"
+          fi
+
           if [ ${#test_projects[@]} -eq 0 ]; then
             if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
               echo "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the coverage gate."
@@ -1357,7 +1373,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/head
           persist-credentials: false
