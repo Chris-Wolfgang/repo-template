@@ -238,6 +238,69 @@ jobs:
             echo "ℹ️  No .NET project files found - skipping .NET build and test jobs"
           fi
 
+      - name: Verify src/ csprojs are in the solution
+        # Guards against a class of drift that shipped a broken release
+        # in Etl-DbClient v0.5.0: a new csproj was added under src/ (a
+        # source generator) but never added to the .slnx file. Per-project
+        # `dotnet test` still triggered its ProjectReference chain, so
+        # pr.yaml never noticed; but the release pipeline's solution-level
+        # `dotnet build` skipped it, and the runtime csproj's
+        # `PackSourceGenerator` MSBuild target failed to find the missing
+        # bin/Release/ output — blocking the release. This step catches
+        # the same drift at PR time.
+        #
+        # Detection: for every src/**/*.csproj, verify at least one solution
+        # file at the repo root references it by path (works for both .slnx
+        # `<Project Path="…"/>` entries and .sln GUID lines). If a solution
+        # file exists and a src csproj isn't listed, fail with the specific
+        # missing entry and a `dotnet sln add` suggestion. Repos without a
+        # solution file (or with everything already listed) pass
+        # unconditionally.
+        shell: bash
+        run: |
+          shopt -s nullglob
+          slns=( *.slnx *.sln )
+          if [ ${#slns[@]} -eq 0 ]; then
+            echo "ℹ️  No solution file at repo root - skipping solution-consistency check."
+            exit 0
+          fi
+          echo "Checking solution files: ${slns[*]}"
+
+          missing=()
+          while IFS= read -r csproj; do
+            found=0
+            for sln in "${slns[@]}"; do
+              if grep -qF "$csproj" "$sln"; then
+                found=1
+                break
+              fi
+            done
+            if [ "$found" -eq 0 ]; then
+              missing+=("$csproj")
+            fi
+          done < <(git ls-files 'src/**/*.csproj' 'src/*.csproj')
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo ""
+            echo "❌ SOLUTION CONSISTENCY FAILURE"
+            echo ""
+            echo "The following src/**/*.csproj files are NOT referenced by any solution file:"
+            for m in "${missing[@]}"; do
+              echo "  - $m"
+            done
+            echo ""
+            echo "This breaks solution-level \`dotnet build\` (which release.yaml relies on"
+            echo "for Pack & Validate), even though per-project \`dotnet test\` still works."
+            echo ""
+            echo "Fix: add the missing project(s) to the solution:"
+            for sln in "${slns[@]}"; do
+              echo "  dotnet sln $sln add ${missing[*]}"
+              break
+            done
+            exit 1
+          fi
+          echo "✅ All src csprojs are referenced by a solution file - solution-level builds will include them."
+
   # ============================================================================
   # INSPECTCODE: JetBrains ReSharper InspectCode parallel to the test stages.
   # Runs concurrently with Stage 1 / 2 / 3 (no `needs:` on a test job) so it
