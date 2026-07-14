@@ -306,7 +306,18 @@ if (-not $SkipSecurity) {
             $env:PATH = "$dest;$env:PATH"
         }
         else {
-            $archive = "gitleaks_${version}_linux_x64.tar.gz"
+            # gitleaks ships separate darwin / linux builds, and on macOS we
+            # also have to pick between x64 (Intel) and arm64 (Apple Silicon).
+            # Without this branch the macOS path would download the Linux
+            # tarball and either fail to install or install an incompatible
+            # binary.
+            if ($IsMacOS) {
+                $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'x64' }
+                $archive = "gitleaks_${version}_darwin_${arch}.tar.gz"
+            }
+            else {
+                $archive = "gitleaks_${version}_linux_x64.tar.gz"
+            }
             $url = "https://github.com/gitleaks/gitleaks/releases/download/v${version}/$archive"
             # Install to a user-writable location instead of /usr/local/bin
             # (which would require sudo for most local dev shells). $HOME/.local/bin
