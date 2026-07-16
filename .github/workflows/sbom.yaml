@@ -1,0 +1,74 @@
+name: SBOM
+
+# Supply-chain hardening — Software Bill of Materials. Generates a CycloneDX SBOM
+# for each src/ project's dependency graph and uploads them as an artifact, so every
+# build has a machine-readable inventory of what it is composed of.
+#
+# Scoped to the SBOM. The other supply-chain parts are deliberately out of this
+# workflow: SLSA provenance attestation belongs on the release artifact (attest the
+# packed .nupkg in release.yaml via actions/attest-build-provenance), and package
+# signing needs a signing certificate/key.
+#
+# Skips automatically when the repo has no src/ project (e.g. the template repo).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sbom-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Detect src projects
+        id: detect
+        run: |
+          if git ls-files 'src/**/*.csproj' 'src/*.csproj' | grep -q .; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No src/**/*.csproj found — skipping SBOM."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup .NET
+        if: steps.detect.outputs.found == 'true'
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install CycloneDX
+        if: steps.detect.outputs.found == 'true'
+        run: dotnet tool install --global CycloneDX
+
+      - name: Generate CycloneDX SBOMs (JSON)
+        if: steps.detect.outputs.found == 'true'
+        run: |
+          mkdir -p sbom
+          while IFS= read -r proj; do
+            name=$(basename "$proj" .csproj)
+            echo "== $proj =="
+            dotnet restore "$proj"
+            dotnet CycloneDX "$proj" --output "sbom/$name" --json
+          done < <(git ls-files 'src/**/*.csproj' 'src/*.csproj')
+
+      - name: Upload SBOMs
+        if: steps.detect.outputs.found == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sbom
+          path: sbom/
