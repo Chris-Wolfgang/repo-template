@@ -1,0 +1,74 @@
+name: License Audit
+
+# License audit of transitive dependencies. Validates every src/ project's full
+# (direct + transitive) dependency closure against an allow-list of OSI-permissive
+# licenses using the `nuget-license` tool, and FAILS if any dependency's license is
+# not allowed (e.g. a copyleft or non-OSI license slipping in via a bump).
+#
+# Config lives in .github/license-audit/:
+#  - allowed-licenses.json     — the OSI-permissive licenses we accept.
+#  - url-license-mappings.json — maps a couple of Microsoft packages that expose a
+#    license URL (not an SPDX expression) to their actual license (MIT).
+#  - ignored-packages.json     — SonarAnalyzer.CSharp: a build-time analyzer
+#    (PrivateAssets=all, not shipped) under the non-OSI SONAR Source-Available
+#    License, so it imposes no obligation on consumers of the package.
+#
+# Skips automatically when the repo has no src/ project (e.g. the template repo).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: license-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  license-audit:
+    name: License audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Detect src projects
+        id: detect
+        run: |
+          if git ls-files 'src/**/*.csproj' 'src/*.csproj' | grep -q .; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No src/**/*.csproj found — skipping license audit."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup .NET
+        if: steps.detect.outputs.found == 'true'
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install nuget-license
+        if: steps.detect.outputs.found == 'true'
+        run: dotnet tool install --global nuget-license
+
+      # Gate: fail if any src project's dependency license is not on the allow-list.
+      - name: Audit licenses (gate on allow-list)
+        if: steps.detect.outputs.found == 'true'
+        run: |
+          while IFS= read -r proj; do
+            echo "== $proj =="
+            dotnet restore "$proj"
+            nuget-license -i "$proj" -t \
+              -a .github/license-audit/allowed-licenses.json \
+              -ignore .github/license-audit/ignored-packages.json \
+              -mapping .github/license-audit/url-license-mappings.json \
+              -o Table
+          done < <(git ls-files 'src/**/*.csproj' 'src/*.csproj')
