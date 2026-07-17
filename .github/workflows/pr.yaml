@@ -349,9 +349,9 @@ jobs:
         run: |
           # Find a solution to inspect. Prefer .slnx (new format) then .sln.
           # InspectCode requires SOMETHING solution-shaped — fail loudly if neither exists.
-          SLN=$(ls *.slnx 2>/dev/null | head -n1)
+          SLN=$(find . -maxdepth 1 -name '*.slnx' | head -n1)
           if [ -z "$SLN" ]; then
-            SLN=$(ls *.sln 2>/dev/null | head -n1)
+            SLN=$(find . -maxdepth 1 -name '*.sln' | head -n1)
           fi
           if [ -z "$SLN" ]; then
             echo "::error::No .slnx or .sln found at repo root — InspectCode needs one to run."
