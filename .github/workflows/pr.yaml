@@ -360,16 +360,23 @@ jobs:
 
       - name: Run InspectCode
         run: |
-          # Find a solution to inspect. Prefer .slnx (new format) then .sln.
-          # InspectCode requires SOMETHING solution-shaped — fail loudly if neither exists.
-          SLN=$(ls *.slnx 2>/dev/null | head -n1)
-          if [ -z "$SLN" ]; then
-            SLN=$(ls *.sln 2>/dev/null | head -n1)
-          fi
-          if [ -z "$SLN" ]; then
+          # Global dotnet tools install under ~/.dotnet/tools; make sure `jb`
+          # resolves regardless of whether that dir is already on PATH.
+          export PATH="$HOME/.dotnet/tools:$PATH"
+          # Find a solution to inspect, preferring .slnx (new format) over .sln.
+          # Use nullglob + array expansion instead of parsing `ls`: a glob with
+          # no match expands to nothing rather than failing, so this is correct
+          # under the step's `set -e -o pipefail` shell by construction — no `ls`
+          # exit-2 to swallow, and no blanket `|| true` that would also hide a
+          # genuine failure. Listing *.slnx before *.sln keeps any .slnx ahead
+          # of a .sln in the array, so ${solutions[0]} is a .slnx when one exists.
+          shopt -s nullglob
+          solutions=(*.slnx *.sln)
+          if [ ${#solutions[@]} -eq 0 ]; then
             echo "::error::No .slnx or .sln found at repo root — InspectCode needs one to run."
             exit 1
           fi
+          SLN="${solutions[0]}"
           echo "Inspecting: $SLN"
           jb inspectcode "$SLN" \
             --output=inspect.sarif \
