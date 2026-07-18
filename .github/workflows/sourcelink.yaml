@@ -1,0 +1,108 @@
+name: SourceLink
+
+# End-to-end SourceLink verification.
+#
+# Directory.Build.props enables Microsoft.SourceLink.GitHub + EmbedUntrackedSources
+# and the release packs .snupkg symbol packages. That embeds, into every PDB, a
+# map from each source document to its raw.githubusercontent.com URL at the build
+# commit. If a release mis-tags the commit or the SourceLink map is wrong, a
+# consumer's "step into library source" (F11) silently falls back to a decompiled
+# assembly — and nothing catches it today.
+#
+# `dotnet sourcelink test` closes that gap without needing a live debugger: for
+# every document referenced by the PDB it fetches the mapped GitHub URL and fails
+# unless the downloaded content's checksum matches the one embedded in the PDB.
+# That exercises the exact chain that step-into depends on — commit-SHA embedded
+# in the PDB + GitHub raw-URL resolution. Embedded (untracked) documents need no
+# URL and are verified in place. The PDB tested here is byte-identical to the one
+# shipped inside the .snupkg, so this covers the symbol-package path too.
+#
+# Runs on PRs so a SourceLink regression is caught before it can ship, using the
+# PR's pushed commit (whose raw URLs resolve on GitHub).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sourcelink-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sourcelink:
+    name: Verify SourceLink
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Detect src projects
+        id: detect
+        run: |
+          if git ls-files 'src/**/*.csproj' 'src/*.csproj' | grep -q .; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No src/**/*.csproj found — skipping SourceLink verification."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup .NET
+        if: steps.detect.outputs.found == 'true'
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: '10.0.x'
+
+      # Build each src project (not the whole solution — benchmarks/examples may
+      # target older TFMs only, so `-f net10.0` at the solution level would fail).
+      # ContinuousIntegrationBuild=true normalises source paths exactly as a
+      # release does, so the PDB embeds the same SourceLink map the shipped
+      # package carries.
+      - name: Build src projects (Release, net10.0)
+        if: steps.detect.outputs.found == 'true'
+        run: |
+          while IFS= read -r proj; do
+            # Skip projects that don't target net10.0 (e.g. a netstandard2.0-only
+            # Roslyn source generator) — `-f net10.0` would fail NETSDK1005 on them,
+            # and they produce no net10.0 PDB for the SourceLink step to verify.
+            if ! grep -qE 'net10\.0' "$proj"; then
+              echo "== skip $proj (no net10.0 target) =="
+              continue
+            fi
+            echo "== build $proj =="
+            dotnet build "$proj" -c Release -f net10.0 -p:ContinuousIntegrationBuild=true
+          done < <(git ls-files 'src/**/*.csproj' 'src/*.csproj')
+
+      - name: Install sourcelink tool
+        if: steps.detect.outputs.found == 'true'
+        run: dotnet tool install --global sourcelink
+
+      - name: Verify SourceLink resolves for every PDB
+        if: steps.detect.outputs.found == 'true'
+        run: |
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          shopt -s globstar nullglob
+          pdbs=(src/**/bin/Release/net10.0/*.pdb)
+          if [ ${#pdbs[@]} -eq 0 ]; then
+            echo "::error::No PDBs found under src/**/bin/Release/net10.0 — SourceLink cannot be verified."
+            exit 1
+          fi
+          failed=0
+          for pdb in "${pdbs[@]}"; do
+            echo "== sourcelink test $pdb =="
+            if ! sourcelink test "$pdb"; then
+              echo "::error::SourceLink verification failed for $pdb — a debugger would fall back to decompiled source."
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            exit 1
+          fi
+          echo "✅ SourceLink resolves for all PDBs — step-into will fetch real source from GitHub."
