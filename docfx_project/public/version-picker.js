@@ -96,10 +96,12 @@
             // on /versions/latest/. On every other page the highest-
             // numbered v* entry already represents the latest release and
             // surfacing both is redundant; on /versions/latest/ we NEED
-            // 'latest' in the list because otherwise the picker would show
-            // no selected option and the reader would have no way to know
-            // which version they are viewing. versions.json keeps the
-            // "latest" entry so other consumers (links, scripts) can still
+            // 'latest' in the list because without it the browser auto-
+            // selects the first concrete version (whichever v* is top of
+            // the list), and choosing that same value doesn't fire
+            // `change`, so the reader can't navigate away to the
+            // concrete-version URL. versions.json keeps the "latest"
+            // entry so other consumers (links, scripts) can still
             // resolve it.
             if (v.version === 'latest' && currentVersion !== 'latest') return;
             var opt = document.createElement('option');
