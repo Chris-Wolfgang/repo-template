@@ -306,17 +306,20 @@ if (-not $SkipSecurity) {
             $env:PATH = "$dest;$env:PATH"
         }
         else {
-            # gitleaks ships separate darwin / linux builds, and on macOS we
-            # also have to pick between x64 (Intel) and arm64 (Apple Silicon).
-            # Without this branch the macOS path would download the Linux
-            # tarball and either fail to install or install an incompatible
-            # binary.
+            # gitleaks ships separate darwin / linux builds, and on both we
+            # also have to pick between x64 and arm64 (Apple Silicon on macOS,
+            # ARM64 dev boards / cloud VMs on Linux). Without this branch the
+            # POSIX path would download the wrong-OS tarball or install an
+            # incompatible binary. Comparing to the strongly-typed enum value
+            # (rather than the string "Arm64") avoids implicit-conversion
+            # surprises across PowerShell hosts.
+            $arm64 = [System.Runtime.InteropServices.Architecture]::Arm64
+            $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq $arm64) { 'arm64' } else { 'x64' }
             if ($IsMacOS) {
-                $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'x64' }
                 $archive = "gitleaks_${version}_darwin_${arch}.tar.gz"
             }
             else {
-                $archive = "gitleaks_${version}_linux_x64.tar.gz"
+                $archive = "gitleaks_${version}_linux_${arch}.tar.gz"
             }
             $url = "https://github.com/gitleaks/gitleaks/releases/download/v${version}/$archive"
             # Install to a user-writable location instead of /usr/local/bin
