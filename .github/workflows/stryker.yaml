@@ -52,7 +52,7 @@ jobs:
         # through .NET 10.0). Stryker has to be able to build whichever
         # TFM each test project targets; pinning to a subset would
         # silently fail repos that target older runtimes.
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
             3.1.x
