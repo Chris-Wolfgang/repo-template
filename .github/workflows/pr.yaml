@@ -349,14 +349,15 @@ jobs:
         run: |
           # Find a solution to inspect. Prefer .slnx (new format) then .sln.
           # InspectCode requires SOMETHING solution-shaped — fail loudly if neither exists.
-          SLN=$(ls *.slnx 2>/dev/null | head -n1)
-          if [ -z "$SLN" ]; then
-            SLN=$(ls *.sln 2>/dev/null | head -n1)
-          fi
-          if [ -z "$SLN" ]; then
+          # Use bash globbing (nullglob) rather than `ls`: shellcheck-clean (no SC2012/SC2035)
+          # and a no-match pattern yields an empty array instead of aborting under set -e.
+          shopt -s nullglob
+          candidates=(*.slnx *.sln)
+          if [ ${#candidates[@]} -eq 0 ]; then
             echo "::error::No .slnx or .sln found at repo root — InspectCode needs one to run."
             exit 1
           fi
+          SLN="${candidates[0]}"
           echo "Inspecting: $SLN"
           jb inspectcode "$SLN" \
             --output=inspect.sarif \
