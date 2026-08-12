@@ -49,8 +49,14 @@
     }
 
     function renderPicker(versions) {
-        // Detect the currently-viewed version from the URL.
-        var currentVersion = 'latest';
+        // Detect the currently-viewed version from the URL. Only a
+        // /versions/<v>/ path names a concrete version; the literal
+        // /versions/latest/ alias yields 'latest'. Anywhere else (site
+        // root, unversioned pages) currentVersion stays null so the
+        // 'latest' alias is NOT surfaced and the browser auto-selects the
+        // highest v* entry — matching the intent that 'latest' appears in
+        // the picker only on /versions/latest/.
+        var currentVersion = null;
         var m = window.location.pathname.match(/\/versions\/([^\/]+)(?:\/|$)/);
         if (m) {
             currentVersion = m[1];
@@ -86,12 +92,18 @@
         var optionCount = 0;
         versions.forEach(function (v) {
             if (!v || !v.version || !v.url) return;
-            // Skip the "latest" alias — the highest-numbered v* entry
-            // already represents the latest release; surfacing both is
-            // redundant in the picker. versions.json keeps the "latest"
+            // Skip the "latest" alias EXCEPT when the reader is actually
+            // on /versions/latest/. On every other page the highest-
+            // numbered v* entry already represents the latest release and
+            // surfacing both is redundant; on /versions/latest/ we NEED
+            // 'latest' in the list because without it the browser auto-
+            // selects the first concrete version (whichever v* is top of
+            // the list), and choosing that same value doesn't fire
+            // `change`, so the reader can't navigate away to the
+            // concrete-version URL. versions.json keeps the "latest"
             // entry so other consumers (links, scripts) can still
             // resolve it.
-            if (v.version === 'latest') return;
+            if (v.version === 'latest' && currentVersion !== 'latest') return;
             var opt = document.createElement('option');
             opt.value = v.url;
             opt.textContent = v.version;
