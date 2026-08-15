@@ -21,7 +21,15 @@ permissions:
   contents: read
 
 env:
+  # Minimum line coverage for PRODUCTION assemblies (anything under src/).
   CODECOV_MINIMUM: 90
+  # Minimum line coverage for TEST assemblies (anything under tests/).
+  # Test code that never executes has no purpose — an uncovered helper, fake, or
+  # branch in a test project is dead code and should be exercised or deleted.
+  # This is LINE coverage; branch coverage legitimately can't reach 100%
+  # (compiler-generated async state machines), and the gate reads only the
+  # line-coverage column that ReportGenerator puts at end-of-row.
+  CODECOV_TEST_MINIMUM: 100
   
 on:
   pull_request_target:  # Runs from the main branch, not from PR branch
@@ -720,9 +728,39 @@ jobs:
           
           failed_projects=""
           threshold=${CODECOV_MINIMUM:-90}
+          test_threshold=${CODECOV_TEST_MINIMUM:-100}
           matched_count=0
 
-          while read -r line; do
+          # Build the set of assembly names produced by projects under tests/.
+          #
+          # DO NOT identify test assemblies by name. Shipped PRODUCT packages
+          # legitimately contain "Test" — e.g. Wolfgang.Etl.TestKit and
+          # Wolfgang.AuditTrail.TestKit.Xunit — and they live in src/. Matching
+          # on the name would hold product code to the test threshold. The
+          # project's LOCATION is the only reliable discriminator.
+          #
+          # Delimited with '|' on both sides so membership tests can't match a
+          # prefix (|Foo| must not match |FooBar|).
+          test_assemblies="|"
+          if [ -d ./tests ]; then
+            while IFS= read -r -d '' proj; do
+              asm=$(grep -oE '<AssemblyName>[^<]+' "$proj" 2>/dev/null | head -1 | cut -d'>' -f2)
+              if [ -z "$asm" ]; then
+                asm=$(basename "$proj"); asm="${asm%.*}"
+              fi
+              test_assemblies="${test_assemblies}${asm}|"
+            done < <(find ./tests -type f \( -name '*.csproj' -o -name '*.vbproj' -o -name '*.fsproj' \) -print0)
+          fi
+          echo "Test assemblies (gated at ${test_threshold}%): ${test_assemblies}"
+          echo ""
+
+          # IFS= is REQUIRED. ReportGenerator indents per-class rows two spaces
+          # beneath their parent assembly row, and the filter below anchors on
+          # `^[^ ]` to skip them. A bare `read -r line` strips leading IFS
+          # whitespace, so the indentation is gone before grep sees it and every
+          # class row matches — which gated individual test classes as if they
+          # were projects.
+          while IFS= read -r line; do
             # Match lines with module names and percentages. The percent
             # capture is the LAST %-suffixed number on the line, matching
             # Stage 2's behavior — ReportGenerator Summary.txt rows often
@@ -736,13 +774,32 @@ jobs:
               percent=$(echo "$line" | awk '{print $NF}' | tr -d '%' | awk '{print int($1)}')
               matched_count=$((matched_count + 1))
 
-              echo "Checking module: '$module' - Coverage: ${percent}%"
+              # Gating the test ASSEMBLY row at 100% is equivalent to gating
+              # every one of its classes: an assembly only reaches 100% line
+              # coverage when every class in it is at 100%.
+              case "$test_assemblies" in
+                *"|${module}|"*) applies=$test_threshold; kind="test" ;;
+                *)               applies=$threshold;      kind="src"  ;;
+              esac
 
-              if [ "$percent" -lt "$threshold" ]; then
-                echo "  ❌ FAIL: Below ${threshold}% threshold"
-                failed_projects="$failed_projects $module (${percent}%)"
+              echo "Checking ${kind} module: '$module' - Coverage: ${percent}%"
+
+              if [ "$percent" -lt "$applies" ]; then
+                echo "  ❌ FAIL: Below ${applies}% threshold"
+                failed_projects="$failed_projects $module (${percent}%, needs ${applies}%)"
+                # For a test assembly, name the classes that are short so the
+                # fix is obvious without downloading the coverage artifact.
+                if [ "$kind" = "test" ]; then
+                  echo "  Classes below ${applies}%:"
+                  awk -v asm="$module" '
+                    /^[^ ]/ { in_asm = ($1 == asm) }
+                    in_asm && /^  / && /[0-9]+(\.[0-9]+)?%$/ {
+                      p = $NF; gsub("%","",p);
+                      if (p + 0 < 100) printf "    %s  %s\n", $NF, $1
+                    }' CoverageReport/Summary.txt
+                fi
               else
-                echo "  ✅ PASS: Meets ${threshold}% threshold"
+                echo "  ✅ PASS: Meets ${applies}% threshold"
               fi
             fi
           done < CoverageReport/Summary.txt
@@ -760,7 +817,11 @@ jobs:
             echo "=========================================="
             echo "❌ COVERAGE GATE FAILED"
             echo "=========================================="
-            echo "Projects below ${threshold}% coverage: $failed_projects"
+            echo "Modules below their threshold: $failed_projects"
+            echo ""
+            echo "src assemblies must reach ${threshold}%; test assemblies must reach ${test_threshold}%."
+            echo "For test assemblies: write a test first; if that isn't possible, refactor"
+            echo "to make the code testable; use [ExcludeFromCodeCoverage] only as a last resort."
             echo ""
             echo "Stage 1 failed. Windows, macOS, and .NET Framework tests will NOT run."
             exit 1
@@ -769,7 +830,7 @@ jobs:
             echo "=========================================="
             echo "✅ COVERAGE GATE PASSED"
             echo "=========================================="
-            echo "All projects meet ${threshold}% coverage threshold."
+            echo "src assemblies meet ${threshold}%; test assemblies meet ${test_threshold}%."
             echo "Proceeding to Stage 2 (Windows and macOS tests)."
           fi
 
@@ -1024,9 +1085,26 @@ jobs:
           Get-Content "CoverageReport/Summary.txt"
           Write-Host ""
 
-          $threshold = if ($env:CODECOV_MINIMUM) { [int]$env:CODECOV_MINIMUM } else { 90 }
+          $threshold     = if ($env:CODECOV_MINIMUM) { [int]$env:CODECOV_MINIMUM } else { 90 }
+          $testThreshold = if ($env:CODECOV_TEST_MINIMUM) { [int]$env:CODECOV_TEST_MINIMUM } else { 100 }
           $failedProjects = @()
           $matchedCount   = 0
+
+          # Set of assembly names produced by projects under tests/ — see the
+          # matching Stage 1 block. Identify test assemblies by LOCATION, never
+          # by name: shipped product packages such as Wolfgang.Etl.TestKit and
+          # Wolfgang.AuditTrail.TestKit.Xunit contain "Test" and live in src/,
+          # and matching on the name would hold product code to the test
+          # threshold.
+          $testAssemblies = @()
+          if (Test-Path "tests") {
+            Get-ChildItem -Path "tests" -Recurse -File -Include *.csproj,*.vbproj,*.fsproj | ForEach-Object {
+              $m = [regex]::Match((Get-Content $_.FullName -Raw), '<AssemblyName>([^<]+)</AssemblyName>')
+              $testAssemblies += $(if ($m.Success) { $m.Groups[1].Value.Trim() } else { $_.BaseName })
+            }
+          }
+          Write-Host "Test assemblies (gated at ${testThreshold}%): $($testAssemblies -join ', ')"
+          Write-Host ""
 
           foreach ($line in (Get-Content "CoverageReport/Summary.txt")) {
             # Only consider top-level assembly rows: non-space first char,
@@ -1042,7 +1120,10 @@ jobs:
             # the gate on actually-100%-covered modules. Two changes:
             #  - Anchor on `^(\S+)` so indented sub-class rows are skipped
             #    (their parent assembly row carries the same number, so
-            #    nothing is lost — and Stage 1 ignores them too).
+            #    nothing is lost). Stage 1 skips them too, but ONLY because
+            #    its loop uses `IFS= read -r` — a bare `read -r` strips the
+            #    indentation and defeats its `^[^ ]` anchor. Keep both in
+            #    sync if either parser changes.
             #  - Require whitespace immediately before the final `\d+%`
             #    (`\s(\d+...)%\s*$`). This still allows intermediate
             #    columns between the module name and the final percent
@@ -1055,13 +1136,20 @@ jobs:
               $percent = [int][math]::Floor([double]$Matches[2])
               $matchedCount++
 
-              Write-Host "Checking module: '$module' - Coverage: ${percent}%"
+              # Gating the test ASSEMBLY row at 100% is equivalent to gating
+              # every one of its classes: an assembly only reaches 100% line
+              # coverage when every class in it is at 100%.
+              $isTest  = $testAssemblies -contains $module
+              $applies = if ($isTest) { $testThreshold } else { $threshold }
+              $kind    = if ($isTest) { "test" } else { "src" }
 
-              if ($percent -lt $threshold) {
-                Write-Host "  ❌ FAIL: Below ${threshold}% threshold" -ForegroundColor Red
-                $failedProjects += "$module (${percent}%)"
+              Write-Host "Checking $kind module: '$module' - Coverage: ${percent}%"
+
+              if ($percent -lt $applies) {
+                Write-Host "  ❌ FAIL: Below ${applies}% threshold" -ForegroundColor Red
+                $failedProjects += "$module (${percent}%, needs ${applies}%)"
               } else {
-                Write-Host "  ✅ PASS: Meets ${threshold}% threshold" -ForegroundColor Green
+                Write-Host "  ✅ PASS: Meets ${applies}% threshold" -ForegroundColor Green
               }
             }
           }
@@ -1079,7 +1167,9 @@ jobs:
             Write-Host "==========================================" -ForegroundColor Red
             Write-Host "❌ COVERAGE GATE FAILED" -ForegroundColor Red
             Write-Host "==========================================" -ForegroundColor Red
-            Write-Host "Projects below ${threshold}% coverage: $($failedProjects -join ', ')" -ForegroundColor Red
+            Write-Host "Modules below their threshold: $($failedProjects -join ', ')" -ForegroundColor Red
+            Write-Host ""
+            Write-Host "src assemblies must reach ${threshold}%; test assemblies must reach ${testThreshold}%." -ForegroundColor Red
             Write-Host ""
             Write-Host "Stage 2 failed. macOS tests will NOT run."
             exit 1
@@ -1089,7 +1179,7 @@ jobs:
           Write-Host "==========================================" -ForegroundColor Green
           Write-Host "✅ COVERAGE GATE PASSED" -ForegroundColor Green
           Write-Host "==========================================" -ForegroundColor Green
-          Write-Host "All projects meet ${threshold}% coverage threshold."
+          Write-Host "src assemblies meet ${threshold}%; test assemblies meet ${testThreshold}%."
           Write-Host "Proceeding to Stage 3 (macOS tests)."
 
       - name: Upload Windows coverage results
@@ -1423,20 +1513,42 @@ jobs:
           echo ""
 
           THRESHOLD=${CODECOV_MINIMUM:-90}
+          TEST_THRESHOLD=${CODECOV_TEST_MINIMUM:-100}
           FAILED=0
           MATCHED=0
+
+          # Assembly names produced by projects under tests/ — see the matching
+          # Stage 1 block. Identify test assemblies by LOCATION, never by name:
+          # shipped product packages such as Wolfgang.Etl.TestKit live in src/
+          # and contain "Test".
+          TEST_ASSEMBLIES="|"
+          if [ -d ./tests ]; then
+            while IFS= read -r -d '' proj; do
+              asm=$(grep -oE '<AssemblyName>[^<]+' "$proj" 2>/dev/null | head -1 | cut -d'>' -f2)
+              if [ -z "$asm" ]; then
+                asm=$(basename "$proj"); asm="${asm%.*}"
+              fi
+              TEST_ASSEMBLIES="${TEST_ASSEMBLIES}${asm}|"
+            done < <(find ./tests -type f \( -name '*.csproj' -o -name '*.vbproj' -o -name '*.fsproj' \) -print0)
+          fi
+          echo "Test assemblies (gated at ${TEST_THRESHOLD}%): ${TEST_ASSEMBLIES}"
+          echo ""
 
           while IFS= read -r line; do
             if echo "$line" | grep -qE '^[^ ]+.*[0-9]+%$' && ! echo "$line" | grep -q '^Summary'; then
               MODULE=$(echo "$line" | awk '{print $1}')
               PERCENT=$(echo "$line" | grep -oE '[0-9]+(\.[0-9]+)?%' | tail -1 | grep -oE '^[0-9]+')
               MATCHED=$((MATCHED + 1))
-              echo "Checking module: '$MODULE' - Coverage: ${PERCENT}%"
-              if [ "$PERCENT" -lt "$THRESHOLD" ]; then
-                echo "  ❌ FAIL: Below ${THRESHOLD}% threshold"
+              case "$TEST_ASSEMBLIES" in
+                *"|${MODULE}|"*) APPLIES=$TEST_THRESHOLD; KIND="test" ;;
+                *)               APPLIES=$THRESHOLD;      KIND="src"  ;;
+              esac
+              echo "Checking ${KIND} module: '$MODULE' - Coverage: ${PERCENT}%"
+              if [ "$PERCENT" -lt "$APPLIES" ]; then
+                echo "  ❌ FAIL: Below ${APPLIES}% threshold"
                 FAILED=1
               else
-                echo "  ✅ PASS: Meets ${THRESHOLD}% threshold"
+                echo "  ✅ PASS: Meets ${APPLIES}% threshold"
               fi
             fi
           done < CoverageReport/Summary.txt
@@ -1454,7 +1566,8 @@ jobs:
             echo "=========================================="
             echo "❌ COVERAGE GATE FAILED"
             echo "=========================================="
-            echo "One or more modules are below ${THRESHOLD}% coverage."
+            echo "One or more modules are below their threshold"
+            echo "(src ${THRESHOLD}%, test ${TEST_THRESHOLD}%)."
             echo "Stage 3 failed."
             exit 1
           fi
@@ -1463,7 +1576,7 @@ jobs:
           echo "=========================================="
           echo "✅ COVERAGE GATE PASSED"
           echo "=========================================="
-          echo "All modules meet ${THRESHOLD}% coverage threshold."
+          echo "src assemblies meet ${THRESHOLD}%; test assemblies meet ${TEST_THRESHOLD}%."
 
       - name: Upload macOS coverage results
         if: always()
