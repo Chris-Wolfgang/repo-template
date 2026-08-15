@@ -16,7 +16,11 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  # Minimum line coverage for PRODUCTION assemblies (anything under src/).
   CODECOV_MINIMUM: 90
+  # Minimum line coverage for TEST assemblies (anything under tests/).
+  # Kept in sync with pr.yaml — see the note there.
+  CODECOV_TEST_MINIMUM: 100
 
 jobs:
   # Streamlined validation: All frameworks, Windows only
@@ -296,24 +300,42 @@ jobs:
           
           # Parse coverage and enforce threshold per module (matching pr.yaml)
           $summaryContent = Get-Content CoverageReport/Summary.txt
-          $threshold = if ($env:CODECOV_MINIMUM) { [int]$env:CODECOV_MINIMUM } else { 90 }
+          $threshold     = if ($env:CODECOV_MINIMUM) { [int]$env:CODECOV_MINIMUM } else { 90 }
+          $testThreshold = if ($env:CODECOV_TEST_MINIMUM) { [int]$env:CODECOV_TEST_MINIMUM } else { 100 }
           $failedModules = @()
           $coverageFound = $false
-          
+
+          # Assembly names produced by projects under tests/ — mirrors pr.yaml.
+          # Identify test assemblies by LOCATION, never by name: shipped product
+          # packages such as Wolfgang.Etl.TestKit contain "Test" and live in src/.
+          $testAssemblies = @()
+          if (Test-Path "tests") {
+            Get-ChildItem -Path "tests" -Recurse -File -Include *.csproj,*.vbproj,*.fsproj | ForEach-Object {
+              $m = [regex]::Match((Get-Content $_.FullName -Raw), '<AssemblyName>([^<]+)</AssemblyName>')
+              $testAssemblies += $(if ($m.Success) { $m.Groups[1].Value.Trim() } else { $_.BaseName })
+            }
+          }
+
           foreach ($line in $summaryContent) {
-            # Match lines with module names and percentages (skip Summary line)
+            # Match lines with module names and percentages (skip Summary line).
+            # `^([^ ]+)` keeps indented per-class rows out — only assembly rows
+            # are gated, and an assembly only reaches 100% when every class does.
             if ($line -match '^([^ ]+)\s+.*\s+(\d+(?:\.\d+)?)%$' -and $line -notmatch '^Summary') {
               $coverageFound = $true
               $module = $matches[1]
               $coverage = [decimal]$matches[2]
-              
-              Write-Host "Checking module: '$module' - Coverage: ${coverage}%" -ForegroundColor Cyan
-              
-              if ($coverage -lt $threshold) {
-                Write-Host "  ❌ FAIL: Below ${threshold}% threshold" -ForegroundColor Red
-                $failedModules += "$module (${coverage}%)"
+
+              $isTest  = $testAssemblies -contains $module
+              $applies = if ($isTest) { $testThreshold } else { $threshold }
+              $kind    = if ($isTest) { "test" } else { "src" }
+
+              Write-Host "Checking $kind module: '$module' - Coverage: ${coverage}%" -ForegroundColor Cyan
+
+              if ($coverage -lt $applies) {
+                Write-Host "  ❌ FAIL: Below ${applies}% threshold" -ForegroundColor Red
+                $failedModules += "$module (${coverage}%, needs ${applies}%)"
               } else {
-                Write-Host "  ✅ PASS: Meets ${threshold}% threshold" -ForegroundColor Green
+                Write-Host "  ✅ PASS: Meets ${applies}% threshold" -ForegroundColor Green
               }
             }
           }

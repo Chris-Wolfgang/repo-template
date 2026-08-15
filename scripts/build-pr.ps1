@@ -22,7 +22,13 @@
     Skip DevSkim and gitleaks scans.
 
 .PARAMETER CoverageThreshold
-    Minimum coverage percentage required. Defaults to 90.
+    Minimum line coverage for PRODUCTION assemblies (anything under src/).
+    Defaults to 90. Mirrors CODECOV_MINIMUM in pr.yaml.
+
+.PARAMETER TestCoverageThreshold
+    Minimum line coverage for TEST assemblies (anything under tests/).
+    Defaults to 100 — test code that never executes has no purpose. Mirrors
+    CODECOV_TEST_MINIMUM in pr.yaml.
 
 .EXAMPLE
     pwsh ./scripts/build-pr.ps1
@@ -33,7 +39,8 @@ param(
     [switch]$SkipTests,
     [switch]$SkipCoverage,
     [switch]$SkipSecurity,
-    [int]$CoverageThreshold = 90
+    [int]$CoverageThreshold = 90,
+    [int]$TestCoverageThreshold = 100
 )
 
 $ErrorActionPreference = 'Stop'
@@ -162,7 +169,7 @@ if (-not $SkipTests -and $failed.Count -eq 0) {
 # STEP 3: Coverage Report and Threshold
 # ============================================================================
 if (-not $SkipTests -and -not $SkipCoverage -and $failed.Count -eq 0) {
-    Write-Step "Step 3: Coverage Report (threshold: ${CoverageThreshold}%)"
+    Write-Step "Step 3: Coverage Report (src ${CoverageThreshold}%, tests ${TestCoverageThreshold}%)"
 
     $coverageFiles = Get-ChildItem -Path TestResults -Recurse -Filter coverage.cobertura.xml -ErrorAction SilentlyContinue
 
@@ -203,17 +210,36 @@ if (-not $SkipTests -and -not $SkipCoverage -and $failed.Count -eq 0) {
             Get-Content "CoverageReport/Summary.txt"
             Write-Host ""
 
+            # Assembly names produced by projects under tests/ — mirrors pr.yaml.
+            # Identify test assemblies by LOCATION, never by name: shipped product
+            # packages such as Wolfgang.Etl.TestKit contain "Test" and live in src/.
+            $testAssemblies = @()
+            if (Test-Path "tests") {
+                Get-ChildItem -Path "tests" -Recurse -File -Include *.csproj,*.vbproj,*.fsproj | ForEach-Object {
+                    $m = [regex]::Match((Get-Content $_.FullName -Raw), '<AssemblyName>([^<]+)</AssemblyName>')
+                    $testAssemblies += $(if ($m.Success) { $m.Groups[1].Value.Trim() } else { $_.BaseName })
+                }
+            }
+
             $failedProjects = @()
             $matched = 0
             foreach ($line in (Get-Content "CoverageReport/Summary.txt")) {
-                if ($line -match '^\s*(\S+)\s+(\d+(?:\.\d+)?)%\s*$' -and $line -notmatch '^\s*Summary') {
+                # Anchor on `^(\S+)` — NOT `^\s*(\S+)`. The leading `\s*` used to
+                # let ReportGenerator's indented per-class rows match, so individual
+                # classes were gated as if they were projects (the same defect
+                # pr.yaml's Stage 1 had via a bare `read -r`). Only assembly rows
+                # are gated; an assembly only reaches 100% when every class does.
+                if ($line -match '^(\S+)\s+(\d+(?:\.\d+)?)%\s*$' -and $line -notmatch '^Summary') {
                     $module = $Matches[1]
                     $percent = [int][math]::Floor([double]$Matches[2])
                     $matched++
 
-                    if ($percent -lt $CoverageThreshold) {
-                        Write-Fail "  $module — ${percent}% (below ${CoverageThreshold}%)"
-                        $failedProjects += "$module (${percent}%)"
+                    $isTest    = $testAssemblies -contains $module
+                    $applies   = if ($isTest) { $TestCoverageThreshold } else { $CoverageThreshold }
+
+                    if ($percent -lt $applies) {
+                        Write-Fail "  $module — ${percent}% (below ${applies}%)"
+                        $failedProjects += "$module (${percent}%, needs ${applies}%)"
                     }
                     else {
                         Write-Pass "  $module — ${percent}%"
