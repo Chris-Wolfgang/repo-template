@@ -28,6 +28,7 @@ These placeholders are **required** and must be replaced in every project:
 | `{{GITHUB_REPO_URL}}` | Full GitHub repository URL | `https://github.com/Chris-Wolfgang/MyProject` | Yes (from `git remote`) |
 | `{{REPO_NAME}}` | Repository name only | `MyProject` | Yes (extracted from URL) |
 | `{{GITHUB_USERNAME}}` | GitHub username with @ | `@Chris-Wolfgang` | Yes (from GitHub repo URL, or prompted if missing) |
+| `{{GITHUB_OWNER}}` | GitHub owner slug (no @, URL-safe) | `Chris-Wolfgang` | Yes (derived from `GITHUB_USERNAME`) |
 | `{{DOCS_URL}}` | Documentation URL | `https://chris-wolfgang.github.io/MyProject/` | Yes (generated from repo URL) |
 | `{{LICENSE_TYPE}}` | License identifier | `MIT`, `Apache-2.0`, or `MPL-2.0` | No |
 | `{{YEAR}}` | Copyright year | `2024` | Yes (current year) |
@@ -47,7 +48,7 @@ These placeholders represent sections that users should fill in later. They can 
 | `{{QUICK_START_EXAMPLE}}` | Code example showing basic usage | README.md |
 | `{{FEATURES_TABLE}}` | Markdown table listing features | README.md |
 | `{{FEATURE_EXAMPLES}}` | Code examples demonstrating features | README.md |
-| `{{TARGET_FRAMEWORKS}}` | List of supported .NET frameworks | README.md |
+| `{{TARGET_FRAMEWORKS}}` | Bullet list of supported .NET frameworks for the "Supported Frameworks" section (copy from your source csproj's `<TargetFrameworks>`) | README.md |
 | `{{ACKNOWLEDGMENTS}}` | Credits for libraries/tools used | README.md |
 
 **Note:** The automated setup scripts do NOT replace these - users fill them in as they develop their project.
@@ -130,7 +131,7 @@ The setup script validates that these placeholders are properly replaced (along 
 ```powershell
 $corePlaceholders = @(
     'PROJECT_NAME', 'PROJECT_DESCRIPTION', 'PACKAGE_NAME',
-    'GITHUB_REPO_URL', 'REPO_NAME', 'GITHUB_USERNAME',
+    'GITHUB_REPO_URL', 'REPO_NAME', 'GITHUB_USERNAME', 'GITHUB_OWNER',
     'DOCS_URL', 'LICENSE_TYPE',
     'NUGET_STATUS', 'TEMPLATE_REPO_OWNER', 'TEMPLATE_REPO_NAME'
 )
@@ -152,20 +153,24 @@ $corePlaceholders = @(
 |---------|-------------|---------|
 | 1 | `{{PROJECT_NAME}}` | Main heading |
 | 3 | `{{PROJECT_DESCRIPTION}}` | Project description |
-| 5 | `{{LICENSE_TYPE}}` | License badge |
-| 7 | `{{GITHUB_REPO_URL}}` | GitHub badge link |
-| 13 | `{{PACKAGE_NAME}}` | Installation command |
-| 16 | `{{NUGET_STATUS}}` | NuGet availability |
-| 21 | `{{LICENSE_TYPE}}` | License section |
-| 27 | `{{GITHUB_REPO_URL}}` | Documentation link (2 occurrences) |
-| 28 | `{{DOCS_URL}}` | API documentation URL |
-| 35 | `{{QUICK_START_EXAMPLE}}` | Quick start code |
-| 41 | `{{FEATURES_TABLE}}` | Features table |
-| 44 | `{{FEATURE_EXAMPLES}}` | Feature examples |
-| 50 | `{{TARGET_FRAMEWORKS}}` | Framework list |
-| 119 | `{{GITHUB_REPO_URL}}` | Clone command |
-| 120 | `{{REPO_NAME}}` | Directory name |
-| 197 | `{{ACKNOWLEDGMENTS}}` | Acknowledgments section |
+| 5–6 | `{{PACKAGE_NAME}}` | NuGet version + downloads badges |
+| 7 | `{{GITHUB_OWNER}}`, `{{REPO_NAME}}`, `{{GITHUB_REPO_URL}}` | PR build badge |
+| 8 | `{{GITHUB_OWNER}}`, `{{REPO_NAME}}`, `{{GITHUB_REPO_URL}}` | Release build badge |
+| 9 | `{{LICENSE_TYPE}}` | License badge |
+| 11 | `{{GITHUB_REPO_URL}}` | GitHub badge link |
+| 18 | `{{PACKAGE_NAME}}` | Installation command |
+| 21 | `{{NUGET_STATUS}}` | NuGet availability |
+| 27 | `{{LICENSE_TYPE}}` | License section |
+| 33 | `{{GITHUB_REPO_URL}}` | Documentation link (2 occurrences) |
+| 34 | `{{DOCS_URL}}` | API documentation URL |
+| 42 | `{{QUICK_START_EXAMPLE}}` | Quick start code |
+| 48 | `{{FEATURES_TABLE}}` | Features table |
+| 51 | `{{FEATURE_EXAMPLES}}` | Feature examples |
+| 57 | `{{TARGET_FRAMEWORKS}}` | Supported Frameworks list |
+| 59 | `{{PACKAGE_NAME}}` | NuGet package matrix link |
+| 103 | `{{GITHUB_REPO_URL}}` | Clone command |
+| 104 | `{{REPO_NAME}}` | Directory name |
+| 182 | `{{ACKNOWLEDGMENTS}}` | Acknowledgments section |
 
 ### 2. CONTRIBUTING.md
 
