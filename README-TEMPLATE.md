@@ -2,6 +2,10 @@
 
 {{PROJECT_DESCRIPTION}}
 
+[![NuGet](https://img.shields.io/nuget/v/{{PACKAGE_NAME}}.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/{{PACKAGE_NAME}}/)
+[![Downloads](https://img.shields.io/nuget/dt/{{PACKAGE_NAME}}.svg?logo=nuget&label=downloads)](https://www.nuget.org/packages/{{PACKAGE_NAME}}/)
+[![PR build](https://img.shields.io/github/actions/workflow/status/{{GITHUB_OWNER}}/{{REPO_NAME}}/pr.yaml?event=pull_request_target&label=PR%20build&logo=github)]({{GITHUB_REPO_URL}}/actions/workflows/pr.yaml)
+[![release](https://img.shields.io/github/actions/workflow/status/{{GITHUB_OWNER}}/{{REPO_NAME}}/release.yaml?event=release&label=release&logo=github)]({{GITHUB_REPO_URL}}/actions/workflows/release.yaml)
 [![License: {{LICENSE_TYPE}}](https://img.shields.io/badge/License-{{LICENSE_TYPE}}-blue.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-Multi--Targeted-purple.svg)](https://dotnet.microsoft.com/)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)]({{GITHUB_REPO_URL}})
@@ -48,13 +52,11 @@ This project is licensed under the **{{LICENSE_TYPE}} License**. See the [LICENS
 
 ---
 
-## 🎯 Target Frameworks
+## 🎯 Supported Frameworks
 
-| Framework | Versions |
-|-----------|----------|
-| .NET Framework | .NET 4.6.2, .NET 4.7.0, .NET 4.7.1, .NET 4.7.2, .NET 4.8, .NET 4.8.1 |
-| .NET Core | .NET Core 3.1 |
-| .NET | .NET 5.0, .NET 6.0, .NET 7.0, .NET 8.0, .NET 9.0, .NET 10.0 |
+{{TARGET_FRAMEWORKS}}
+
+See the [NuGet package page](https://www.nuget.org/packages/{{PACKAGE_NAME}}/) for the authoritative per-TFM compatibility matrix.
 
 ---
 

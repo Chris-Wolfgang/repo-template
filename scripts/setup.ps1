@@ -484,6 +484,7 @@ function Start-Setup {
         'GITHUB_REPO_URL' = $githubRepoUrl
         'REPO_NAME' = $repoName
         'GITHUB_USERNAME' = $githubUsername
+        'GITHUB_OWNER' = $githubUsername.TrimStart('@')
         'DOCS_URL' = $docsUrl
         'LICENSE_TYPE' = $licenseType
         'YEAR' = $year
@@ -794,7 +795,7 @@ function Start-Setup {
     # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in FILES_TO_UPDATE
     $corePlaceholders = @(
         'PROJECT_NAME', 'PROJECT_DESCRIPTION', 'PACKAGE_NAME',
-        'GITHUB_REPO_URL', 'REPO_NAME', 'GITHUB_USERNAME',
+        'GITHUB_REPO_URL', 'REPO_NAME', 'GITHUB_USERNAME', 'GITHUB_OWNER',
         'DOCS_URL', 'LICENSE_TYPE',
         'NUGET_STATUS', 'TEMPLATE_REPO_OWNER', 'TEMPLATE_REPO_NAME'
     )
