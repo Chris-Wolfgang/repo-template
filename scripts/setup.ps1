@@ -375,12 +375,13 @@ function Start-Setup {
     Write-Host "  1) MIT - Most permissive, simple, business-friendly"
     Write-Host "  2) Apache-2.0 - Permissive with patent grant"
     Write-Host "  3) MPL-2.0 - Weak copyleft, file-level"
+    Write-Host "  4) custom/TBD - All rights reserved pending license selection (no reuse, redistribution, or hosting rights)"
     Write-Host ""
     Write-Host "For detailed comparison, see LICENSE-SELECTION.md" -ForegroundColor Cyan
     Write-Host ""
     
     do {
-        Write-Host "Select license (1-3): " -NoNewline -ForegroundColor Yellow
+        Write-Host "Select license (1-4): " -NoNewline -ForegroundColor Yellow
         $licenseChoice = Read-Host
         
         switch ($licenseChoice) {
@@ -399,8 +400,13 @@ function Start-Setup {
                 $licenseFile = 'LICENSE-MPL-2.0.txt'
                 break
             }
+            '4' { 
+                $licenseType = 'TBD'
+                $licenseFile = 'LICENSE-TBD.txt'
+                break
+            }
             default {
-                Write-TemplateError "Invalid choice. Please enter 1, 2, or 3."
+                Write-TemplateError "Invalid choice. Please enter 1, 2, 3, or 4."
                 continue
             }
         }
@@ -575,7 +581,40 @@ function Start-Setup {
         Remove-Item 'LICENSE-MIT.txt' -Force -ErrorAction SilentlyContinue
         Remove-Item 'LICENSE-APACHE-2.0.txt' -Force -ErrorAction SilentlyContinue
         Remove-Item 'LICENSE-MPL-2.0.txt' -Force -ErrorAction SilentlyContinue
+        Remove-Item 'LICENSE-TBD.txt' -Force -ErrorAction SilentlyContinue
         Write-Success "Removed license template files"
+
+        # custom/TBD: stamp every source file with an all-rights-reserved header so the
+        # provisional status travels with the code (IDE0073 enforces it at build time).
+        if ($licenseType -eq 'TBD' -and (Test-Path '.editorconfig')) {
+            $header = "Copyright (c) $copyrightHolder. All rights reserved. SPDX-License-Identifier: LicenseRef-TBD"
+            $editorConfig = Get-Content '.editorconfig' -Raw
+            if ($editorConfig -match '(?m)^file_header_template = unset\s*$') {
+                $editorConfig = [regex]::Replace(
+                    $editorConfig,
+                    '(?m)^file_header_template = unset\s*$',
+                    [System.Text.RegularExpressions.MatchEvaluator]{ param($m) "file_header_template = $header`ndotnet_diagnostic.IDE0073.severity = warning" }
+                )
+                Set-Content -Path '.editorconfig' -Value $editorConfig -NoNewline
+                Write-Success "Set .editorconfig file_header_template (LicenseRef-TBD) and enabled IDE0073"
+            }
+            else {
+                Write-Warning "file_header_template line not found in .editorconfig; add manually: file_header_template = $header"
+            }
+
+            # The README template's license sentence assumes a real license; say what TBD actually means.
+            $tbdSentence = 'This project is **not yet licensed**. All rights reserved pending license selection: no reuse, redistribution, or hosting rights are granted. See the [LICENSE](LICENSE) file.'
+            foreach ($readmeFile in @('README.md', 'README-TEMPLATE.md')) {
+                if (-not (Test-Path $readmeFile)) { continue }
+                $readmeText = Get-Content $readmeFile -Raw
+                $licenseSentence = 'This project is licensed under the **TBD License**. See the [LICENSE](LICENSE) file for details.'
+                if ($readmeText.Contains($licenseSentence)) {
+                    $readmeText = $readmeText.Replace($licenseSentence, $tbdSentence)
+                    Set-Content -Path $readmeFile -Value $readmeText -NoNewline
+                    Write-Success "Replaced the license sentence in $readmeFile with the pending-license wording"
+                }
+            }
+        }
     }
     else {
         Write-Error "License template file not found: $licenseFile"
