@@ -148,10 +148,12 @@ Scope rules:
 - **Fix:** Copy `.github/workflows/security-alerts.yml` and `scripts/security-alerts.ps1` from the template. Dependabot alerts need a `SECURITY_ALERTS_TOKEN` repository secret (see the workflow header).
 - **Label:** `security`
 
-### 21. Warnings-as-errors on for all projects and configurations
+### 21. Warnings-as-errors on for Release builds
 
-- **Verify:** `Directory.Build.props` sets `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` with no `Condition` attribute (a Release-only condition fails this item). Repositories with no `.csproj` are `na`.
-- **Fix:** Remove the condition from `TreatWarningsAsErrors` in `Directory.Build.props`. Fix warnings; suppress narrowly only where unavoidable.
+- **Verify:** `Directory.Build.props` sets `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` with `Condition="'$(Configuration)' == 'Release'"` (either MSBuild quote style inside the attribute). An unconditional `true` fails, because it would also gate Debug; any other condition (Debug-only, per-TFM, per-project) fails too. Repositories with no `.csproj` are `na`.
+  Release is the configuration CI builds, tests, and packs, so this is what keeps warnings out of packages. Debug is deliberately left with warnings as warnings so local iteration is not blocked by an analyzer mid-edit; build with `-c Release` before pushing to see what CI will see.
+- **Fix:** Add to `Directory.Build.props` (the template already has it):
+  `<TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>`. Fix warnings; suppress narrowly only where unavoidable.
 - **Label:** `process`
 
 ### 22. README with build and test instructions

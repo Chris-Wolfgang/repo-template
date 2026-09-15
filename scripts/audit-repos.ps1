@@ -80,7 +80,7 @@ $items = @(
     @{ N = 18; Name = 'IsAotCompatible and IsTrimmable enabled';                  Label = 'process'  }
     @{ N = 19; Name = 'Changelog fragments convention and CI check';              Label = 'process'  }
     @{ N = 20; Name = 'Security-alert triage workflow present';                   Label = 'security' }
-    @{ N = 21; Name = 'Warnings-as-errors on for all configurations';             Label = 'process'  }
+    @{ N = 21; Name = 'Warnings-as-errors on for Release builds';                 Label = 'process'  }
     @{ N = 22; Name = 'README present with build and test instructions';          Label = 'process'  }
 )
 $itemByNumber = @{}
@@ -492,10 +492,15 @@ function Invoke-RepoAudit
     elseif (-not $dbpTxt) { $out.Add((New-Result $name 21 'fail' 'no Directory.Build.props')) }
     else
     {
+        # Must be conditioned on Configuration == Release (the fleet convention: Release is what CI builds
+        # and packs; Debug stays warnings-as-warnings for local iteration). Unconditional true fails because
+        # it would gate Debug too. Inner MSBuild quotes may be ' or " (captured and back-referenced).
         $twae = [regex]::Matches($dbpTxt, '<TreatWarningsAsErrors([^>]*)>\s*([^<]*)\s*<')
-        $unconditional = @($twae | Where-Object { $_.Groups[2].Value.Trim() -eq 'true' -and $_.Groups[1].Value -notmatch 'Condition' })
-        if ($unconditional.Count -gt 0) { $out.Add((New-Result $name 21 'pass' 'TreatWarningsAsErrors=true without condition in Directory.Build.props')) }
-        elseif ($twae.Count -gt 0) { $out.Add((New-Result $name 21 'fail' "TreatWarningsAsErrors is conditional:$($twae[0].Groups[1].Value.Trim())")) }
+        $releaseCond = "^\s*Condition\s*=\s*[`"']\s*([`"'])\`$\(Configuration\)\1\s*==\s*([`"'])Release\2\s*[`"']\s*$"
+        $good = @($twae | Where-Object { $_.Groups[2].Value.Trim() -eq 'true' -and $_.Groups[1].Value.Trim() -match $releaseCond })
+        if ($good.Count -gt 0) { $out.Add((New-Result $name 21 'pass' 'TreatWarningsAsErrors=true for Release in Directory.Build.props')) }
+        elseif ($twae | Where-Object { $_.Groups[2].Value.Trim() -eq 'true' -and $_.Groups[1].Value -notmatch 'Condition' }) { $out.Add((New-Result $name 21 'fail' 'TreatWarningsAsErrors=true is unconditional; it must be conditioned on Release so Debug builds are not gated')) }
+        elseif ($twae.Count -gt 0) { $out.Add((New-Result $name 21 'fail' "TreatWarningsAsErrors present but not conditioned on Release:$($twae[0].Groups[1].Value.Trim())")) }
         else { $out.Add((New-Result $name 21 'fail' 'TreatWarningsAsErrors not set in Directory.Build.props')) }
     }
 
