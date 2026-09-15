@@ -58,3 +58,6 @@
 *.exe binary
 *.nupkg binary
 *.snupkg binary
+
+# Git hooks must keep LF endings so bash can execute them on every platform
+.githooks/* text eol=lf
