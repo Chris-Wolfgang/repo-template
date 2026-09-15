@@ -16,8 +16,7 @@ Status vocabulary used by the audit:
 
 Scope rules:
 
-- Archived repositories are never audited.
-- Game repositories (`Conflict.Classic`, `Conflict.Modern`, `D20-Dice`, `Hawsey`) are audited only on request.
+- Every non-archived public repository is audited, game repositories included. Archived repositories are never audited.
 - Public repositories only need free GitHub features. Nothing in this baseline requires GitHub Advanced Security billing.
 
 ## Items
@@ -177,6 +176,7 @@ These are not per-repository and are not checked by the script. Verify on the ac
 pwsh ./scripts/audit-repos.ps1 -Owner Chris-Wolfgang            # audit only, writes audit-results.json + audit-summary.md
 pwsh ./scripts/audit-repos.ps1 -Owner Chris-Wolfgang -OpenIssues # also open one issue per failing item
 pwsh ./scripts/audit-repos.ps1 -Owner Chris-Wolfgang -Repo ETL-Csv,ETL-Json  # subset
+pwsh ./scripts/audit-repos.ps1 -Owner Chris-Wolfgang -Exclude Hawsey,D20-Dice   # everything but these
 ```
 
 Requires `gh` authenticated as the owner (rulesets and `automated-security-fixes` need admin read). Every run re-checks

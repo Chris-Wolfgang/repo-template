@@ -15,7 +15,7 @@
     (title "Baseline: <item name>", labels baseline + security|process). Issues are deduplicated
     by title against open issues, so the script can be re-run safely.
 
-    Scope: non-archived public repositories. Game repositories are skipped unless -IncludeGames.
+    Scope: every non-archived public repository (-Repo / -Exclude narrow it).
     Nothing is changed in any repository except (with -OpenIssues) creating labels and issues.
 .PARAMETER Owner
     GitHub user whose repositories are audited.
@@ -26,8 +26,8 @@
 .PARAMETER SkipItems
     Item numbers that are audited and reported but never turned into issues (for example, items whose
     policy is still under discussion).
-.PARAMETER IncludeGames
-    Also audit the game repositories.
+.PARAMETER Exclude
+    Repository names to leave out.
 .PARAMETER OutputDir
     Where audit-results.json and audit-summary.md are written. Default: current directory.
 .PARAMETER WorkDir
@@ -48,15 +48,13 @@ param
     [string[]]$Repo,
     [switch]$OpenIssues,
     [int[]]$SkipItems,
-    [switch]$IncludeGames,
+    [string[]]$Exclude,
     [string]$OutputDir = '.',
     [string]$WorkDir
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-
-$gameRepos = @('Conflict.Classic', 'Conflict.Modern', 'D20-Dice', 'Hawsey')
 
 # ---------------------------------------------------------------------------
 # Baseline item catalogue (numbers match docs/repository-baseline.md)
@@ -582,7 +580,7 @@ _Opened by the E86 repository hardening audit._
 # ---------------------------------------------------------------------------
 $repos = @(((& gh repo list $Owner --limit 200 --json name,isArchived,visibility) -join "`n") | ConvertFrom-Json)
 $repos = @($repos | Where-Object { -not $_.isArchived -and $_.visibility -eq 'PUBLIC' })
-if (-not $IncludeGames) { $repos = @($repos | Where-Object { $_.name -notin $gameRepos }) }
+if ($Exclude) { $Exclude = @($Exclude | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ }); $repos = @($repos | Where-Object { $_.name -notin $Exclude }) }
 if ($Repo) { $Repo = @($Repo | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ }); $repos = @($repos | Where-Object { $_.name -in $Repo }) }
 $repos = @($repos | Sort-Object name)
 if ($repos.Count -eq 0) { throw 'no repositories selected' }
