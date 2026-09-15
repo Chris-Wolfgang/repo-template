@@ -18,21 +18,30 @@ You can contribute in several ways:
 ## Getting Started
 
 1. **Fork the repository** and clone it locally.
-2. **Create a new branch** for your feature or bug fix:
+2. **Enable the pre-commit secret scan** (once per clone). The repository ships a
+   [gitleaks](https://github.com/gitleaks/gitleaks) hook in `.githooks/pre-commit` that blocks
+   commits containing credentials; CI runs the same scan, so enabling it locally only saves you a
+   failed PR check:
+   ```sh
+   git config core.hooksPath .githooks
+   ```
+   Install the `gitleaks` CLI (`winget install gitleaks` / `brew install gitleaks`). Without it the
+   hook prints a warning and lets the commit through. `git commit --no-verify` skips it for one commit.
+4. **Create a new branch** for your feature or bug fix:
    ```sh
    git checkout -b your-feature-name
    ```
-3. **Make your changes** and commit them with clear messages:
+4. **Make your changes** and commit them with clear messages:
    ```sh
    git commit -m "Describe your changes"
    ```
-4. **Push your branch** to your fork:
+5. **Push your branch** to your fork:
    ```sh
    git push origin your-feature-name
    ```
-5. **Open a pull request** describing your changes.
+6. **Open a pull request** describing your changes.
 
-6. **PR Checks:**  
+7. **PR Checks:**  
    Once you create a pull request (PR), several Continuous Integration (CI) steps will run automatically. These may include:
    - Building the project
    - Running automated tests
@@ -53,36 +62,36 @@ This project maintains **extremely high code quality standards** through multipl
 
 All code is analyzed by these tools during build:
 
-1. **Microsoft.CodeAnalysis.NetAnalyzers** (Built-in .NET SDK)
+2. **Microsoft.CodeAnalysis.NetAnalyzers** (Built-in .NET SDK)
    - Correctness, performance, and security rules
    - Latest analysis level enabled
 
-2. **Roslynator.Analyzers**
+3. **Roslynator.Analyzers**
    - 500+ refactoring and code quality rules
    - Advanced C# pattern detection
 
-3. **AsyncFixer**
+4. **AsyncFixer**
    - Detects common async/await anti-patterns (AsyncFixer01–05)
    - Flags missing or incorrect cancellation-token propagation
    - Prevents fire-and-forget async calls (`async void` outside event handlers)
    - NOTE: `ConfigureAwait()` enforcement is handled by Meziantou's
      MA0004 / SonarAnalyzer S3216 / CA2007, not by AsyncFixer.
 
-4. **Microsoft.VisualStudio.Threading.Analyzers**
+5. **Microsoft.VisualStudio.Threading.Analyzers**
    - Thread safety enforcement
    - Async method naming conventions
    - Deadlock prevention
 
-5. **Microsoft.CodeAnalysis.BannedApiAnalyzers**
+6. **Microsoft.CodeAnalysis.BannedApiAnalyzers**
    - Blocks usage of APIs listed in `BannedSymbols.txt`
    - Enforces async-first patterns (see below)
 
-6. **Meziantou.Analyzer**
+7. **Meziantou.Analyzer**
    - Comprehensive code quality checks
    - Performance optimizations
    - Best practice enforcement
 
-7. **SonarAnalyzer.CSharp**
+8. **SonarAnalyzer.CSharp**
    - Industry-standard code analysis
    - Security vulnerability detection
    - Code smell identification
