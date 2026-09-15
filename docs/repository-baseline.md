@@ -70,7 +70,7 @@ Scope rules:
 
 ### 8. gitleaks / DevSkim workflow present
 
-- **Verify:** Some workflow under `.github/workflows/` contains `gitleaks` or `devskim` (case-insensitive). The template's `pr.yaml` carries both.
+- **Verify:** Some workflow under `.github/workflows/` invokes gitleaks or DevSkim on a `uses:` line (for example `gitleaks/gitleaks-action`, `microsoft/DevSkim-Action`) or inside a `run:` block. Comment lines and job/step `name:` lines do not count. The template's `pr.yaml` carries both (`secrets-scan` runs the gitleaks CLI, `security-scan` runs the DevSkim CLI).
 - **Fix:** Copy `.github/workflows/pr.yaml` from the template (jobs `secrets-scan` and `security-scan`).
 - **Label:** `security`
 
@@ -130,9 +130,9 @@ Scope rules:
 - **Fix:** Copy the Scorecard workflow from the template and add the badge to the README badge row.
 - **Label:** `process`
 
-### 18. `IsAotCompatible` and `IsTrimmable` enabled, no trim warnings
+### 18. `IsAotCompatible` and `IsTrimmable` enabled
 
-- **Verify:** Library repositories only (a `src/**/*.csproj` exists). `Directory.Build.props` or every `src/**/*.csproj` sets `<IsAotCompatible>true</IsAotCompatible>` and `<IsTrimmable>true</IsTrimmable>` (a TFM condition is fine). Trim warnings are checked from a Release build log (`dotnet build -c Release` with `TreatWarningsAsErrors`); the audit script does not build and records only the property check.
+- **Verify:** Library repositories only (a `src/**/*.csproj` exists). `Directory.Build.props` or every `src/**/*.csproj` sets `<IsAotCompatible>true</IsAotCompatible>` and `<IsTrimmable>true</IsTrimmable>` (a TFM condition is fine; `IsAotCompatible=true` implies `IsTrimmable` on net8.0+). The audit checks the properties only. Trim and AOT warnings (`IL2xxx` / `IL3xxx`) are surfaced by the Release build once the properties are on, and item 21 turns them into errors, so they are gated by CI rather than by this audit.
 - **Status:** `na` for non-library repositories.
 - **Fix:** Add both properties to `Directory.Build.props` under a `net8.0`-or-later condition and fix any `IL2xxx` / `IL3xxx` warnings.
 - **Label:** `process`

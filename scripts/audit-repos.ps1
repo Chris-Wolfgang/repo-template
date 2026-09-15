@@ -339,9 +339,11 @@ function Invoke-RepoAudit
     $scanners = @()
     foreach ($wf in $workflows)
     {
-        $txt = Get-Content $wf.FullName -Raw
-        if ($txt -match '(?i)gitleaks') { $scanners += "gitleaks ($($wf.Name))" }
-        if ($txt -match '(?i)devskim')  { $scanners += "devskim ($($wf.Name))" }
+        # Only uncommented lines that are not job/step names count, so a comment or a step
+        # called "gitleaks" cannot satisfy the item; a uses: or run: invocation can.
+        $active = @(Get-Content $wf.FullName | Where-Object { $_ -notmatch '^\s*#' -and $_ -notmatch '^\s*-?\s*name:' })
+        if ($active -match '(?i)gitleaks') { $scanners += "gitleaks ($($wf.Name))" }
+        if ($active -match '(?i)devskim')  { $scanners += "devskim ($($wf.Name))" }
     }
     if ($scanners.Count -gt 0) { $out.Add((New-Result $name 8 'pass' ($scanners -join '; '))) }
     else { $out.Add((New-Result $name 8 'fail' 'no workflow references gitleaks or DevSkim')) }
