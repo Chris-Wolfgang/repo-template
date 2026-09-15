@@ -27,7 +27,7 @@ You can contribute in several ways:
    ```
    Install the `gitleaks` CLI (`winget install gitleaks` / `brew install gitleaks`). Without it the
    hook prints a warning and lets the commit through. `git commit --no-verify` skips it for one commit.
-4. **Create a new branch** for your feature or bug fix:
+3. **Create a new branch** for your feature or bug fix:
    ```sh
    git checkout -b your-feature-name
    ```
@@ -62,36 +62,36 @@ This project maintains **extremely high code quality standards** through multipl
 
 All code is analyzed by these tools during build:
 
-2. **Microsoft.CodeAnalysis.NetAnalyzers** (Built-in .NET SDK)
+1. **Microsoft.CodeAnalysis.NetAnalyzers** (Built-in .NET SDK)
    - Correctness, performance, and security rules
    - Latest analysis level enabled
 
-3. **Roslynator.Analyzers**
+2. **Roslynator.Analyzers**
    - 500+ refactoring and code quality rules
    - Advanced C# pattern detection
 
-4. **AsyncFixer**
+3. **AsyncFixer**
    - Detects common async/await anti-patterns (AsyncFixer01–05)
    - Flags missing or incorrect cancellation-token propagation
    - Prevents fire-and-forget async calls (`async void` outside event handlers)
    - NOTE: `ConfigureAwait()` enforcement is handled by Meziantou's
      MA0004 / SonarAnalyzer S3216 / CA2007, not by AsyncFixer.
 
-5. **Microsoft.VisualStudio.Threading.Analyzers**
+4. **Microsoft.VisualStudio.Threading.Analyzers**
    - Thread safety enforcement
    - Async method naming conventions
    - Deadlock prevention
 
-6. **Microsoft.CodeAnalysis.BannedApiAnalyzers**
+5. **Microsoft.CodeAnalysis.BannedApiAnalyzers**
    - Blocks usage of APIs listed in `BannedSymbols.txt`
    - Enforces async-first patterns (see below)
 
-7. **Meziantou.Analyzer**
+6. **Meziantou.Analyzer**
    - Comprehensive code quality checks
    - Performance optimizations
    - Best practice enforcement
 
-8. **SonarAnalyzer.CSharp**
+7. **SonarAnalyzer.CSharp**
    - Industry-standard code analysis
    - Security vulnerability detection
    - Code smell identification
