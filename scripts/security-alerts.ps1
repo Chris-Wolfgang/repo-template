@@ -18,7 +18,12 @@
     security-events: write) and records the outcome on the alert's issue.
 
     A 403 on any alert listing is reported as a notice and that alert kind is skipped for the run —
-    nothing is closed on the strength of a listing that failed.
+    nothing is closed on the strength of a listing that failed, and the weekly summary is never closed
+    (and is marked incomplete) while a kind is unavailable.
+
+    Tokens: GH_TOKEN (GITHUB_TOKEN in Actions) is used for everything except the Dependabot listing,
+    which uses SECURITY_ALERTS_TOKEN when set (fine-grained PAT: Dependabot alerts read + Metadata read).
+    Exit code is 1 if any issue create/close/comment failed, so a broken run is visible.
 .PARAMETER Repository
     owner/name. Defaults to GITHUB_REPOSITORY.
 .PARAMETER WeeklySummary
@@ -56,19 +61,24 @@ $summaryMarker = '<!-- security-alert-summary -->'
 function Invoke-Api
 {
     # Returns @{ ok; data; status } — never throws on HTTP errors so callers can degrade per alert kind.
-    param([string]$Path, [string]$Method = 'GET', [switch]$Paginate)
+    param([string]$Path, [string]$Method = 'GET', [switch]$Paginate, [string]$Token)
 
     $args = @('api', '-X', $Method, '-H', 'Accept: application/vnd.github+json', '-H', 'X-GitHub-Api-Version: 2022-11-28')
     if ($Paginate) { $args += @('--paginate', '--slurp') }
     $args += $Path
-    $raw = & gh @args 2>&1
+    # Keep stdout (JSON) and stderr (gh diagnostics) apart: merging them can poison ConvertFrom-Json
+    # even on a successful call. With 2>&1, stderr lines arrive as ErrorRecord objects.
+    $saved = $env:GH_TOKEN
+    if ($Token) { $env:GH_TOKEN = $Token }
+    try { $raw = & gh @args 2>&1 } finally { if ($Token) { $env:GH_TOKEN = $saved } }
     $ok = $LASTEXITCODE -eq 0
-    $text = ($raw | Out-String)
-    $status = if ($text -match '\(HTTP (\d{3})\)') { [int]$Matches[1] } elseif ($ok) { 200 } else { 0 }
+    $stdout = ($raw | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | Out-String)
+    $stderr = ($raw | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { $_.ToString() } | Out-String)
+    $status = if ($stderr -match '\(HTTP (\d{3})\)') { [int]$Matches[1] } elseif ($ok) { 200 } else { 0 }
     $data = $null
-    if ($ok -and $text.Trim())
+    if ($ok -and $stdout.Trim())
     {
-        $data = $text | ConvertFrom-Json -Depth 20
+        $data = $stdout | ConvertFrom-Json -Depth 20
         if ($Paginate) { $data = @($data | ForEach-Object { @($_) }) }   # --slurp gives one array per page; flatten
     }
     return @{ ok = $ok; status = $status; data = $data }
@@ -87,7 +97,9 @@ function Get-Alerts
         'secret-scanning' { "repos/$Repository/secret-scanning/alerts?state=open&per_page=100" }
         'dependabot'      { "repos/$Repository/dependabot/alerts?state=open&per_page=100" }
     }
-    $r = Invoke-Api $path -Paginate
+    # Dependabot alerts need a PAT on a personal account; everything else stays on GH_TOKEN.
+    $token = if ($Kind -eq 'dependabot' -and $env:SECURITY_ALERTS_TOKEN) { $env:SECURITY_ALERTS_TOKEN } else { $null }
+    $r = Invoke-Api $path -Paginate -Token $token
     if (-not $r.ok)
     {
         $hint = switch ($r.status)
@@ -148,15 +160,17 @@ function Get-Alerts
 
 function Get-TrackedIssues
 {
-    # All issues (open and closed) carrying an alert marker, keyed by marker.
-    $raw = & gh issue list -R $Repository --label $label --state all --limit 1000 --json number,title,body,state 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "gh issue list failed: $raw" }
-    $issues = @(($raw -join "`n") | ConvertFrom-Json)
+    # All issues (open and closed) carrying an alert marker, keyed by marker. Paginated through the
+    # REST issues endpoint (no fixed cap) so the managed set can grow past any single-page limit.
+    $r = Invoke-Api "repos/$Repository/issues?labels=$label&state=all&per_page=100" -Paginate
+    if (-not $r.ok) { throw "listing $label issues failed (HTTP $($r.status))" }
     $map = @{}
-    foreach ($i in $issues)
+    foreach ($i in @($r.data))
     {
-        if ($i.body -match '<!-- security-alert: ([a-z-]+#\d+(?:-bypass)?) -->') { $map[$Matches[1]] = $i }
-        elseif ($i.body -match [regex]::Escape($summaryMarker)) { $map['summary'] = $i }
+        if ($i.PSObject.Properties['pull_request']) { continue }           # the issues endpoint also returns PRs
+        $issue = [pscustomobject]@{ number = $i.number; title = $i.title; body = [string]$i.body; state = $i.state.ToUpper() }
+        if ($issue.body -match '<!-- security-alert: ([a-z-]+#\d+(?:-bypass)?) -->') { $map[$Matches[1]] = $issue }
+        elseif ($issue.body -match [regex]::Escape($summaryMarker)) { $map['summary'] = $issue }
     }
     return $map
 }
@@ -188,7 +202,7 @@ _Opened automatically by the security-alerts workflow. It closes when the alert 
 "@
     if ($DryRun) { Write-Host "DRY-RUN create: $title"; return $null }
     $url = & gh issue create -R $Repository --title $title --body $body --label $label 2>&1
-    if ($LASTEXITCODE -ne 0) { Write-Warning "create failed for ${title}: $url"; return $null }
+    if ($LASTEXITCODE -ne 0) { Write-Warning "create failed for ${title}: $url"; $script:failures++; return $null }
     Write-Host "opened: $url  [$title]"
     return ($url | Select-String -Pattern '/issues/(\d+)' | ForEach-Object { [int]$_.Matches[0].Groups[1].Value })
 }
@@ -200,7 +214,8 @@ function Close-AlertIssue
     param([pscustomobject]$Issue, [string]$Reason)
 
     if ($DryRun) { Write-Host "DRY-RUN close #$($Issue.number): $Reason"; return }
-    & gh issue close $Issue.number -R $Repository --comment "Closing: $Reason" | Out-Null
+    $out = & gh issue close $Issue.number -R $Repository --comment "Closing: $Reason" 2>&1
+    if ($LASTEXITCODE -ne 0) { Write-Warning "close of #$($Issue.number) failed: $out"; $script:failures++; return }
     Write-Host "closed #$($Issue.number): $Reason"
 }
 
@@ -247,14 +262,16 @@ if ($RequestAutofix)
 # ---------------------------------------------------------------------------
 # Triage mode
 # ---------------------------------------------------------------------------
+$script:failures = 0
 Confirm-Label
 $tracked = Get-TrackedIssues
 $openByKind = @{}
 $allOpen = @()
+$unavailable = @()
 foreach ($kind in @('code-scanning', 'secret-scanning', 'dependabot'))
 {
     $alerts = Get-Alerts $kind
-    if ($null -eq $alerts) { continue }          # listing failed → do not touch this kind
+    if ($null -eq $alerts) { $unavailable += $kind; continue }          # listing failed → do not touch this kind
     $openByKind[$kind] = @($alerts)
     $allOpen += @($alerts)
     Write-Host "${kind}: $(@($alerts).Count) open alert(s)"
@@ -297,9 +314,11 @@ if ($WeeklySummary)
     $cutoff = (Get-Date).ToUniversalTime().AddDays(-$StaleDays)
     $stale = @($allOpen | Where-Object { $_.created -lt $cutoff } | Sort-Object created)
     $summaryIssue = if ($tracked.ContainsKey('summary')) { $tracked['summary'] } else { $null }
+    $incomplete = if ($unavailable.Count -gt 0) { "`n> **Incomplete:** the $($unavailable -join ', ') listing was unavailable this run; alerts of that kind are not shown.`n" } else { '' }
     if ($stale.Count -eq 0)
     {
-        if ($summaryIssue -and $summaryIssue.state -eq 'OPEN') { Close-AlertIssue $summaryIssue "no alerts open longer than $StaleDays days" }
+        if ($unavailable.Count -gt 0) { Write-Host "summary left as-is: $($unavailable -join ', ') unavailable, so 'no stale alerts' cannot be asserted" }
+        elseif ($summaryIssue -and $summaryIssue.state -eq 'OPEN') { Close-AlertIssue $summaryIssue "no alerts open longer than $StaleDays days" }
         else { Write-Host "no alerts older than $StaleDays days" }
     }
     else
@@ -308,6 +327,7 @@ if ($WeeklySummary)
         $text = @"
 $summaryMarker
 **$($stale.Count) alert(s) open longer than $StaleDays days** as of $(Get-Date -Format 'yyyy-MM-dd').
+$incomplete
 
 | Kind | Severity | Rule | Path | Opened | Link |
 |---|---|---|---|---|---|
@@ -318,16 +338,25 @@ _Updated weekly by the security-alerts workflow._
         if ($summaryIssue -and $summaryIssue.state -eq 'OPEN')
         {
             if ($DryRun) { Write-Host "DRY-RUN comment on summary #$($summaryIssue.number)" }
-            else { & gh issue comment $summaryIssue.number -R $Repository --body $text | Out-Null; Write-Host "updated summary #$($summaryIssue.number)" }
+            else
+            {
+                $out = & gh issue comment $summaryIssue.number -R $Repository --body $text 2>&1
+                if ($LASTEXITCODE -ne 0) { Write-Warning "summary comment failed: $out"; $script:failures++ } else { Write-Host "updated summary #$($summaryIssue.number)" }
+            }
         }
         else
         {
             $title = "Security alerts open longer than $StaleDays days"
             if ($DryRun) { Write-Host "DRY-RUN create summary: $title" }
-            else { $u = & gh issue create -R $Repository --title $title --body $text --label $label; Write-Host "opened summary: $u" }
+            else
+            {
+                $u = & gh issue create -R $Repository --title $title --body $text --label $label 2>&1
+                if ($LASTEXITCODE -ne 0) { Write-Warning "summary create failed: $u"; $script:failures++ } else { Write-Host "opened summary: $u" }
+            }
         }
     }
 }
 
 if ($env:GITHUB_OUTPUT) { "new-code-alerts=$($newCodeAlerts -join ',')" | Add-Content $env:GITHUB_OUTPUT }
-Write-Host "done: $($allOpen.Count) open alert(s), $($newCodeAlerts.Count) new code-scanning issue(s)"
+Write-Host "done: $($allOpen.Count) open alert(s), $($newCodeAlerts.Count) new code-scanning issue(s), $($unavailable.Count) kind(s) unavailable, $script:failures failure(s)"
+if ($script:failures -gt 0) { exit 1 }
