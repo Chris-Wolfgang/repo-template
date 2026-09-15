@@ -601,6 +601,19 @@ function Start-Setup {
             else {
                 Write-Warning "file_header_template line not found in .editorconfig; add manually: file_header_template = $header"
             }
+
+            # The README template's license sentence assumes a real license; say what TBD actually means.
+            $tbdSentence = 'This project is **not yet licensed**. All rights reserved pending license selection: no reuse, redistribution, or hosting rights are granted. See the [LICENSE](LICENSE) file.'
+            foreach ($readmeFile in @('README.md', 'README-TEMPLATE.md')) {
+                if (-not (Test-Path $readmeFile)) { continue }
+                $readmeText = Get-Content $readmeFile -Raw
+                $licenseSentence = 'This project is licensed under the **TBD License**. See the [LICENSE](LICENSE) file for details.'
+                if ($readmeText.Contains($licenseSentence)) {
+                    $readmeText = $readmeText.Replace($licenseSentence, $tbdSentence)
+                    Set-Content -Path $readmeFile -Value $readmeText -NoNewline
+                    Write-Success "Replaced the license sentence in $readmeFile with the pending-license wording"
+                }
+            }
         }
     }
     else {

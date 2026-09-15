@@ -216,6 +216,16 @@ $corePlaceholders = @(
 - No placeholders (license text is complete)
 - Copyright notice added separately if needed
 
+**LICENSE-TBD.txt** (option 4, custom/TBD — all rights reserved pending license selection):
+- Line 1: `{{YEAR}}` and `{{COPYRIGHT_HOLDER}}`
+- Manual setup for this option also requires, because the file alone does not do it:
+  1. In `.editorconfig`, replace `file_header_template = unset` with
+     `file_header_template = Copyright (c) <holder>. All rights reserved. SPDX-License-Identifier: LicenseRef-TBD`
+     and add `dotnet_diagnostic.IDE0073.severity = warning` so the header is enforced under warnings-as-errors.
+  2. In `README.md`, replace the "licensed under the **TBD License**" sentence with:
+     `This project is **not yet licensed**. All rights reserved pending license selection: no reuse, redistribution, or hosting rights are granted. See the [LICENSE](LICENSE) file.`
+  3. Set `{{LICENSE_TYPE}}` to `TBD`.
+
 ### 7. docfx_project/docfx.json
 
 | Line(s) | Placeholder | Context |

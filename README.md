@@ -60,7 +60,7 @@ Before using this template, ensure you have the following installed:
 The setup script automatically:
 - ✅ Replaces all placeholders with your project information
 - ✅ Swaps template README with project-specific README
-- ✅ Sets up your chosen license (MIT, Apache 2.0, or MPL 2.0)
+- ✅ Sets up your chosen license (MIT, Apache 2.0, MPL 2.0, or custom/TBD — all rights reserved pending selection)
 - ✅ Validates all changes
 - ✅ Optionally cleans up template files
 
@@ -286,7 +286,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](docs/TEMPLATE-PLACEHO
 | `LICENSE-MIT.txt` | MIT License template |
 | `LICENSE-APACHE-2.0.txt` | Apache License 2.0 template |
 | `LICENSE-MPL-2.0.txt` | Mozilla Public License 2.0 template |
-| `LICENSE-TBD.txt` | All rights reserved pending license selection; also sets a `LicenseRef-TBD` file header in `.editorconfig` |
+| `LICENSE-TBD.txt` | All rights reserved pending license selection (copied to `LICENSE` by option 4; `setup.ps1` separately sets the `LicenseRef-TBD` file header in `.editorconfig` and the README wording) |
 
 ### Configuration Files
 
@@ -470,7 +470,7 @@ The script provides interactive prompts to choose between single-developer or mu
 ✅ **90% Coverage Requirement** - Automated enforcement  
 ✅ **Security Scanning** - DevSkim + CodeQL  
 ✅ **Automated Documentation** - DocFX + GitHub Pages  
-✅ **3 License Options** - MIT, Apache 2.0, MPL 2.0  
+✅ **4 License Options** - MIT, Apache 2.0, MPL 2.0, or custom/TBD (pending selection)  
 ✅ **Setup Automation** - PowerShell + Bash scripts  
 ✅ **Professional Structure** - Industry best practices  
 
@@ -491,7 +491,7 @@ Found a bug or want to improve the template itself? Contributions are welcome!
 
 This template is licensed under the **MIT License**.
 
-Projects created from this template can use any license - the setup script offers MIT, Apache 2.0, or MPL 2.0.
+Projects created from this template can use any license - the setup script offers MIT, Apache 2.0, MPL 2.0, or a custom/TBD placeholder (all rights reserved pending selection) for repositories published before a license is chosen.
 
 ---
 
