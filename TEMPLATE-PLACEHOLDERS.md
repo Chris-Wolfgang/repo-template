@@ -30,7 +30,7 @@ These placeholders are **required** and must be replaced in every project:
 | `{{GITHUB_USERNAME}}` | GitHub username with @ | `@Chris-Wolfgang` | Yes (from GitHub repo URL, or prompted if missing) |
 | `{{GITHUB_OWNER}}` | GitHub owner slug (no @, URL-safe) | `Chris-Wolfgang` | Yes (derived from `GITHUB_USERNAME`) |
 | `{{DOCS_URL}}` | Documentation URL | `https://chris-wolfgang.github.io/MyProject/` | Yes (generated from repo URL) |
-| `{{LICENSE_TYPE}}` | License identifier | `MIT`, `Apache-2.0`, or `MPL-2.0` | No |
+| `{{LICENSE_TYPE}}` | License identifier | `MIT`, `Apache-2.0`, `MPL-2.0`, or `TBD` | No |
 | `{{YEAR}}` | Copyright year | `2024` | Yes (current year) |
 | `{{COPYRIGHT_HOLDER}}` | Copyright owner name | `Chris Wolfgang` | Yes (from `git config`) |
 | `{{NUGET_STATUS}}` | NuGet availability message | `Coming soon to NuGet.org` or `Available on NuGet.org` | No |

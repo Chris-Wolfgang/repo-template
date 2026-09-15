@@ -226,7 +226,7 @@ The script will:
 | Repository Name | `MyProject` | Yes (from URL) |
 | GitHub Username | `@Chris-Wolfgang` | Yes (from git) |
 | Docs URL | `https://chris-wolfgang.github.io/MyProject/` | Yes (generated) |
-| License Type | `MIT`, `Apache-2.0`, or `MPL-2.0` | No |
+| License Type | `MIT`, `Apache-2.0`, `MPL-2.0`, or `TBD` (all rights reserved pending selection) | No |
 | Copyright Holder | `Chris Wolfgang` | Yes (from git) |
 | NuGet Status | `Coming soon to NuGet.org` | No |
 
@@ -286,6 +286,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](docs/TEMPLATE-PLACEHO
 | `LICENSE-MIT.txt` | MIT License template |
 | `LICENSE-APACHE-2.0.txt` | Apache License 2.0 template |
 | `LICENSE-MPL-2.0.txt` | Mozilla Public License 2.0 template |
+| `LICENSE-TBD.txt` | All rights reserved pending license selection; also sets a `LicenseRef-TBD` file header in `.editorconfig` |
 
 ### Configuration Files
 
