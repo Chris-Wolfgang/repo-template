@@ -496,7 +496,7 @@ function Invoke-RepoAudit
         # and packs; Debug stays warnings-as-warnings for local iteration). Unconditional true fails because
         # it would gate Debug too. Inner MSBuild quotes may be ' or " (captured and back-referenced).
         $twae = [regex]::Matches($dbpTxt, '<TreatWarningsAsErrors([^>]*)>\s*([^<]*)\s*<')
-        $releaseCond = "^\s*Condition\s*=\s*[`"']\s*([`"'])\`$\(Configuration\)\s*==\s*([`"'])Release\s*[`"']\s*$"
+        $releaseCond = "^\s*Condition\s*=\s*[`"']\s*([`"'])\`$\(Configuration\)\1\s*==\s*([`"'])Release\2\s*[`"']\s*$"
         $good = @($twae | Where-Object { $_.Groups[2].Value.Trim() -eq 'true' -and $_.Groups[1].Value.Trim() -match $releaseCond })
         if ($good.Count -gt 0) { $out.Add((New-Result $name 21 'pass' 'TreatWarningsAsErrors=true for Release in Directory.Build.props')) }
         elseif ($twae | Where-Object { $_.Groups[2].Value.Trim() -eq 'true' -and $_.Groups[1].Value -notmatch 'Condition' }) { $out.Add((New-Result $name 21 'fail' 'TreatWarningsAsErrors=true is unconditional; it must be conditioned on Release so Debug builds are not gated')) }
