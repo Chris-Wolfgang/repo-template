@@ -146,7 +146,7 @@ Scope rules:
 ### 20. Security-alert triage workflow present
 
 - **Verify:** `.github/workflows/security-alerts.yml` (or `.yaml`) exists.
-- **Fix:** Copy `.github/workflows/security-alerts.yml` from the template.
+- **Fix:** Copy `.github/workflows/security-alerts.yml` and `scripts/security-alerts.ps1` from the template. Dependabot alerts need a `SECURITY_ALERTS_TOKEN` repository secret (see the workflow header).
 - **Label:** `security`
 
 ### 21. Warnings-as-errors on for all projects and configurations
