@@ -331,10 +331,16 @@ jobs:
             echo "::error::Failed to fetch origin/main — aborting before changelog check."
             exit 1
           fi
-          if git cat-file -e origin/main:scripts/changelog.ps1 2>/dev/null; then
-            git checkout origin/main -- scripts/changelog.ps1
-          else
-            echo "::notice::scripts/changelog.ps1 not present in origin/main — using the PR's copy (first-adoption PR)."
+          # Fail closed: never run the PR's own copy of the validator. (A first-adoption PR
+          # cannot reach this job anyway — pull_request_target runs the base branch's pr.yaml,
+          # so the job only exists once main carries both this workflow and the script.)
+          if ! git cat-file -e origin/main:scripts/changelog.ps1 2>/dev/null; then
+            echo "::error::scripts/changelog.ps1 is not present in origin/main — refusing to run the PR-controlled copy. Merge the script to main first."
+            exit 1
+          fi
+          if ! git checkout origin/main -- scripts/changelog.ps1; then
+            echo "::error::Failed to checkout origin/main:scripts/changelog.ps1 — aborting to prevent silent fall-back to the PR version."
+            exit 1
           fi
 
       - name: Check for a changelog fragment
