@@ -89,6 +89,9 @@ $labels = @(
     # Dependabot — applies `dependencies` automatically per .github/dependabot.yml
     @{ name = "dependencies";             color = "0366d6"; description = "Pull requests that update a dependency file" },
 
+    # Changelog fragments — waives the changelog-check job for PRs with no user-visible effect
+    @{ name = "no-changelog";             color = "e4e669"; description = "PR touches src/ but needs no changelog fragment" },
+
     # Maintenance framework — kind labels (neutral steel: the meta is colorless)
     @{ name = "maintenance";              color = "9aa7b3"; description = "Per-repo parent Maintenance issue (living improvement menu)" },
     @{ name = "maintenance-task";         color = "5a6c7d"; description = "A Maintenance sub-issue — actionable improvement work" },

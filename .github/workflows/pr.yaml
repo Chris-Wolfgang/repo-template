@@ -307,6 +307,46 @@ jobs:
           echo "✅ All src csprojs are referenced by a solution file - solution-level builds will include them."
 
   # ============================================================================
+  # CHANGELOG: every PR that touches src/ must add a fragment under
+  # changelog/unreleased/ (or carry the `no-changelog` label). The script is
+  # taken from main so a PR cannot weaken its own check; the fragments and the
+  # diff come from the PR head. See changelog/unreleased/README.md.
+  # ============================================================================
+  changelog-check:
+    name: "Changelog Fragment Check"
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/head
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Fetch trusted changelog script from main
+        shell: bash
+        run: |
+          if ! git fetch origin main --depth=1; then
+            echo "::error::Failed to fetch origin/main — aborting before changelog check."
+            exit 1
+          fi
+          if git cat-file -e origin/main:scripts/changelog.ps1 2>/dev/null; then
+            git checkout origin/main -- scripts/changelog.ps1
+          else
+            echo "::notice::scripts/changelog.ps1 not present in origin/main — using the PR's copy (first-adoption PR)."
+          fi
+
+      - name: Check for a changelog fragment
+        shell: pwsh
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          git fetch origin $env:BASE_SHA --depth=1
+          pwsh ./scripts/changelog.ps1 check -BaseRef $env:BASE_SHA -Labels $env:PR_LABELS
+
+  # ============================================================================
   # INSPECTCODE: JetBrains ReSharper InspectCode parallel to the test stages.
   # Runs concurrently with Stage 1 / 2 / 3 (no `needs:` on a test job) so it
   # doesn't extend wall-clock — typically 3–5 min vs the slowest stage.
