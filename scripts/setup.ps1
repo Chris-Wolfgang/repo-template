@@ -623,13 +623,11 @@ function Start-Setup {
             }
         }
     }
-    elseif (Test-Path 'LICENSE') {
-        # Re-run on an already-configured repo: the license templates were
-        # deleted by the first run and LICENSE is in place. Keep it.
-        Write-Info "LICENSE already exists and $licenseFile is gone (already configured) - keeping the existing LICENSE"
-    }
     else {
-        Write-TemplateError "License template file not found: $licenseFile"
+        # Unreachable on a configured repo: the README-TEMPLATE.md guard above
+        # already refuses to re-run there. Reaching this means a partially
+        # restored template (README-TEMPLATE.md put back, LICENSE-*.txt not).
+        Write-TemplateError "License template file not found: $licenseFile - restore it from Chris-Wolfgang/repo-template alongside README-TEMPLATE.md"
         exit 1
     }
 
