@@ -147,11 +147,21 @@ if (-not $SkipTests -and $failed.Count -eq 0) {
                     }
                 }
 
-                dotnet test @testArgs
+                # Mirrors pr.yaml's zero-tests-ran guard: `dotnet test` exits 0
+                # when the runner finds NO tests, so check the summary too.
+                $testLog = [System.IO.Path]::GetTempFileName()
+                dotnet test @testArgs 2>&1 | Tee-Object -FilePath $testLog
 
                 if ($LASTEXITCODE -ne 0) {
                     Write-Fail "  Tests failed for $fw"
                     $failed += "Tests ($fw)"
+                    break
+                }
+                $testOutput = Get-Content $testLog -Raw
+                Remove-Item $testLog -Force -ErrorAction SilentlyContinue
+                if ($testOutput -match 'No test is available' -or $testOutput -notmatch '(?i)total:\s*[1-9][0-9]*') {
+                    Write-Fail "  Zero tests ran for $fw — the test adapter found nothing to execute (missing/incompatible xunit.runner.visualstudio for this TFM?)"
+                    $failed += "Tests (${fw}: zero ran)"
                     break
                 }
             }
