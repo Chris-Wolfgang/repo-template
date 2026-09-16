@@ -1,5 +1,7 @@
 # .NET Repository Template
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Chris-Wolfgang/repo-template/badge)](https://scorecard.dev/viewer/?uri=github.com/Chris-Wolfgang/repo-template)
+
 A comprehensive, production-ready .NET repository template with enterprise-grade CI/CD, comprehensive code quality enforcement, automated documentation generation, and multi-license support.
 
 ## 📋 Prerequisites
