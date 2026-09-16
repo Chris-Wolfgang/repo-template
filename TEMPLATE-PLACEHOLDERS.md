@@ -183,7 +183,7 @@ $corePlaceholders = @(
 
 | Line(s) | Placeholder | Context |
 |---------|-------------|---------|
-| 8 | `{{GITHUB_REPO_URL}}` | Private vulnerability report form link |
+| 14 | `{{GITHUB_REPO_URL}}` | Private vulnerability report form link |
 
 ### 3. .github/CODEOWNERS
 
