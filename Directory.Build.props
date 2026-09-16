@@ -32,8 +32,12 @@
          to src/ so test, example and benchmark projects are untouched, and
          only applied when the project has not set the property itself, so a
          project can still opt out (an analyzer or a generator host) with
-         <GenerateDocumentationFile>false</GenerateDocumentationFile>. -->
-    <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' == '' and $([MSBuild]::MakeRelative($(MSBuildThisFileDirectory), $(MSBuildProjectDirectory)).StartsWith('src'))">true</GenerateDocumentationFile>
+         <GenerateDocumentationFile>false</GenerateDocumentationFile>.
+         The directory test is on the normalized relative path with a trailing
+         slash ("src/Lib/"), so a sibling such as "src-old/" or "src2/" does
+         not match. -->
+    <_RelativeProjectDir>$([MSBuild]::EnsureTrailingSlash($([MSBuild]::MakeRelative($(MSBuildThisFileDirectory), $(MSBuildProjectDirectory)))).Replace('\', '/'))</_RelativeProjectDir>
+    <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' == '' and $(_RelativeProjectDir.StartsWith('src/'))">true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
