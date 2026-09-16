@@ -88,6 +88,12 @@ else {
 if (-not $SkipTests -and $failed.Count -eq 0) {
     Write-Step "Step 2: Run Tests (all target frameworks)"
 
+    # Mirrors pr.yaml's Stage 2 TFM parity check (guard 3): warning-only, so
+    # it never contributes to $failed.
+    if (Test-Path './scripts/tfm-parity.ps1') {
+        & pwsh -NoProfile -File './scripts/tfm-parity.ps1'
+    }
+
     $testProjects = @(Get-ChildItem -Path './tests' -Recurse -File -Include '*.csproj', '*.vbproj', '*.fsproj' -ErrorAction SilentlyContinue)
 
     if ($testProjects.Count -eq 0) {
