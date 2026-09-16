@@ -206,9 +206,13 @@ $corePlaceholders = @(
 
 | Line(s) | Placeholder | Context |
 |---------|-------------|---------|
-| 37 | `{{GITHUB_USERNAME}}/{{REPO_NAME}}` | Default repository parameter |
+| 55 | `{{GITHUB_OWNER}}/{{REPO_NAME}}` | Default repository parameter |
 
 **Note:** This file is automatically updated during setup to contain your repository information. After setup, the script will automatically use the correct repository without needing to auto-detect or pass parameters.
+
+`{{GITHUB_OWNER}}` (no `@`) is used because the value is an owner/repo slug for the GitHub API, not an @-mention.
+
+`scripts/Setup-GitHubPages.ps1` and `scripts/Fix-BranchRuleset.ps1` carry the same default but are **not** in the substitution list on purpose: Setup-GitHubPages.ps1 performs its own `{{...}}` replacements in the docfx files and must keep those literals intact, so both scripts auto-detect the repository from `gh repo view` instead.
 
 ### 6. License Files (Selected During Setup)
 
@@ -324,6 +328,7 @@ If you must replace manually:
      - `CONTRIBUTING.md`
      - `SECURITY.md`
      - `.github/CODEOWNERS`
+     - `scripts/Setup-BranchRuleset.ps1`
      - `REPO-INSTRUCTIONS.md`
      - `docfx_project/docfx.json`
      - `docfx_project/index.md`
