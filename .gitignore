@@ -437,3 +437,7 @@ docfx_project/obj/
 # index.md and README.md in api/ are intentionally tracked.
 docfx_project/api/*.yml
 
+
+# scripts/upgrade.ps1 writes <file>.template sidecars for files that need a manual
+# merge; resolve them into the real file and delete them, never commit them.
+*.template

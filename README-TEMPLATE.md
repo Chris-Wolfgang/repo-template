@@ -183,6 +183,17 @@ gh attestation verify {{PACKAGE_NAME}}.X.Y.Z.nupkg \
 
 ---
 
+## 🔄 Keeping Up With the Template
+
+This repository was generated from [{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}](https://github.com/{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}); `.template-version` records the template commit it was set up from. To pull later template fixes (workflows, analyzer rules, tool pins):
+
+```powershell
+pwsh ./scripts/upgrade.ps1          # dry run: safe / review / in-sync / removed per file
+pwsh ./scripts/upgrade.ps1 -Apply   # take the safe files, sidecar the rest, re-stamp
+```
+
+Files never touched here come across as-is; files customised here get a `<file>.template` sidecar to merge by hand. Workflow and `Directory.Build.props` changes need the protected-file bypass on the PR.
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
