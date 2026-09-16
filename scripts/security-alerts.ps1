@@ -88,6 +88,18 @@ function Invoke-Api
 
 
 
+function Get-AlertReadToken
+{
+    # The token used for READING alerts of a kind: SECURITY_ALERTS_TOKEN for secret-scanning and Dependabot
+    # when it is set, otherwise $null (GH_TOKEN). Issue writes never use it.
+    param([string]$Kind)
+
+    if ($Kind -in @('secret-scanning', 'dependabot') -and $env:SECURITY_ALERTS_TOKEN) { return $env:SECURITY_ALERTS_TOKEN }
+    return $null
+}
+
+
+
 function Get-Alerts
 {
     # Normalises the three alert kinds to: kind, number, tool, rule, path, severity, url, created, extra
@@ -100,8 +112,8 @@ function Get-Alerts
         'dependabot'      { "repos/$Repository/dependabot/alerts?state=open&per_page=100" }
     }
     # Secret-scanning (and, on some accounts, Dependabot) alerts are not readable with GITHUB_TOKEN;
-    # those two listings use SECURITY_ALERTS_TOKEN when it is set. Code scanning and all writes stay on GH_TOKEN.
-    $token = if ($Kind -in @('secret-scanning', 'dependabot') -and $env:SECURITY_ALERTS_TOKEN) { $env:SECURITY_ALERTS_TOKEN } else { $null }
+    # every read of those kinds (listing, locations, detail) uses the same token. Writes stay on GH_TOKEN.
+    $token = Get-AlertReadToken $Kind
     $r = Invoke-Api $path -Paginate -Token $token
     if (-not $r.ok)
     {
@@ -131,7 +143,7 @@ function Get-Alerts
             }
             'secret-scanning'
             {
-                $loc = Invoke-Api "repos/$Repository/secret-scanning/alerts/$($a.number)/locations" -Paginate
+                $loc = Invoke-Api "repos/$Repository/secret-scanning/alerts/$($a.number)/locations" -Paginate -Token $token
                 $p = 'unknown location'
                 if ($loc.ok -and @($loc.data).Count -gt 0)
                 {
@@ -306,7 +318,7 @@ foreach ($marker in @($tracked.Keys))
     if (-not $openByKind.ContainsKey($kind)) { continue }
     $number = [int]($rest -replace '-bypass$', '')
     if ($openByKind[$kind] | Where-Object { $_.number -eq $number }) { continue }
-    $detail = Invoke-Api "repos/$Repository/$kind/alerts/$number"
+    $detail = Invoke-Api "repos/$Repository/$kind/alerts/$number" -Token (Get-AlertReadToken $kind)
     $state = if ($detail.ok) { $detail.data.state } else { 'unknown' }
     if ($state -in @('open', 'unknown')) { continue }
     Close-AlertIssue $issue "alert $kind #$number is now '$state'"
