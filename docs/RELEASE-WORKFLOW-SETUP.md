@@ -167,7 +167,7 @@ Before publishing a production GitHub Release (for example `v1.0.0`):
 - [ ] All PRs merged to `main`; `pr.yaml` green on the last one
 - [ ] Every `src/` change since the last release has a changelog fragment (or the `no-changelog` label)
 - [ ] `pwsh ./scripts/changelog.ps1 assemble -Version X.Y.Z` run and merged
-- [ ] `<Version>X.Y.Z</Version>` set in every `src/` csproj and merged
+- [ ] `<Version>X.Y.Z</Version>` set in the `src/` csproj(s) (the tag must match one of them) and merged
 - [ ] Local dry run passes: `pwsh ./scripts/build-pr.ps1`
 - [ ] Security tab shows no open High/Critical alerts
 
@@ -187,7 +187,7 @@ Before publishing a production GitHub Release (for example `v1.0.0`):
                             ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  validate-release (Windows)                                  │
-│  • Tag == <Version> in every src/ csproj                     │
+│  • Tag == a <Version> / <PackageVersion> under src/           │
 │  • Restore & Build (Release)                                 │
 │  • Test every TFM of every test project, with coverage       │
 │  • Coverage gates: 90 % src, 100 % tests                     │

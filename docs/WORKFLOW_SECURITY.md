@@ -44,7 +44,7 @@ A malicious PR could modify these files to disable security checks.
 - `*.DotSettings` - ReSharper / InspectCode inspection severities
 - `.github/workflows/*.yml` and `.github/workflows/*.yaml` - Workflow definitions
 
-The wildcard entries (`*.globalconfig`, `*.ruleset`, `*.DotSettings`) are matched case-insensitively — Windows (and ReSharper on it) resolve `foo.dotsettings` and `foo.DotSettings` to the same file, so both are protected. The fixed names are matched exactly.
+All wildcard entries (`*.globalconfig`, `*.ruleset`, `*.DotSettings`, `.github/workflows/*.yml`, `.github/workflows/*.yaml`) are matched case-insensitively — Windows (and ReSharper on it) resolve `foo.dotsettings` and `foo.DotSettings` to the same file, so both are protected. The fixed names (`.editorconfig`, `Directory.Build.props`, `Directory.Build.targets`, `BannedSymbols.txt`) are matched exactly.
 
 In addition to the overwrite step, the `Detect .NET Projects` job runs a "Detect protected configuration file changes" step that **fails the PR** when any of these files is added, modified, renamed or deleted relative to `main`, with a banner listing the files. That failure is the signal that a maintainer must review the diff by hand and merge with the admin bypass — CI has validated the PR against the *old* configuration, not the PR's. Dependabot is exempted from both the overwrite and the guard (its bumps to `Directory.Build.props` are legitimate, and its identity is GitHub-controlled).
 
