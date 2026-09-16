@@ -22,7 +22,8 @@
           "**/*.{md,yml}"
         ],
         "exclude": [
-          "_site/**"
+          "_site/**",
+          "api/README.md"
         ]
       }
     ],
@@ -56,7 +57,7 @@
       "_disableTocFilter": false,
       "_enableDarkMode": true,
       "colorMode": "dark",
-      "_baseUrl": "{{DOCS_URL}}",
+      "_baseUrl": "{{DOCS_URL}}versions/latest/",
       "pdf": true
     }
   }

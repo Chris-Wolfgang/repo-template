@@ -40,7 +40,7 @@ The workflow authenticates to NuGet.org with a short-lived token minted from the
 
 **Location:** Settings → Rules → Rulesets (or Settings → Branches → main)
 
-> **Note:** Repos created from `repo-template` ship with `scripts/Setup-BranchRuleset.ps1`, which creates the ruleset interactively (option `[1]` for single-developer mode, `[2]` for multi-developer mode) with the required checks below already listed. `scripts/Fix-BranchRuleset.ps1` repairs an existing ruleset when a check name changes. The repository baseline (`docs/repository-baseline.md`, items 9 and 10) is the audited standard.
+> **Note:** Repos created from `repo-template` ship with `scripts/Setup-BranchRuleset.ps1`, which creates the ruleset interactively (option `[1]` for single-developer mode, `[2]` for multi-developer mode) with the required checks below already listed. `scripts/Fix-BranchRuleset.ps1` replaces the ruleset when a check name changes upstream (delete + recreate via Setup-BranchRuleset.ps1; it does not patch in place). The repository baseline (`docs/repository-baseline.md`, items 9 and 10) is the audited standard.
 
 Ensure the following settings are enabled:
 

@@ -4,106 +4,90 @@
 
 This is a **repository template** for creating new .NET repositories. It provides a standardized structure with comprehensive GitHub integration, CI/CD workflows, and development tooling. The template supports multi-TFM .NET projects using C# and follows Microsoft's recommended project organization patterns.
 
-**Repository Type**: Template (not a working project)
+**Repository Type**: Template (not a working project — it contains no csproj)
 **Target Platforms**: .NET Framework 4.6.2–4.8.1, .NET Core 3.1, .NET 5.0–10.0
-**Primary Language**: C#
-**Size**: Small template (~15 configuration files, empty project folders)  
+**Primary Language**: C#; all tooling is PowerShell 7 (`pwsh`) — there are no bash scripts
 
 ## Build and Validation Instructions
 
 ### Prerequisites
-- .NET SDK (8.0+ recommended; CI tests against .NET 5.0–10.0 and .NET Framework 4.6.2–4.8.1)
-- ReportGenerator tool (installed via `dotnet tool install -g dotnet-reportgenerator-globaltool`)
-- DevSkim CLI (installed via `dotnet tool install --global Microsoft.CST.DevSkim.CLI`)
+- .NET SDK — the current release (10.0); CI installs 3.1 through 10.0 for the multi-target matrix
+- PowerShell 7 (`pwsh`) — every script under `scripts/`
+- Optional: gitleaks CLI for the pre-commit hook (`git config core.hooksPath .githooks`)
 
 ### Build Process (For Repositories Created from This Template)
 **IMPORTANT**: This template has no buildable projects. These commands apply to repositories created FROM this template.
 
-1. **Restore Dependencies** (always run first):
+1. **Restore and build** (Release is what CI builds; analyzer warnings are errors there):
    ```powershell
    dotnet restore
-   ```
-
-2. **Build Solution**:
-   ```powershell
    dotnet build --no-restore --configuration Release
    ```
 
-3. **Run Tests with Coverage**:
+2. **Run the PR workflow's Windows stage locally** — build, every target framework of every test project, coverage gates, DevSkim, gitleaks:
    ```powershell
-   # Find and test all test projects
-   Get-ChildItem -Path ./tests -Filter '*Test*.csproj' -Recurse | ForEach-Object {
-     dotnet test $_.FullName --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory "./TestResults"
-   }
+   pwsh ./scripts/build-pr.ps1
    ```
+   `-SkipSecurity` / `-SkipCoverage` / `-SkipTests` narrow it while iterating. The Linux and macOS stages only run in CI.
 
-4. **Generate Coverage Reports**:
-   ```powershell
-   reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:"CoverageReport" -reporttypes:"Html;TextSummary;MarkdownSummaryGithub;CsvSummary"
-   ```
-
-5. **Security Scanning**:
-   ```powershell
-   devskim analyze --source-code . -f text --output-file devskim-results.txt -E
-   ```
+3. **Format**: `pwsh ./scripts/format.ps1` (`-Check` to verify only). The PR workflow does not run a format check; formatting is developer-side.
 
 ### Critical Build Requirements
-- **Code Coverage**: Minimum 90% line coverage required for all projects
-- **Security Scanning**: DevSkim must pass with no errors
-- **Build Configuration**: Always use Release configuration for CI
-- **Test Pattern**: Test projects must match `*Test*.csproj` pattern in `/tests` folder
+- **Test projects**: every project under `tests/` is a test project (no name pattern). Every entry in its `<TargetFrameworks>` is tested, and a framework on which zero tests ran fails the stage.
+- **Code coverage**: **90 %** line coverage for assemblies under `src/`, **100 %** for assemblies under `tests/` (test code that never runs is dead code). Gated per assembly.
+- **Changelog fragment**: a PR that changes anything under `src/` must add `changelog/unreleased/<name>.md` (`type: breaking|feature|fix|docs|internal` + one user-facing sentence) or carry the `no-changelog` label. `CHANGELOG.md` is never edited by hand. See `changelog/unreleased/README.md`.
+- **Protected configuration files**: `.editorconfig`, `Directory.Build.props`, `Directory.Build.targets`, `BannedSymbols.txt`, `*.globalconfig`, `*.ruleset`, `*.DotSettings` and anything under `.github/workflows/` are re-fetched from `main` during CI, and a PR that changes them **fails the `Detect .NET Projects` check by design** so a maintainer reviews the diff and merges with the admin bypass. Keep such changes in their own PR. See `docs/WORKFLOW_SECURITY.md`.
+- **Security scanning**: gitleaks, DevSkim, CodeQL (security-extended), Semgrep, ReSharper InspectCode (error-severity findings fail), actionlint + zizmor on the workflow files (High-severity zizmor findings fail).
+- **Documentation**: `GenerateDocumentationFile` is on for every project under `src/`; a public member without an XML doc comment is CS1591 → Release error.
 
 ### Common Issues and Workarounds
-- **Timeout Issues**: Coverage and security scans can take 5-10 minutes for larger projects
-- **Coverage Threshold Failures**: If below 90%, the build will fail - this is by design
-- **Missing Test Projects**: The workflow expects at least one test project in `/tests` folder
-- **DevSkim False Positives**: Review `devskim-results.txt` for any security findings
+- **Coverage threshold failures**: the build fails below the gate by design; the gate reads ReportGenerator's `Summary.txt` per assembly.
+- **`Detect .NET Projects` red with "PROTECTED CONFIGURATION FILES CHANGED"**: expected for any workflow/config change — it is the review signal, not a bug to fix.
+- **`Changelog Fragment Check` red**: add the fragment or the `no-changelog` label, then re-run the job.
+- **Missing test projects**: CI refuses to skip the coverage gate silently when `src/` has projects but `tests/` has none.
 
 ## Project Layout and Architecture
 
 ### Standard Directory Structure
 ```
 root/
-├── MySolution.sln              # Solution file (create in root)
-├── src/                        # Application projects
-│   ├── MyApp/
-│   │   └── MyApp.csproj
-│   └── MyLib/
-│       └── MyLib.csproj
-├── tests/                      # Test projects (required)
-│   ├── MyApp.Tests/
-│   │   └── MyApp.Tests.csproj
-│   └── MyLib.Tests/
-│       └── MyLib.Tests.csproj
+├── MySolution.slnx             # Solution file (setup.ps1 can create it)
+├── src/                        # Library / application projects
+├── tests/                      # Test projects (*.Tests.Unit, *.Tests.Integration)
 ├── benchmarks/                 # Performance benchmarks (optional)
-│   └── MyApp.Benchmarks/
-│       └── MyApp.Benchmarks.csproj
 ├── examples/                   # Example projects (optional)
-├── docs/                       # Documentation
-└── .github/                    # GitHub configuration
+├── changelog/unreleased/       # One changelog fragment per src/-touching PR
+├── docfx_project/              # DocFX source; the built site lives on the gh-pages branch
+├── docs/                       # Repository guides (workflow security, release setup, stacked PRs, baseline)
+├── scripts/                    # PowerShell tooling (setup, build-pr, changelog, format, rulesets, Pages, restack, audit)
+├── .githooks/pre-commit        # gitleaks secret scan
+└── .github/                    # Workflows, issue/PR templates, CODEOWNERS, dependabot, license-audit, pip requirements
 ```
 
 ### Key Configuration Files
-- **`.editorconfig`**: Code style rules (C# file-scoped namespaces, var preferences, analyzer severity)
-- **`.gitignore`**: Comprehensive .NET gitignore (Visual Studio, build artifacts, packages)
-- **`REPO-INSTRUCTIONS.md`**: Template setup instructions (delete after setup)
-- **`CONTRIBUTING.md`**: Contribution guidelines
-- **`CODE_OF_CONDUCT.md`**: Standard Contributor Covenant v2.0
+- **`.editorconfig`**: Code style rules and analyzer severities, layered per directory (`src/` strictest; `tests/`, `benchmarks/`, `examples/` relaxed). File-scoped namespaces, `var` where the type is apparent, Allman braces.
+- **`Directory.Build.props`**: Shared MSBuild properties, the seven always-on analyzer packages plus the opt-in PublicApiAnalyzers, `TreatWarningsAsErrors` for Release, `GenerateDocumentationFile` for `src/`, SourceLink.
+- **`BannedSymbols.txt`**: Async-first enforcement (blocking waits, sync I/O, `Parallel.*`, obsolete APIs).
+- **`coverlet.runsettings`**: coverage collection, test assemblies instrumented too.
+- **`.gitleaks.toml`**: gitleaks allowlist (extends the default rules).
+- **`REPO-INSTRUCTIONS.md`** / **`TEMPLATE-PLACEHOLDERS.md`**: template setup instructions and placeholder reference.
+- **`CONTRIBUTING.md`**, **`SECURITY.md`**, **`CODE_OF_CONDUCT.md`**: contribution guidelines, reporting channel + response timelines, Contributor Covenant.
 
 ### GitHub Integration
-- **Workflows**: `.github/workflows/pr.yaml` - Comprehensive CI/CD pipeline
-- **Issue Templates**: Bug reports (YAML) and feature requests (Markdown)
-- **PR Template**: Structured pull request template with checklists
-- **CODEOWNERS**: Default owner `@Chris-Wolfgang`, update usernames as needed
-- **Dependabot**: Configured for NuGet packages in all project directories
+- **Workflows** (`.github/workflows/`): `pr.yaml` (the gated PR pipeline), `release.yaml` (release → NuGet trusted publishing + attestation + docs), `docfx.yaml` (versioned docs deploy, called by release), `codeql.yaml`, `actions-audit.yaml` (actionlint + zizmor), `scorecard.yaml`, `semgrep.yaml`, `license-audit.yaml`, `sbom.yaml`, `sourcelink.yaml`, `security-alerts.yml` (nightly alert → issue triage), `stryker.yaml`, `benchmarks.yaml`, `build-all-versions.yaml`.
+- **Issue templates** (all YAML forms): bug report, feature request, maintenance task.
+- **PR template**: structured checklist.
+- **CODEOWNERS**: default owner `@Chris-Wolfgang`, update as needed.
+- **Dependabot**: NuGet, GitHub Actions and the hash-pinned pip tooling under `.github/requirements/`, weekly, grouped, labelled `dependencies`.
 
 ### Continuous Integration Pipeline (`.github/workflows/pr.yaml`)
-The workflow runs on pull requests to `main` branch and includes:
+Runs on `pull_request_target` (the workflow file and protected config come from `main`; the PR head is checked out for the code):
 
-1. **Environment**: Ubuntu Latest with .NET 5.0–10.0 (Windows adds .NET Framework 4.6.2–4.8.1)
-2. **Build Steps**: Checkout → Setup .NET → Restore → Build → Test → Coverage → Security
-3. **Artifacts**: Coverage reports and DevSkim results uploaded
-4. **Branch Protection**: Configured to require this workflow to pass before merging
+1. **Secrets Scan (gitleaks)** and **Detect .NET Projects** (project discovery + the protected-file guard) run first.
+2. **Changelog Fragment Check** and **ReSharper InspectCode** run in parallel with the test stages.
+3. **Stage 1 Linux** (.NET 5.0–10.0 + coverage gate) → **Stage 2 Windows** (.NET Core 3.1, .NET 5.0–10.0, .NET Framework 4.6.2–4.8.1; integration tests; the full-TFM backstop) → **Stage 3 macOS** (.NET 6.0–10.0). Each stage discovers the projects' target frameworks at run time.
+4. **Security Scan (DevSkim)**; CodeQL, actionlint/zizmor, license audit and SBOM run from their own workflows.
+5. **Required checks** (ruleset): Detect .NET Projects, the three stages, DevSkim, CodeQL, gitleaks, Changelog Fragment Check. InspectCode, actionlint/zizmor, license audit and SBOM are advisory.
 
 ### Branch Protection Configuration
 Branch protection rules are configured by running the local PowerShell script `scripts/Setup-BranchRuleset.ps1`. The script prompts you to choose repository settings during setup.
@@ -117,11 +101,12 @@ Branch protection rules are configured by running the local PowerShell script `s
 - Requires code owner review
 
 **All Configurations Include:**
-- Require status checks to pass before merging
+- Require the status checks listed above to pass before merging
 - Require branches to be up to date
 - Require conversation resolution before merging
 - Restrict deletions and block force pushes
-- Require code scanning (CodeQL High+ severity)
+- Require code scanning (CodeQL, errors / High+ security), Copilot code review, code quality
+- Optional `-RequireLinearHistory` (squash/rebase only; stacked PRs use `scripts/restack.ps1`, see `docs/STACKED-PRS.md`)
 
 **Branch Protection Setup Instructions:**
 1. Install GitHub CLI (gh) from https://cli.github.com/
@@ -135,25 +120,26 @@ Branch protection rules are configured by running the local PowerShell script `s
 ## Key Files and Locations
 
 ### Root Directory Files
-- `README.md` - Basic template description (update for your project)
-- `LICENSE` - MIT License
+- `README.md` - Template description (replaced by `README-TEMPLATE.md` during setup)
+- `LICENSE` - Chosen at setup (MIT, Apache-2.0, MPL-2.0, or custom/TBD)
 - `REPO-INSTRUCTIONS.md` - Template setup instructions (delete after setup)
-- `.editorconfig` - Code style configuration
-- `.gitignore` - .NET-specific gitignore
+- `.editorconfig`, `Directory.Build.props`, `BannedSymbols.txt`, `coverlet.runsettings` - see above
+- `.gitignore` - .NET-specific gitignore; `.gitattributes` - LF for every text file
 
 ### GitHub Directory (`.github/`)
-- `workflows/pr.yaml` - Main CI/CD pipeline
-- `ISSUE_TEMPLATE/` - Bug report (YAML) and feature request templates
+- `workflows/` - the 14 workflows listed above
+- `ISSUE_TEMPLATE/` - bug report, feature request, maintenance task (YAML forms)
 - `pull_request_template.md` - PR template with checklists
 - `CODEOWNERS` - Code ownership rules
 - `dependabot.yml` - Dependency update configuration
+- `license-audit/` - allowed licenses, URL mappings, ignored packages
+- `requirements/` - hash-pinned zizmor / semgrep
 
 ### Project Directories (Currently Empty in Template)
-- `src/` - Application source code
+- `src/` - Library / application source code
 - `tests/` - Unit and integration tests
 - `benchmarks/` - Performance benchmarks
 - `examples/` - Example usage projects
-- `docs/` - Documentation (contains placeholder `index.html`)
 
 ## Maintenance Framework
 
@@ -192,30 +178,31 @@ This produces a paper trail that ties findings → tracked work → PRs, and rol
 ### Provisioning Maintenance on a new repo
 
 When a new repo is created from this template:
-1. Run `scripts/Setup-Labels.ps1` to provision the 9 Maintenance labels.
+1. Run `scripts/Setup-Labels.ps1` to provision the labels (issue-form labels, `dependencies`, `no-changelog`, and the nine Maintenance labels).
 2. Run `scripts/Setup-Maintenance.ps1 -MaintenanceProjectUrl '<url>'` to create the parent Maintenance issue. (Pass the cross-repo project URL — ask the user if you don't have it.)
 3. The auto-add workflow in the Maintenance project will pick up new `maintenance-task` sub-issues automatically.
 
 ## Agent Guidelines
 
 ### Trust These Instructions
-This information has been validated against the template structure and GitHub workflows. **Only search for additional information if these instructions are incomplete or found to be incorrect.**
+This information has been validated against the template structure and GitHub workflows (last checked 2026-09-16). **Only search for additional information if these instructions are incomplete or found to be incorrect.**
 
 ### When Working with This Template
 1. **Creating New Projects**: Follow the structure outlined in `REPO-INSTRUCTIONS.md`
 2. **Adding Dependencies**: Use `dotnet add package` commands
-3. **Code Style**: Follow `.editorconfig` rules (file-scoped namespaces, explicit typing)
-4. **Testing**: Ensure test projects follow `*Test*.csproj` naming convention
-5. **Coverage**: Aim for >90% code coverage to pass CI
-6. **Security**: Review DevSkim findings and address security concerns
-7. **Maintenance framework**: When you find improvement work that fits a category, open a `maintenance-task` sub-issue rather than fixing silently (see "Maintenance Framework" section above)
+3. **Code Style**: Follow `.editorconfig` rules (file-scoped namespaces, `var` where the type is apparent, Allman braces)
+4. **Testing**: put test projects under `tests/`; keep the `.Tests.Unit` / `.Tests.Integration` suffixes
+5. **Coverage**: 90 % on `src/`, 100 % on `tests/`, per assembly
+6. **Changelog**: add a `changelog/unreleased/` fragment to any PR that touches `src/`
+7. **Protected files**: never bundle a workflow/config change with unrelated code; it will hold the whole PR for review
+8. **Security**: Review DevSkim / CodeQL / InspectCode findings and address security concerns
+9. **Maintenance framework**: When you find improvement work that fits a category, open a `maintenance-task` sub-issue rather than fixing silently (see "Maintenance Framework" section above)
 
 ### Validation Steps
 Before submitting changes:
-1. Run `dotnet restore && dotnet build --configuration Release`
-2. Run tests with coverage collection
-3. Verify coverage meets 90% threshold
-4. Run DevSkim security scan
-5. Ensure all GitHub Actions checks pass
+1. `pwsh ./scripts/build-pr.ps1` (or `dotnet restore && dotnet build --configuration Release` + `dotnet test --configuration Release` at minimum)
+2. Verify coverage meets the gates
+3. Add the changelog fragment if `src/` changed
+4. Ensure all GitHub Actions checks pass — a red `Detect .NET Projects` on a protected-file change is expected and needs a maintainer
 
 This template provides a solid foundation for .NET projects with enterprise-grade CI/CD, security scanning, and development best practices built-in.
