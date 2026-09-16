@@ -162,6 +162,13 @@ Scope rules:
 - **Fix:** Add a "Building and testing" section; the template's `README-TEMPLATE.md` has one.
 - **Label:** `process`
 
+### 23. GitHub Pages deploy mode matches the docs workflow
+
+- **Verify:** For a repository whose `docfx.yaml` pushes the built site to the `gh-pages` branch (the canonical pattern), `gh api repos/{owner}/{repo}/pages` reports `build_type: legacy` and `source.branch: gh-pages`. A repository whose docs workflow uses `actions/deploy-pages` must report `build_type: workflow` instead. Repositories with no docs workflow, or with a docs workflow but no Pages site yet, are `na`.
+- **Why:** Pages only auto-publishes a `gh-pages` push in `legacy` mode. Three repositories sat on `build_type: workflow` with a push-to-branch workflow and served stale docs for weeks while every deploy went green (repo-template#344). The mismatch is invisible from the workflow run; this item makes it visible.
+- **Fix:** `gh api -X PUT repos/{owner}/{repo}/pages -f build_type=legacy -f source[branch]=gh-pages -f source[path]=/` (or the Pages settings page: *Build and deployment → Source → Deploy from a branch*). Do not switch the workflow to `actions/deploy-pages` to match the setting — versioned docs need the branch.
+- **Label:** `process`
+
 ## Account-level settings
 
 These are not per-repository and are not checked by the script. Verify on the account settings pages and record the state; the audit report lists them under "manual checks".

@@ -5,7 +5,7 @@
 .SYNOPSIS
     Audits every repository owned by a GitHub user against docs/repository-baseline.md.
 .DESCRIPTION
-    For each in-scope repository the script checks all 22 baseline items via the GitHub API
+    For each in-scope repository the script checks all 23 baseline items via the GitHub API
     (settings, rulesets, workflow runs) and a shallow clone (file checks), then writes:
 
       audit-results.json  - one record per (repo, item): repo, item, name, status, evidence
@@ -82,6 +82,7 @@ $items = @(
     @{ N = 20; Name = 'Security-alert triage workflow present';                   Label = 'security' }
     @{ N = 21; Name = 'Warnings-as-errors on for Release builds';                 Label = 'process'  }
     @{ N = 22; Name = 'README present with build and test instructions';          Label = 'process'  }
+    @{ N = 23; Name = 'GitHub Pages deploy mode matches the docs workflow';        Label = 'process'  }
 )
 $itemByNumber = @{}
 foreach ($i in $items) { $itemByNumber[$i.N] = $i }
@@ -538,6 +539,34 @@ function Invoke-RepoAudit
     {
         if ($readmeTxt -match '(?im)^#+\s*(build|usage|getting started)') { $out.Add((New-Result $name 22 'pass' 'README has a Build/Usage/Getting Started section')) }
         else { $out.Add((New-Result $name 22 'fail' 'README has no Build, Usage, or Getting Started section')) }
+    }
+
+    # 23 -- GitHub Pages deploy mode vs the docs workflow
+    $docsWf = @($workflows | Where-Object { $_.Name -match '^docfx.*\.ya?ml$' })
+    if ($docsWf.Count -eq 0)
+    {
+        $out.Add((New-Result $name 23 'na' 'no docfx workflow'))
+    }
+    else
+    {
+        $docsTxt = Get-Content $docsWf[0].FullName -Raw
+        $usesDeployPages = $docsTxt -match 'actions/deploy-pages'
+        $expected = if ($usesDeployPages) { 'workflow' } else { 'legacy' }
+        $pages = Invoke-GhApi "repos/$full/pages" -AllowNotFound
+        if ($null -eq $pages)
+        {
+            $out.Add((New-Result $name 23 'na' "$($docsWf[0].Name) present but no Pages site configured yet"))
+        }
+        else
+        {
+            $bt = if ($pages.PSObject.Properties['build_type']) { $pages.build_type } else { 'unknown' }
+            $branch = if ($pages.PSObject.Properties['source'] -and $pages.source) { $pages.source.branch } else { $null }
+            $problems = @()
+            if ($bt -ne $expected) { $problems += "build_type=$bt but $($docsWf[0].Name) $(if ($usesDeployPages) { 'uses actions/deploy-pages' } else { 'pushes to gh-pages' }) (expected $expected)" }
+            if (-not $usesDeployPages -and $branch -ne 'gh-pages') { $problems += "source.branch=$branch (expected gh-pages)" }
+            if ($problems.Count -eq 0) { $out.Add((New-Result $name 23 'pass' "build_type=$bt, source.branch=$branch, matches $($docsWf[0].Name)")) }
+            else { $out.Add((New-Result $name 23 'fail' ($problems -join '; '))) }
+        }
     }
 
     return $out
