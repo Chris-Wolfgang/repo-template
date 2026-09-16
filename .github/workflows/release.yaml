@@ -724,7 +724,8 @@ jobs:
       # produced it, using the job's OIDC identity - no signing key to manage,
       # the same keyless model as the NuGet trusted-publishing login below.
       # Attest BEFORE pushing so the provenance covers the exact bytes published;
-      # consumers verify with `gh attestation verify <pkg>.nupkg --owner <owner>`.
+      # consumers verify with `gh attestation verify <pkg>.nupkg --repo <owner>/<repo>
+      # --signer-workflow <owner>/<repo>/.github/workflows/release.yaml`.
       # Package *signing* (an author signature `nuget verify` checks) is separate
       # and needs a code-signing certificate.
       - name: Attest build provenance for packages

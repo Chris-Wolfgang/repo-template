@@ -172,10 +172,12 @@ docfx build --serve
 Every package published from this repository carries a [SLSA build-provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds): a signed statement, recorded on GitHub, that the exact `.nupkg` bytes were produced by this repository's release workflow at a given commit. Verify a downloaded package with the GitHub CLI:
 
 ```bash
-gh attestation verify {{PACKAGE_NAME}}.X.Y.Z.nupkg --owner {{GITHUB_OWNER}}
+gh attestation verify {{PACKAGE_NAME}}.X.Y.Z.nupkg \
+  --repo {{GITHUB_OWNER}}/{{REPO_NAME}} \
+  --signer-workflow {{GITHUB_OWNER}}/{{REPO_NAME}}/.github/workflows/release.yaml
 ```
 
-The command fails if the package was not built by `release.yaml` in `{{GITHUB_OWNER}}/{{REPO_NAME}}` or was modified after the build. A CycloneDX SBOM (`*.bom.json`) listing the package's full dependency closure is attached to each GitHub Release alongside the package.
+`--repo` restricts the lookup to this repository's attestations and `--signer-workflow` requires that the signing workflow was this repository's `release.yaml`; with both, the command fails if the package was built anywhere else or was modified after the build. A CycloneDX SBOM (`*.bom.json`) listing the package's full dependency closure is attached to each GitHub Release alongside the package.
 
 ---
 

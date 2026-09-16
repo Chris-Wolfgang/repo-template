@@ -92,7 +92,7 @@ Ensure the following settings are enabled:
    - Builds the DocFX site without deploying, so a docs error blocks the package instead of landing after it
 
 4. **publish-nuget** (1-2 minutes, Windows) — only when packages were produced
-   - `actions/attest-build-provenance` signs a SLSA provenance attestation for each `.nupkg` (recorded under the repo's Attestations; verify with `gh attestation verify <pkg>.nupkg --owner <owner>`)
+   - `actions/attest-build-provenance` signs a SLSA provenance attestation for each `.nupkg` (recorded under the repo's Attestations; verify with `gh attestation verify <pkg>.nupkg --repo <owner>/<repo> --signer-workflow <owner>/<repo>/.github/workflows/release.yaml`)
    - `NuGet/login` mints a short-lived key via OIDC trusted publishing
    - `dotnet nuget push --skip-duplicate` for every `.nupkg`
 
