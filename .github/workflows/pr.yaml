@@ -32,7 +32,8 @@ env:
   CODECOV_TEST_MINIMUM: 100
   
 on:
-  pull_request_target:  # Runs from the main branch, not from PR branch
+  # zizmor: ignore[dangerous-triggers]
+  pull_request_target:  # Runs from the main branch, not from PR branch; see SECURITY NOTE above
     branches:
       - main
 
