@@ -233,6 +233,8 @@ View the complete configuration in [.editorconfig](.editorconfig).
 
 ## Pull Requests
 
+If this repository requires linear history, stacked pull requests are restacked with `scripts/restack.ps1` after each merge — see [docs/STACKED-PRS.md](docs/STACKED-PRS.md).
+
 - Ensure your pull request passes all tests and analyzer checks.
 - Respond to review feedback in a timely manner.
 - Reference related issues in your pull request description.

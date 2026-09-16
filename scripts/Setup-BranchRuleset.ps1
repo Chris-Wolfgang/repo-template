@@ -25,6 +25,11 @@
 .PARAMETER BranchName
     The branch to protect. Default is "main".
 
+.PARAMETER RequireLinearHistory
+    Also add the "required_linear_history" rule and restrict merges to squash and rebase (no merge
+    commits). Satisfies baseline item 9. Stacked PRs then need scripts/restack.ps1 after each merge —
+    see docs/STACKED-PRS.md. Off by default so existing repositories keep merge commits.
+
 .EXAMPLE
     .\Setup-BranchRuleset.ps1
     Creates the ruleset for the current repository with interactive prompts
@@ -50,7 +55,10 @@ param(
     [string]$Repository = "{{GITHUB_USERNAME}}/{{REPO_NAME}}",
     
     [Parameter()]
-    [string]$BranchName = "main"
+    [string]$BranchName = "main",
+
+    [Parameter()]
+    [switch]$RequireLinearHistory
 )
 
 # Check if gh CLI is installed
@@ -193,6 +201,9 @@ $rulesetConfig = @{
                 require_code_owner_review = $requireCodeOwnerReview
                 require_last_push_approval = $false
                 required_review_thread_resolution = $true
+                # With linear history only squash/rebase can satisfy the rule; hide "merge commit" so the
+                # button cannot pick a method the ruleset would reject.
+                allowed_merge_methods = $(if ($RequireLinearHistory) { @("squash", "rebase") } else { @("merge", "squash", "rebase") })
             }
         },
         @{
@@ -210,7 +221,8 @@ $rulesetConfig = @{
                     @{ context = "Stage 3: macOS Tests (.NET 6.0-10.0)" },
                     @{ context = "Security Scan (DevSkim)" },
                     @{ context = "Security Scan (CodeQL) (csharp)" },
-                    @{ context = "Secrets Scan (gitleaks)" }
+                    @{ context = "Secrets Scan (gitleaks)" },
+                    @{ context = "Changelog Fragment Check" }
                 )
             }
         },
@@ -220,6 +232,9 @@ $rulesetConfig = @{
         @{
             type = "deletion"
         },
+        # Baseline item 9: no merge commits on the protected branch (squash/rebase only).
+        # Added only with -RequireLinearHistory; see docs/STACKED-PRS.md for the stacked-PR workflow.
+        $(if ($RequireLinearHistory) { @{ type = "required_linear_history" } }),
         # The CodeQL alerts-dashboard gate. Only blocks merges when the alerts
         # threshold is exceeded; the underlying CodeQL workflow already runs as
         # a required status check above, so this is the second-tier "results"
@@ -259,7 +274,8 @@ $rulesetConfig = @{
     )
 }
 
-# Convert to JSON
+# Convert to JSON (drop any empty placeholder left by an unset optional rule)
+$rulesetConfig.rules = @($rulesetConfig.rules | Where-Object { $_ -is [hashtable] })
 $jsonConfig = $rulesetConfig | ConvertTo-Json -Depth 10
 
 # Save to temporary file

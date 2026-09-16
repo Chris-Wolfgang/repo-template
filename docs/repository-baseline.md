@@ -78,7 +78,7 @@ Scope rules:
 - **Verify:** `gh api repos/{owner}/{repo}/rulesets` lists a ruleset whose conditions include the default branch (`~DEFAULT_BRANCH` or the branch name) and whose rules include:
   `pull_request`, `required_status_checks`, `required_linear_history`, `non_fast_forward` (no force-push), `deletion` (no deletion).
   Zero required approvals is acceptable for a solo developer.
-- **Fix:** Run `scripts/Setup-BranchRuleset.ps1` from the template, then add the *Require linear history* rule on the ruleset page. The setup script does not yet emit `required_linear_history`; that addition is tracked with the two-ruleset model (E86.7).
+- **Fix:** Run `scripts/Setup-BranchRuleset.ps1 -RequireLinearHistory` from the template (adds the rule and limits merges to squash/rebase), or add the *Require linear history* rule on the ruleset page of an existing repository. Stacked PRs then use `scripts/restack.ps1` after each merge; see `docs/STACKED-PRS.md`.
 - **Label:** `security`
 
 ### 10. Ruleset active with no person in the bypass list
