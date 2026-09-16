@@ -25,6 +25,15 @@
     
     <!-- Treat warnings as errors in Release builds -->
     <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>
+
+    <!-- XML documentation for every library under src/ (fleet initiative D3).
+         With TreatWarningsAsErrors above, a public member without a doc
+         comment (CS1591) fails the Release build - that is the point. Scoped
+         to src/ so test, example and benchmark projects are untouched, and
+         only applied when the project has not set the property itself, so a
+         project can still opt out (an analyzer or a generator host) with
+         <GenerateDocumentationFile>false</GenerateDocumentationFile>. -->
+    <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' == '' and $([MSBuild]::MakeRelative($(MSBuildThisFileDirectory), $(MSBuildProjectDirectory)).StartsWith('src'))">true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
