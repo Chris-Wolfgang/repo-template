@@ -44,7 +44,7 @@ A malicious PR could modify these files to disable security checks.
 - `*.DotSettings` - ReSharper / InspectCode inspection severities
 - `.github/workflows/*.yml` and `.github/workflows/*.yaml` - Workflow definitions
 
-File names are matched case-insensitively: Windows (and ReSharper on it) resolve `foo.dotsettings` and `foo.DotSettings` to the same file, so both are protected.
+The wildcard entries (`*.globalconfig`, `*.ruleset`, `*.DotSettings`) are matched case-insensitively — Windows (and ReSharper on it) resolve `foo.dotsettings` and `foo.DotSettings` to the same file, so both are protected. The fixed names are matched exactly.
 
 In addition to the overwrite step, the `Detect .NET Projects` job runs a "Detect protected configuration file changes" step that **fails the PR** when any of these files is added, modified, renamed or deleted relative to `main`, with a banner listing the files. That failure is the signal that a maintainer must review the diff by hand and merge with the admin bypass — CI has validated the PR against the *old* configuration, not the PR's. Dependabot is exempted from both the overwrite and the guard (its bumps to `Directory.Build.props` are legitimate, and its identity is GitHub-controlled).
 
@@ -113,7 +113,7 @@ Under `pull_request_target`, `github.repository` is *always* the base repository
 
 ### 6. Pinned Actions and Audited Workflow Files
 
-Every `uses:` in `.github/workflows/` is pinned to a full commit SHA with a `# vMAJOR.MINOR.PATCH` comment (repository baseline item 11); Dependabot's `github-actions` ecosystem moves the pins. `actions-audit.yaml` runs on every PR: `actionlint` (workflow YAML + embedded shell via shellcheck) is a hard gate, and `zizmor` uploads every finding to the Security tab and **fails the job on High-severity findings**. A deliberate pattern zizmor objects to — this file's `pull_request_target` is the standing example — is accepted with an inline `# zizmor: ignore[rule]` comment on the flagged key, never with a config file (`zizmor` only reads `.github/zizmor.yml`; a root `.zizmor.yml` is silently ignored). Because any such change touches a workflow file, it also trips the protected-file guard and is reviewed by a maintainer.
+Every external action referenced by `uses:` in `.github/workflows/` is pinned to a full commit SHA with a `# vMAJOR.MINOR.PATCH` comment (repository baseline item 11; a same-repository reference such as `uses: ./.github/workflows/docfx.yaml` needs no pin — it runs at the calling commit); Dependabot's `github-actions` ecosystem moves the pins. `actions-audit.yaml` runs on every PR: `actionlint` (workflow YAML + embedded shell via shellcheck) is a hard gate, and `zizmor` uploads every finding to the Security tab and **fails the job on High-severity findings**. A deliberate pattern zizmor objects to — this file's `pull_request_target` is the standing example — is accepted with an inline `# zizmor: ignore[rule]` comment on the flagged key, never with a config file (`zizmor` only reads `.github/zizmor.yml`; a root `.zizmor.yml` is silently ignored). Because any such change touches a workflow file, it also trips the protected-file guard and is reviewed by a maintainer.
 
 ## Attack Scenarios Prevented
 
