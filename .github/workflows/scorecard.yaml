@@ -44,6 +44,85 @@ jobs:
           results_format: sarif
           publish_results: true
 
+      # Drop Scorecard findings that are known won't-fix for this repository
+      # BEFORE the SARIF reaches Code Scanning. Filtering here (rather than
+      # dismissing alerts one by one) is durable: Scorecard emits a fresh SARIF
+      # every run and fingerprint drift means per-alert dismissals come back
+      # under new alert IDs.
+      #
+      # The published scorecard.dev score (README badge) is unaffected — this
+      # only trims the Code Scanning tab and the issues security-alerts.yml
+      # opens from it. Every rule NOT listed here (BranchProtectionID,
+      # TokenPermissionsID, gitHubAction pins, ...) still fires.
+      #
+      # Suppressed whole rules:
+      #   DangerousWorkflowID  — pr.yaml deliberately uses pull_request_target +
+      #                          refs/pull/N/head so the workflow and the
+      #                          protected config files come from main; see the
+      #                          SECURITY NOTE header in pr.yaml.
+      #   CodeReviewID         — solo-maintainer repository; requiring a second
+      #                          approver would force admin-bypass on every PR.
+      #   CIIBestPracticesID   — bestpractices.dev badge is an external
+      #                          registration, not something CI can earn.
+      #
+      # Template-only entries — this repository has no csproj, so nothing can
+      # satisfy them. A repository generated from this template MUST drop these
+      # and fix the finding for real:
+      #   FuzzingID            — no code to fuzz here. (Scorecard also has no
+      #                          .NET fuzzing detector, so downstream repos with
+      #                          CsCheck/SharpFuzz tests hit it too — decide
+      #                          per repo.)
+      #   SASTID               — codeql.yaml skips analysis when no C# exists,
+      #                          so no commit here ever carries a CodeQL check
+      #                          run. Downstream repos with code pass this.
+      #   PinnedDependenciesID / nugetCommand — `dotnet restore` in the
+      #                          workflows is unpinned because there is no
+      #                          project to lock. Downstream: set
+      #                          RestorePackagesWithLockFile + RestoreLockedMode
+      #                          in EVERY csproj (Scorecard reads csproj only,
+      #                          not Directory.Build.props) and commit the
+      #                          packages.lock.json files.
+      #   (pipCommand is NOT suppressed: zizmor/semgrep are hash-pinned via
+      #   .github/requirements/*.txt and any regression should fire.)
+      - name: Filter suppressed findings from SARIF
+        shell: bash
+        env:
+          SUPPRESSED_RULES: 'DangerousWorkflowID CodeReviewID CIIBestPracticesID FuzzingID SASTID'
+          # Substrings matched against each PinnedDependenciesID result's
+          # message text; a single match suppresses that result only.
+          SUPPRESSED_PIN_KINDS: 'nugetCommand not pinned'
+        run: |
+          set -euo pipefail
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "::error::jq not available on the runner; cannot filter SARIF."
+            exit 1
+          fi
+          # Word-split SUPPRESSED_RULES intentionally — one rule per line for
+          # the jq -R/-s pipeline.
+          # shellcheck disable=SC2086
+          rules_json=$(printf '%s\n' $SUPPRESSED_RULES | jq -R . | jq -s .)
+          # Bind ruleId/message to variables before the boolean expression:
+          # inside `$suppressed | index(.ruleId)` the `.ruleId` would be applied
+          # to the array, not the result (jq 1.8 errors, older versions
+          # silently keep everything).
+          jq \
+            --argjson suppressed "$rules_json" \
+            --arg pinKinds "$SUPPRESSED_PIN_KINDS" \
+            '
+              .runs |= map(
+                .results |= map(select(
+                  (.ruleId // "") as $r
+                  | (.message.text // "") as $t
+                  | (($suppressed | index($r)) == null)
+                    and (($r == "PinnedDependenciesID" and ($t | test($pinKinds))) | not)
+                ))
+              )
+            ' results.sarif > results.filtered.sarif
+          before=$(jq '[.runs[].results[]] | length' results.sarif)
+          after=$(jq '[.runs[].results[]] | length' results.filtered.sarif)
+          echo "Scorecard SARIF results: $before -> $after after suppression"
+          mv results.filtered.sarif results.sarif
+
       - name: Upload SARIF to Code Scanning
         uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
         with:
