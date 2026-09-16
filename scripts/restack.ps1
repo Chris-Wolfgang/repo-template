@@ -122,7 +122,8 @@ function Set-PrBase
     if (-not $pr) { Write-Host "  no open PR for $Branch"; return }
     if ($pr.baseRefName -eq $ExpectedBase) { Write-Host "  PR #$($pr.number) base is $ExpectedBase"; return }
     if ($DryRun) { Write-Host "  DRY-RUN would retarget PR #$($pr.number) from $($pr.baseRefName) to $ExpectedBase"; return }
-    & gh pr edit $pr.number --base $ExpectedBase | Out-Null
+    $editOut = & gh pr edit $pr.number --base $ExpectedBase 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "could not retarget PR #$($pr.number) to ${ExpectedBase}: $editOut" }
     Write-Host "  PR #$($pr.number) retargeted $($pr.baseRefName) -> $ExpectedBase"
 }
 
