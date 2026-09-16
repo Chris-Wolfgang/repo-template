@@ -116,8 +116,17 @@ function Set-PrBase
 {
     param([string]$Branch, [string]$ExpectedBase)
 
-    $raw = & gh pr list --head $Branch --state open --json number,baseRefName 2>&1
-    if ($LASTEXITCODE -ne 0) { Write-Warning "could not read PR for ${Branch}: $raw"; return }
+    # stdout (JSON) and stderr (gh diagnostics) kept apart: a warning on stderr would
+    # otherwise corrupt the JSON even when the command succeeded.
+    $errFile = [System.IO.Path]::GetTempFileName()
+    try
+    {
+        $raw = & gh pr list --head $Branch --state open --json number,baseRefName 2> $errFile
+        $exit = $LASTEXITCODE
+        $err = Get-Content $errFile -Raw -ErrorAction SilentlyContinue
+    }
+    finally { Remove-Item $errFile -Force -ErrorAction SilentlyContinue }
+    if ($exit -ne 0) { Write-Warning "could not read PR for ${Branch}: $err"; return }
     $pr = @(($raw | Out-String) | ConvertFrom-Json) | Select-Object -First 1
     if (-not $pr) { Write-Host "  no open PR for $Branch"; return }
     if ($pr.baseRefName -eq $ExpectedBase) { Write-Host "  PR #$($pr.number) base is $ExpectedBase"; return }

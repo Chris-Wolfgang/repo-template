@@ -141,9 +141,16 @@ function Get-Normalized($Text)
 
 function Get-PathReferences([string]$Path)
 {
-    # Tracked files (other than the file itself) whose text mentions the path.
-    $hits = & git grep -l -F -- $Path 2>$null
-    if ($LASTEXITCODE -gt 1) { return @() }
+    # Tracked files (other than the file itself) whose text mentions the path. git grep exits
+    # 1 for "no match"; anything else is an error and fails closed - an unknown answer must not
+    # turn into "unreferenced, safe to delete".
+    $errFile = [System.IO.Path]::GetTempFileName()
+    try
+    {
+        $hits = & git grep -l -F -- $Path 2> $errFile
+        if ($LASTEXITCODE -gt 1) { throw "git grep failed while checking references to ${Path}: $(Get-Content $errFile -Raw)" }
+    }
+    finally { Remove-Item $errFile -Force -ErrorAction SilentlyContinue }
     return @($hits | Where-Object { $_ -and $_ -ne $Path })
 }
 
