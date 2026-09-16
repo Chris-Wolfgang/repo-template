@@ -108,9 +108,9 @@ try {
     Remove-Item -Path $stderrFile -ErrorAction SilentlyContinue
 }
 
-$matches = $existing | ConvertFrom-Json | Where-Object { $_.title -eq $issueTitle }
-if ($matches) {
-    $match = $matches | Select-Object -First 1
+$existingParents = @($existing | ConvertFrom-Json | Where-Object { $_.title -eq $issueTitle })
+if ($existingParents.Count -gt 0) {
+    $match = $existingParents | Select-Object -First 1
     Write-Host "⏭️  Parent Maintenance issue already exists: #$($match.number) [$($match.state)]" -ForegroundColor Gray
     Write-Host "    https://github.com/$Repository/issues/$($match.number)" -ForegroundColor Gray
     exit 0

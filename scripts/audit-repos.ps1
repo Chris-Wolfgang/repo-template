@@ -93,11 +93,23 @@ function Invoke-GhApi
 {
     param([string]$Path, [switch]$AllowNotFound)
 
-    $raw = & gh api $Path 2>&1
-    if ($LASTEXITCODE -ne 0)
+    # Keep stdout (JSON) and stderr (gh diagnostics) apart: a warning on stderr
+    # would otherwise corrupt the JSON and abort the whole repository's audit.
+    $errFile = [System.IO.Path]::GetTempFileName()
+    try
+    {
+        $raw = & gh api $Path 2> $errFile
+        $exit = $LASTEXITCODE
+        $err = if (Test-Path $errFile) { (Get-Content $errFile -Raw -ErrorAction SilentlyContinue) } else { '' }
+    }
+    finally
+    {
+        Remove-Item $errFile -Force -ErrorAction SilentlyContinue
+    }
+    if ($exit -ne 0)
     {
         if ($AllowNotFound) { return $null }
-        throw "gh api $Path failed: $raw"
+        throw "gh api $Path failed (exit $exit): $err"
     }
     return ($raw | Out-String | ConvertFrom-Json -Depth 20)
 }
@@ -355,12 +367,16 @@ function Invoke-RepoAudit
     }
     else
     {
-        $required = @('pull_request', 'required_status_checks', 'required_linear_history', 'non_fast_forward', 'deletion')
+        # required_linear_history is advisory: linear history is being trialled per repo
+        # (wms first) rather than mandated fleet-wide, so it is reported in the evidence but
+        # does not fail the item. Promote it to $required once the trial settles.
+        $required = @('pull_request', 'required_status_checks', 'non_fast_forward', 'deletion')
         $present = @($rulesets | ForEach-Object { $_.rules } | ForEach-Object { $_.type } | Sort-Object -Unique)
         $missingRules = @($required | Where-Object { $_ -notin $present })
+        $linear = if ('required_linear_history' -in $present) { 'linear history on' } else { 'linear history off (advisory)' }
         $rsNames = ($rulesets | ForEach-Object { "'$($_.name)' (#$($_.id))" }) -join ', '
-        if ($missingRules.Count -eq 0) { $out.Add((New-Result $name 9 'pass' "$rsNames has all required rules")) }
-        else { $out.Add((New-Result $name 9 'fail' "$rsNames missing rule(s): $($missingRules -join ', ')")) }
+        if ($missingRules.Count -eq 0) { $out.Add((New-Result $name 9 'pass' "$rsNames has all required rules; $linear")) }
+        else { $out.Add((New-Result $name 9 'fail' "$rsNames missing rule(s): $($missingRules -join ', '); $linear")) }
 
         $problems = @()
         foreach ($rs in $rulesets)
@@ -433,8 +449,13 @@ function Invoke-RepoAudit
     # 16 -- license
     $lic = Get-FirstExisting $clone @('LICENSE', 'LICENSE.md', 'LICENSE.txt')
     $spdx = if ($meta.license) { $meta.license.spdx_id } else { 'none' }
+    # The template offers MIT, Apache-2.0 and MPL-2.0 at setup; all three are acceptable for a
+    # library. The custom/TBD option ("all rights reserved pending selection") is a pending state.
+    $templateLicenses = @('MIT', 'Apache-2.0', 'MPL-2.0')
+    $licTxt = if ($lic) { Get-Content $lic -Raw } else { '' }
     if (-not $lic) { $out.Add((New-Result $name 16 'fail' 'no LICENSE file')) }
-    elseif ($isLibrary -and $spdx -ne 'MIT') { $out.Add((New-Result $name 16 'fail' "library repo license is $spdx, expected MIT")) }
+    elseif ($isLibrary -and $licTxt -match '(?i)all rights reserved.*pending') { $out.Add((New-Result $name 16 'pending' 'custom/TBD license placeholder - choose a license')) }
+    elseif ($isLibrary -and $spdx -notin $templateLicenses) { $out.Add((New-Result $name 16 'fail' "library repo license is $spdx, expected one of $($templateLicenses -join ', ')")) }
     else { $out.Add((New-Result $name 16 'pass' "license $spdx")) }
 
     # 17 -- scorecard
@@ -554,11 +575,15 @@ function Open-BaselineIssues
     if ($Failures.Count -eq 0) { return 0 }
     Confirm-Labels $FullName
     $openTitles = @(& gh issue list -R $FullName --state open --limit 500 --search 'Baseline: in:title' --json title --jq '.[].title')
+    # A closed issue carrying the wontfix label is a deliberate decision not to meet the item in
+    # this repository; do not re-open it on every run.
+    $wontfixTitles = @(& gh issue list -R $FullName --state closed --limit 500 --label wontfix --search 'Baseline: in:title' --json title --jq '.[].title')
     $created = 0
     foreach ($f in $Failures)
     {
         $title = "Baseline: $($f.name)"
         if ($title -in $openTitles) { Write-Host "   skip (open): $title"; continue }
+        if ($title -in $wontfixTitles) { Write-Host "   skip (closed wontfix): $title"; continue }
         $label = $itemByNumber[$f.item].Label
         $body = @"
 Repository hardening baseline item **$($f.item) — $($f.name)** is not met.

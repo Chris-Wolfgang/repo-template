@@ -24,8 +24,10 @@ if [ -f .gitleaks.toml ]; then
   config=(--config .gitleaks.toml)
 fi
 
-# Scan only what is staged for this commit. --redact keeps secret values out of the terminal.
-if ! gitleaks protect --staged --redact --no-banner "${config[@]}"; then
+# Scan only what is staged for this commit (`gitleaks git --pre-commit --staged`
+# is the 8.19+ form of the deprecated `protect --staged`). --redact keeps secret
+# values out of the terminal.
+if ! gitleaks git --pre-commit --staged --redact --no-banner "${config[@]}" .; then
   echo "" >&2
   echo "pre-commit: gitleaks found a possible secret in the staged changes; commit blocked." >&2
   echo "            Remove the secret (and rotate it if it is real), or add a narrow allowlist" >&2
