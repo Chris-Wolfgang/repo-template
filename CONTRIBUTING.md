@@ -57,8 +57,11 @@ You can contribute in several ways:
    - **actionlint** and **zizmor** (`actions-audit.yaml`) on the workflow files themselves.
    - License audit and SBOM generation for the dependency closure (`license-audit.yaml`, `sbom.yaml`).
 
-   **All checks must pass before the PR can be merged.** If one fails, read its log, fix, and push.
-   Run the same matrix locally first with `pwsh ./scripts/build-pr.ps1` (see *Build and Test* below).
+   The branch ruleset **requires** Detect .NET Projects, the three test stages, DevSkim, CodeQL,
+   gitleaks and the Changelog Fragment Check to pass before merging. InspectCode, actionlint/zizmor,
+   the license audit and the SBOM are advisory — they annotate the PR and the Security tab but do
+   not block the merge on their own. If a check fails, read its log, fix, and push.
+   `pwsh ./scripts/build-pr.ps1` reproduces the Windows stage locally (see *Build and Test* below).
 
 8. **Add a changelog fragment** if the PR changes anything under `src/`:
    ```sh
@@ -118,8 +121,9 @@ Seven analyzers run on every build via `Directory.Build.props`; an eighth is opt
 
 8. **Microsoft.CodeAnalysis.PublicApiAnalyzers** (opt-in)
    - Tracks the public API surface in `PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt`
-   - Loaded only for a project that has those two files next to its `.csproj` — add them to a
-     library under `src/` to opt in; test, example and benchmark projects never see it
+   - Loaded only for a project that has either of those files next to its `.csproj` — add both to a
+     library under `src/` to opt in. Don't put them in test, example or benchmark projects; the
+     condition is per project, not per directory, so a stray baseline file opts that project in too
    - New or changed public members must be recorded in `PublicAPI.Unshipped.txt` or the build fails
 
 ### Async-First Enforcement
@@ -138,7 +142,8 @@ Parallel.ForEach(items, Work);
 // Required - truly async
 await task;
 await Task.WhenAll(tasks);
-await Parallel.ForEachAsync(items, WorkAsync);
+await Task.WhenAll(items.Select(WorkAsync));      // every TFM
+await Parallel.ForEachAsync(items, WorkAsync);    // .NET 6+ only
 ```
 
 #### ❌ Synchronous I/O
@@ -216,7 +221,8 @@ dotnet test --collect:"XPlat Code Coverage"
 ### Run the PR checks locally
 
 ```powershell
-# Mirrors pr.yaml: build, every-TFM tests, coverage gates (90 % src / 100 % tests), DevSkim, gitleaks
+# Mirrors pr.yaml's Windows stage on this machine: build, every-TFM tests, coverage gates
+# (90 % src / 100 % tests), DevSkim, gitleaks. The Linux and macOS stages only run in CI.
 pwsh ./scripts/build-pr.ps1
 
 # Skip the security scans or the coverage gate while iterating

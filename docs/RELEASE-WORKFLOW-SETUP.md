@@ -5,7 +5,7 @@ This guide explains how to configure a repository to use the standard `release.y
 ## Overview
 
 The release workflow triggers when you **publish a GitHub Release** and implements a comprehensive validation and automatic deployment process that:
-- ✅ Checks the release tag matches the `<Version>` in every `src/` csproj
+- ✅ Checks the release tag matches a `<Version>` (or `<PackageVersion>`) declared in `src/`
 - ✅ Tests all target frameworks per test project on Windows
 - ✅ Enforces the coverage gates (90 % line coverage for `src/`, 100 % for `tests/`)
 - ✅ Validates NuGet package integrity with smoke tests and generates a CycloneDX SBOM
@@ -69,16 +69,16 @@ Ensure the following settings are enabled:
    pwsh ./scripts/changelog.ps1 bump                  # prints the derived next version
    pwsh ./scripts/changelog.ps1 assemble -Version X.Y.Z
    ```
-   Set `<Version>X.Y.Z</Version>` in every `src/` csproj to the same value — `validate-release` fails if the tag and the csproj disagree — and merge that PR.
+   Set `<Version>X.Y.Z</Version>` in the `src/` csproj(s) to the same value — `validate-release` fails unless the tag matches a `<Version>` or `<PackageVersion>` found under `src/` — and merge that PR.
 3. Go to the repository's **Releases** page → **Draft a new release**.
 4. Create the tag `vX.Y.Z` targeting `main`, add a title and the release notes (the new CHANGELOG section is a good body).
-5. For a test run, tick **Set as a pre-release** and use a throwaway tag such as `v0.0.1-test`.
+5. For a test run, tick **Set as a pre-release**. The tag still has to match the csproj: set `<Version>0.0.1-test</Version>` and tag `v0.0.1-test`, or the run stops at the version check.
 6. Click **Publish release**. The workflow triggers on `release: published`.
 
 ### Expected Workflow Behavior
 
 1. **validate-release** (3-10 minutes, Windows)
-   - Checks the tag against every `src/` csproj `<Version>`
+   - Checks the tag against the `<Version>` / `<PackageVersion>` values found in `src/`
    - Runs every target framework of every test project with coverage
    - Enforces the coverage gates (90 % `src/`, 100 % `tests/`) and uploads the report
 
@@ -122,7 +122,7 @@ Ensure the following settings are enabled:
 
 **Problem:** `validate-release` fails at "Validate release tag matches csproj version".
 
-**Solution:** The tag (`v1.2.3`, leading `v` optional) must equal `<Version>` in every `src/` csproj. Fix the csproj (or the tag), merge, delete the release and the tag, and publish again.
+**Solution:** The tag (`v1.2.3`, leading `v` optional) must equal a `<Version>` or `<PackageVersion>` declared in a `src/` csproj. Fix the csproj (or the tag), merge, delete the release and the tag, and publish again.
 
 ### Tests Fail on a Specific Framework
 
@@ -167,7 +167,7 @@ Before publishing a production GitHub Release (for example `v1.0.0`):
 - [ ] All PRs merged to `main`; `pr.yaml` green on the last one
 - [ ] Every `src/` change since the last release has a changelog fragment (or the `no-changelog` label)
 - [ ] `pwsh ./scripts/changelog.ps1 assemble -Version X.Y.Z` run and merged
-- [ ] `<Version>X.Y.Z</Version>` set in every `src/` csproj and merged
+- [ ] `<Version>X.Y.Z</Version>` set in the `src/` csproj(s) (the tag must match one of them) and merged
 - [ ] Local dry run passes: `pwsh ./scripts/build-pr.ps1`
 - [ ] Security tab shows no open High/Critical alerts
 
@@ -187,7 +187,7 @@ Before publishing a production GitHub Release (for example `v1.0.0`):
                             ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  validate-release (Windows)                                  │
-│  • Tag == <Version> in every src/ csproj                     │
+│  • Tag == a <Version> / <PackageVersion> under src/           │
 │  • Restore & Build (Release)                                 │
 │  • Test every TFM of every test project, with coverage       │
 │  • Coverage gates: 90 % src, 100 % tests                     │
