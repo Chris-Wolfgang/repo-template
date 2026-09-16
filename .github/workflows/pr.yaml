@@ -830,6 +830,7 @@ jobs:
           # whitespace, so the indentation is gone before grep sees it and every
           # class row matches — which gated individual test classes as if they
           # were projects.
+          # shellcheck disable=SC2094  # false positive: the loop redirect and the inner awk both only READ Summary.txt
           while IFS= read -r line; do
             # Match lines with module names and percentages. The percent
             # capture is the LAST %-suffixed number on the line, matching
