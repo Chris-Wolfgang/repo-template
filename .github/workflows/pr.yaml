@@ -789,6 +789,11 @@ jobs:
           echo "✅ All compatible projects built successfully"
 
       - name: Run tests with coverage (.NET Core 5.0 - 10.0)
+        # Explicit bash: GitHub's implicit default is `bash -e` WITHOUT
+        # pipefail; the explicit form is `bash -eo pipefail`, which the
+        # `dotnet test ... | tee` below needs so a failing test run is not
+        # masked by tee's exit code.
+        shell: bash
         run: |
           # Find all test projects (C#, VB.NET, F#).
           # Gracefully skip if there is no ./tests directory (e.g. template-publishing
@@ -1198,19 +1203,27 @@ jobs:
             Write-Host "Testing project: $($testProj.FullName)" -ForegroundColor Cyan
             Write-Host "==========================================" -ForegroundColor Cyan
             
-            # Extract target frameworks from the project file
-            # Support both <TargetFramework> (single) and <TargetFrameworks> (multiple)
-            $content = Get-Content $testProj.FullName -Raw
-            $tfmMatch = [regex]::Match($content, '<TargetFramework[s]?>([^<]+)</TargetFramework[s]?>')
-            
-            if (-not $tfmMatch.Success) {
+            # Extract target frameworks via MSBuild property evaluation (handles
+            # multi-line XML, Directory.Build.props inheritance and conditional
+            # properties — all of which break regex parsing of the raw csproj).
+            # Same approach as Stage 1 / Stage 3. Falls back from
+            # <TargetFrameworks> (multiple) to <TargetFramework> (single).
+            $tfmRaw = (dotnet msbuild $testProj.FullName -noLogo -getProperty:TargetFrameworks 2>$null |
+              Where-Object { $_ -and $_.Trim() } | Select-Object -Last 1)
+            if (-not $tfmRaw) {
+              $tfmRaw = (dotnet msbuild $testProj.FullName -noLogo -getProperty:TargetFramework 2>$null |
+                Where-Object { $_ -and $_.Trim() } | Select-Object -Last 1)
+            }
+            $tfmRaw = ("$tfmRaw" -replace '^TargetFrameworks?[=:]\s*', '') -replace '\s', ''
+
+            if (-not $tfmRaw) {
               Write-Host "⊘ Skipping: No target frameworks found" -ForegroundColor Yellow
               Write-Host ""
               continue
             }
-            
+
             # Split by semicolon for multi-targeting projects
-            $allFrameworks = $tfmMatch.Groups[1].Value -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+            $allFrameworks = @($tfmRaw -split ';' | Where-Object { $_ })
             $frameworks = @($allFrameworks | Where-Object { $_ -match '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0|462|47|471|472|48|481|coreapp3\.1)$' })
 
             # This stage is the full-TFM backstop (every TFM the other stages
@@ -1620,6 +1633,8 @@ jobs:
           echo "✅ All compatible projects built successfully"
 
       - name:  Run tests (.NET 6.0 - 10.0 only - ARM64 compatible)
+        # Explicit bash for pipefail — see Stage 1.
+        shell: bash
         run: |
           # Find all test projects (C#, VB.NET, F#).
           # Gracefully skip if there is no ./tests directory (e.g. template-publishing
