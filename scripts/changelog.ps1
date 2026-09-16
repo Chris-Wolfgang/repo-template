@@ -12,7 +12,8 @@
               unless -Labels contains "no-changelog". Always validates every fragment's format.
     assemble  Insert a "## [<version>] - <date>" section under "## [Unreleased]" in CHANGELOG.md from the
               fragments, grouped by type, then delete the fragments. -Version defaults to the derived bump.
-    bump      Print the derived next version (from the newest "## [x.y.z]" heading and the fragment types).
+    bump      Print the derived next version (from the newest "## [x.y.z]" heading and the fragment types):
+              breaking -> major (0.x: minor), feature -> minor, fix/docs/internal -> patch.
 .PARAMETER Command
     check | assemble | bump
 .PARAMETER Version
@@ -112,12 +113,15 @@ function Get-DerivedVersion
     $parts = $Current.Split('.') | ForEach-Object { [int]$_ }
     $types = @($Fragments | ForEach-Object { $_.Type })
     $rank = if ('breaking' -in $types) { 'breaking' } elseif ('feature' -in $types) { 'feature' } else { 'patch' }
+    # Fleet rule: patch releases are lean (fixes only); any new public surface
+    # is a MINOR. In 0.x a breaking change is also a MINOR (SemVer has no
+    # stable major to bump), so breaking and feature both land on 0.(m+1).0.
     if ($parts[0] -eq 0)
     {
         switch ($rank)
         {
-            'breaking' { return "0.$($parts[1] + 1).0" }
-            default    { return "0.$($parts[1]).$($parts[2] + 1)" }
+            'patch'  { return "0.$($parts[1]).$($parts[2] + 1)" }
+            default  { return "0.$($parts[1] + 1).0" }
         }
     }
     switch ($rank)

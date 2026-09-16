@@ -76,9 +76,9 @@ Scope rules:
 ### 9. Branch ruleset on default branch
 
 - **Verify:** `gh api repos/{owner}/{repo}/rulesets` lists a ruleset whose conditions include the default branch (`~DEFAULT_BRANCH` or the branch name) and whose rules include:
-  `pull_request`, `required_status_checks`, `required_linear_history`, `non_fast_forward` (no force-push), `deletion` (no deletion).
-  Zero required approvals is acceptable for a solo developer.
-- **Fix:** Run `scripts/Setup-BranchRuleset.ps1 -RequireLinearHistory` from the template (adds the rule and limits merges to squash/rebase), or add the *Require linear history* rule on the ruleset page of an existing repository. Stacked PRs then use `scripts/restack.ps1` after each merge; see `docs/STACKED-PRS.md`.
+  `pull_request`, `required_status_checks`, `non_fast_forward` (no force-push), `deletion` (no deletion).
+  Zero required approvals is acceptable for a solo developer. `required_linear_history` is reported as evidence but is **advisory** while linear history is trialled per repository (`wms` first); it becomes required once that trial settles.
+- **Fix:** Run `scripts/Setup-BranchRuleset.ps1` from the template (add `-RequireLinearHistory` to opt into linear history, which also limits merges to squash/rebase; stacked PRs then use `scripts/restack.ps1` after each merge, see `docs/STACKED-PRS.md`), or fix the missing rule on the ruleset page of an existing repository.
 - **Label:** `security`
 
 ### 10. Ruleset active with no person in the bypass list
@@ -119,8 +119,8 @@ Scope rules:
 
 ### 16. LICENSE present and correct
 
-- **Verify:** `LICENSE` (or `LICENSE.md` / `LICENSE.txt`) exists. For library repositories the expected license is MIT (`gh api repos/{owner}/{repo} --jq '.license.spdx_id'` returns `MIT`). Non-library repositories pass with any recognised license.
-- **Fix:** Run the template's `scripts/setup.ps1` license step, or copy `LICENSE-MIT.txt` and fill in the year and holder.
+- **Verify:** `LICENSE` (or `LICENSE.md` / `LICENSE.txt`) exists. For library repositories the license is one the template offers — MIT, Apache-2.0 or MPL-2.0 (`gh api repos/{owner}/{repo} --jq '.license.spdx_id'`). The custom/TBD placeholder ("all rights reserved pending selection") reports as `pending`, not a failure. Non-library repositories pass with any recognised license.
+- **Fix:** Run the template's `scripts/setup.ps1` license step, or copy the matching `LICENSE-*.txt` and fill in the year and holder.
 - **Label:** `process`
 
 ### 17. OpenSSF Scorecard workflow present; badge in README

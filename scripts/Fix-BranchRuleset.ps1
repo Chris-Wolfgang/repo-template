@@ -1,12 +1,15 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Fixes branch rulesets by disabling existing ones and recreating with the correct configuration.
+    Replaces the branch ruleset: deletes the existing "Protect main branch" ruleset (and disables
+    any other active ruleset) and recreates it with Setup-BranchRuleset.ps1.
 
 .DESCRIPTION
-    This script inspects the existing branch rulesets for a repository, disables all of them,
-    and renames any ruleset named "Protect main branch" to "Protect main branch (old)" so that
-    Setup-BranchRuleset.ps1 can create a fresh ruleset without conflicts.
+    Use it when the canonical ruleset changed upstream (a required check was renamed or added) and
+    the repository's ruleset is stuck on the old definition. The script inspects the repository's
+    rulesets, deletes the one named "Protect main branch", disables any other ruleset that is still
+    active (they are left in place, disabled, for inspection), then runs Setup-BranchRuleset.ps1 to
+    create a fresh ruleset. It does not patch rules in place.
 
     The script presents a plan of all changes before executing and prompts for confirmation.
 
@@ -15,6 +18,10 @@
 
 .PARAMETER Force
     Skip the confirmation prompt and proceed automatically. Alias: -y
+
+.PARAMETER RequireLinearHistory
+    Forwarded to Setup-BranchRuleset.ps1 when the ruleset is recreated (adds the
+    required_linear_history rule and limits merges to squash/rebase).
 
 .EXAMPLE
     .\Fix-BranchRuleset.ps1
@@ -40,7 +47,10 @@ param(
 
     [Parameter()]
     [Alias("y")]
-    [switch]$Force
+    [switch]$Force,
+
+    [Parameter()]
+    [switch]$RequireLinearHistory
 )
 
 # Check if gh CLI is installed
@@ -149,14 +159,13 @@ foreach ($ruleset in $rulesets) {
     # If this is the target name, rename it
     if ($ruleset.name -eq $targetRulesetName) {
         $actions += @{
-            type        = "rename"
-            description = "Rename '$($ruleset.name)' -> '$($ruleset.name) (old)'"
-            newName     = "$($ruleset.name) (old)"
+            type        = "delete"
+            description = "Delete '$($ruleset.name)' [$($ruleset.id)] (recreated by Setup-BranchRuleset.ps1)"
         }
     }
 
     # If not already disabled, disable it
-    if ($ruleset.enforcement -ne "disabled") {
+    if ($ruleset.name -ne $targetRulesetName -and $ruleset.enforcement -ne "disabled") {
         $actions += @{
             type        = "disable"
             description = "Disable '$($ruleset.name)' (currently: $status)"
@@ -175,7 +184,7 @@ Write-Host ""
 
 # Present the plan
 if ($plan.Count -eq 0) {
-    Write-Host "All rulesets are already disabled and none need renaming. Nothing to do." -ForegroundColor Green
+    Write-Host "No '$targetRulesetName' ruleset to replace and no other active ruleset. Nothing to do." -ForegroundColor Green
     exit 0
 }
 
@@ -214,16 +223,33 @@ foreach ($item in $plan) {
 
     # Build the update payload — apply rename and disable together in one API call
     $updatePayload = @{}
+    $deleteRuleset = $false
 
     foreach ($action in $item.actions) {
         switch ($action.type) {
-            "rename" {
-                $updatePayload["name"] = $action.newName
+            "delete" {
+                $deleteRuleset = $true
             }
             "disable" {
                 $updatePayload["enforcement"] = "disabled"
             }
         }
+    }
+
+    if ($deleteRuleset) {
+        Write-Host "  Deleting ruleset [$rulesetId] '$($ruleset.name)'..." -ForegroundColor Cyan
+        $result = gh api `
+            --method DELETE `
+            -H "Accept: application/vnd.github+json" `
+            -H "X-GitHub-Api-Version: 2022-11-28" `
+            "/repos/$Repository/rulesets/$rulesetId" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  Done." -ForegroundColor Green
+        } else {
+            Write-Host "  Failed: $result" -ForegroundColor Red
+            $errors++
+        }
+        continue
     }
 
     if ($updatePayload.Count -gt 0) {
@@ -273,7 +299,7 @@ if ($errors -gt 0) {
     if (Test-Path $setupScript) {
         Write-Host "Running Setup-BranchRuleset.ps1 to create a fresh ruleset..." -ForegroundColor Cyan
         Write-Host ""
-        & $setupScript -Repository $Repository
+        & $setupScript -Repository $Repository -RequireLinearHistory:$RequireLinearHistory
     } else {
         Write-Host "Setup-BranchRuleset.ps1 not found. Run it manually to create a fresh ruleset." -ForegroundColor Yellow
         Write-Host "View rulesets at: https://github.com/$Repository/settings/rules" -ForegroundColor Cyan

@@ -7,7 +7,9 @@
     This script uses the GitHub CLI (gh) to create labels used by Dependabot and
     other workflows. Run this locally once after creating a new repo from the template.
     
-    Labels created:
+    Labels created (existing ones are updated to the canonical colour and description):
+    - bug, needs-triage        — applied by the bug-report issue form
+    - enhancement, feature-request — applied by the feature-request issue form
     - dependencies             (blue)   — applied automatically by Dependabot to every update PR
     - no-changelog             (yellow) — waives the changelog-fragment PR check for src/ changes with no user-visible effect
     - maintenance              (steel)  — kind label, applied to the per-repo parent Maintenance issue
@@ -87,6 +89,13 @@ if (-not $Repository) {
 Write-Host "`n🏷️  Creating labels for: $Repository`n" -ForegroundColor Cyan
 
 $labels = @(
+    # Issue forms (.github/ISSUE_TEMPLATE/*.yaml) apply these; GitHub silently drops a
+    # label that does not exist, so they must be created here.
+    @{ name = "bug";                      color = "d73a4a"; description = "Something isn't working" },
+    @{ name = "needs-triage";             color = "ededed"; description = "New bug report awaiting maintainer triage" },
+    @{ name = "enhancement";              color = "a2eeef"; description = "New feature or request" },
+    @{ name = "feature-request";          color = "0e8a16"; description = "Feature request filed through the issue form" },
+
     # Dependabot — applies `dependencies` automatically per .github/dependabot.yml
     @{ name = "dependencies";             color = "0366d6"; description = "Pull requests that update a dependency file" },
 
@@ -108,7 +117,7 @@ $labels = @(
 )
 
 $created = 0
-$skipped = 0
+$updated = 0
 $failed  = 0
 
 foreach ($label in $labels) {
@@ -125,8 +134,25 @@ foreach ($label in $labels) {
         Write-Host "   ✅ Created label: $($label.name)" -ForegroundColor Green
         $created++
     } elseif ($response -like "*already_exists*") {
-        Write-Host "   ⏭️  Label already exists, skipping: $($label.name)" -ForegroundColor Gray
-        $skipped++
+        # Bring an existing label to the canonical colour/description instead of
+        # leaving drift in place. The name segment is URL-encoded (labels such as
+        # "maintenance - CI/CD" contain spaces and a slash).
+        $encoded = [System.Uri]::EscapeDataString($label.name)
+        $response = gh api `
+            --method PATCH `
+            -H "Accept: application/vnd.github+json" `
+            -H "X-GitHub-Api-Version: 2022-11-28" `
+            "/repos/$Repository/labels/$encoded" `
+            -f "color=$($label.color)" `
+            -f "description=$($label.description)" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "   🔄 Updated existing label: $($label.name)" -ForegroundColor Gray
+            $updated++
+        } else {
+            Write-Host "   ❌ Failed to update label: $($label.name)" -ForegroundColor Red
+            Write-Host "      $response" -ForegroundColor Red
+            $failed++
+        }
     } else {
         Write-Host "   ❌ Failed to create label: $($label.name)" -ForegroundColor Red
         Write-Host "      $response" -ForegroundColor Red
@@ -136,8 +162,8 @@ foreach ($label in $labels) {
 
 Write-Host ""
 if ($failed -eq 0) {
-    Write-Host "🎉 Done! Created: $created, Skipped (already existed): $skipped" -ForegroundColor Green
+    Write-Host "🎉 Done! Created: $created, Updated (already existed): $updated" -ForegroundColor Green
 } else {
-    Write-Host "⚠️  Done with errors. Created: $created, Skipped: $skipped, Failed: $failed" -ForegroundColor Yellow
+    Write-Host "⚠️  Done with errors. Created: $created, Updated: $updated, Failed: $failed" -ForegroundColor Yellow
     exit 1
 }
