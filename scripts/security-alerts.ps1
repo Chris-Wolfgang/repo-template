@@ -21,8 +21,10 @@
     nothing is closed on the strength of a listing that failed, and the weekly summary is never closed
     (and is marked incomplete) while a kind is unavailable.
 
-    Tokens: GH_TOKEN (GITHUB_TOKEN in Actions) is used for everything except the Dependabot listing,
-    which uses SECURITY_ALERTS_TOKEN when set (fine-grained PAT: Dependabot alerts read + Metadata read).
+    Tokens: GH_TOKEN (GITHUB_TOKEN in Actions) is used for everything except the secret-scanning and
+    Dependabot listings, which use SECURITY_ALERTS_TOKEN when set (fine-grained PAT: Secret scanning alerts
+    read + Dependabot alerts read + Metadata read). GITHUB_TOKEN cannot read secret-scanning alerts even with
+    security-events: read; Dependabot readability varies by account, so both are routed through the PAT.
     Exit code is 1 if any issue create/close/comment failed, so a broken run is visible.
 .PARAMETER Repository
     owner/name. Defaults to GITHUB_REPOSITORY.
@@ -97,14 +99,15 @@ function Get-Alerts
         'secret-scanning' { "repos/$Repository/secret-scanning/alerts?state=open&per_page=100" }
         'dependabot'      { "repos/$Repository/dependabot/alerts?state=open&per_page=100" }
     }
-    # Dependabot alerts need a PAT on a personal account; everything else stays on GH_TOKEN.
-    $token = if ($Kind -eq 'dependabot' -and $env:SECURITY_ALERTS_TOKEN) { $env:SECURITY_ALERTS_TOKEN } else { $null }
+    # Secret-scanning (and, on some accounts, Dependabot) alerts are not readable with GITHUB_TOKEN;
+    # those two listings use SECURITY_ALERTS_TOKEN when it is set. Code scanning and all writes stay on GH_TOKEN.
+    $token = if ($Kind -in @('secret-scanning', 'dependabot') -and $env:SECURITY_ALERTS_TOKEN) { $env:SECURITY_ALERTS_TOKEN } else { $null }
     $r = Invoke-Api $path -Paginate -Token $token
     if (-not $r.ok)
     {
         $hint = switch ($r.status)
         {
-            403 { 'token lacks permission — for Dependabot alerts set a SECURITY_ALERTS_TOKEN secret (fine-grained PAT, Dependabot alerts: read)' }
+            403 { "token lacks permission — set a SECURITY_ALERTS_TOKEN repository secret (fine-grained PAT with '$(if ($Kind -eq 'secret-scanning') { 'Secret scanning alerts' } else { 'Dependabot alerts' }): read')" }
             404 { 'feature not enabled or no analyses yet' }
             default { "HTTP $($r.status)" }
         }
