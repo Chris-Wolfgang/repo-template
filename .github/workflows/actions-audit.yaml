@@ -5,9 +5,9 @@ name: Actions Audit
 #  - actionlint: static checker for workflow YAML + embedded shell (via
 #    shellcheck). Gates the build on findings — workflows should be lint-clean.
 #  - zizmor: security auditor for Actions (injection, unpinned actions,
-#    over-broad permissions, ...). Reports to the Security tab (SARIF) rather
-#    than hard-gating, since it is opinionated; promote to a gate once the
-#    baseline is clean.
+#    over-broad permissions, ...). Every finding uploads to the Security tab
+#    (SARIF); High-severity findings also fail the job. Deliberate patterns
+#    are accepted with an inline `# zizmor: ignore[rule]` on the flagged key.
 #
 # Installed via `go install` / `pip install` (pinned) rather than third-party
 # wrapper actions, to keep the supply chain small.
@@ -80,11 +80,36 @@ jobs:
       - name: Run zizmor
         env:
           GH_TOKEN: ${{ github.token }}
-        # Report-only for now: don't fail the job on findings, upload them to
-        # Code Scanning instead. Remove `|| true` to turn this into a gate.
-        run: zizmor --format sarif .github/workflows/ > zizmor.sarif || true
+        # In SARIF mode zizmor exits 0 whether or not it has findings (the
+        # findings live in the SARIF), so a non-zero exit here is a real
+        # failure (bad install, bad YAML, API error) and must fail the job —
+        # the old `|| true` turned those into a false green. Findings are
+        # gated by the step after the upload, so annotations always land.
+        run: |
+          zizmor --format sarif .github/workflows/ > zizmor.sarif
+          if ! jq -e '.runs[0].results | type == "array"' zizmor.sarif >/dev/null; then
+            echo "::error::zizmor produced no SARIF results array — see the log above."
+            exit 1
+          fi
 
       - name: Upload zizmor SARIF
         uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
         with:
           sarif_file: zizmor.sarif
+
+      - name: Gate on high-severity findings
+        # zizmor maps High severity to SARIF level=error; medium and below
+        # upload as warning/note for the Security tab but do not block. A
+        # finding that is deliberate (e.g. pr.yaml's pull_request_target) is
+        # accepted with an inline `# zizmor: ignore[rule]` next to the flagged
+        # key — do NOT use a .zizmor.yml at the repo root: zizmor only reads
+        # .github/zizmor.yml, so a root file is silently ignored.
+        run: |
+          count=$(jq '[.runs[].results[] | select(.level == "error")] | length' zizmor.sarif)
+          if [ "$count" -gt 0 ]; then
+            jq -r '.runs[].results[] | select(.level == "error")
+                   | "  \(.ruleId): \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine) — \(.message.text)"' zizmor.sarif
+            echo "::error::$count high-severity zizmor finding(s) — fix them or accept with an inline zizmor: ignore[...] comment (see Security → Code scanning)."
+            exit 1
+          fi
+          echo "✅ No high-severity zizmor findings."
