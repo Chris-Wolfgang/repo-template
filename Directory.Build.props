@@ -1,6 +1,10 @@
 <Project>
   <PropertyGroup>
-    <LangVersion>latest</LangVersion>
+    <!-- latestMajor: the newest GA major language version the installed SDK
+         supports, never a preview. `latest` would also pick up preview
+         features when a preview SDK is on the machine, so the same source
+         could compile on one box and fail on the next. -->
+    <LangVersion>latestMajor</LangVersion>
 
     <!-- Enable nullable reference types for every SDK-style C# project.
          The condition excludes:
