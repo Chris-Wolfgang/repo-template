@@ -167,6 +167,18 @@ docfx build --serve
 
 ---
 
+## 🔐 Verify a Release
+
+Every package published from this repository carries a [SLSA build-provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds): a signed statement, recorded on GitHub, that the exact `.nupkg` bytes were produced by this repository's release workflow at a given commit. Verify a downloaded package with the GitHub CLI:
+
+```bash
+gh attestation verify {{PACKAGE_NAME}}.X.Y.Z.nupkg --owner {{GITHUB_OWNER}}
+```
+
+The command fails if the package was not built by `release.yaml` in `{{GITHUB_OWNER}}/{{REPO_NAME}}` or was modified after the build. A CycloneDX SBOM (`*.bom.json`) listing the package's full dependency closure is attached to each GitHub Release alongside the package.
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
