@@ -16,13 +16,19 @@
       in-sync - identical to the template; nothing to do.
 
     Only files the template owns are considered (workflows, analyzer config, scripts, hooks,
-    license-audit and pip pins, docs/ guides). Files that carry setup placeholders - README,
-    CONTRIBUTING, SECURITY, CODEOWNERS, docfx_project, LICENSE - are never compared: after setup
-    they are this repository's, not the template's.
+    license-audit and pip pins, docs/ guides). Files that are this repository's after setup -
+    README, CONTRIBUTING, SECURITY, CODEOWNERS, docfx_project, LICENSE - are never compared.
+    The few managed files that carry setup placeholders (BannedSymbols.txt, benchmarks.yaml)
+    are compared and applied with the placeholders substituted from the values setup.ps1
+    recorded in .template-version, so they still flow.
+
+    Files the template has removed since the base are reported as "removed"; -Apply deletes
+    them only when the local copy still equals the template's last version.
 
     Without .template-version (a repository set up before stamping existed) every differing file
     is reported as review, since there is no base to tell "template moved" from "we customised".
-    Pass -Since <template commit> to supply the base by hand.
+    Pass -Since <template commit> to supply the base by hand; placeholder-bearing files then
+    stay in review because there are no recorded values to substitute.
 
 .PARAMETER Template
     owner/repo of the template. Default: the value stamped in .template-version, else
@@ -31,8 +37,8 @@
     Template commit to treat as the base instead of the stamped one.
 .PARAMETER Apply
     Overwrite the files in the safe bucket with the template's current content and update
-    .template-version. Review files still only get a <name>.template sidecar. Default is a
-    dry run (report only).
+    .template-version. Review files still only get a <name>.template sidecar; an existing
+    sidecar is never overwritten (finish or delete it first). Default is a dry run.
 .PARAMETER IncludeDocs
     Also compare docs/*.md guides (off by default: repositories often edit them).
 
@@ -66,11 +72,16 @@ if (Test-Path $stampPath)
 }
 if (-not $Template) { $Template = if ($stamp -and $stamp.template) { $stamp.template } else { 'Chris-Wolfgang/repo-template' } }
 $base = if ($Since) { $Since } elseif ($stamp -and $stamp.commit) { $stamp.commit } else { $null }
+$placeholders = @{}
+if ($stamp -and $stamp.PSObject.Properties['placeholders'] -and $stamp.placeholders)
+{
+    foreach ($prop in $stamp.placeholders.PSObject.Properties) { $placeholders[$prop.Name] = [string]$prop.Value }
+}
 
 # Files the template owns. Anything else is the repository's after setup.
 $managedPrefixes = @('.github/workflows/', '.github/license-audit/', '.github/requirements/', '.githooks/', 'scripts/')
 $managedFiles = @('.editorconfig', '.globalconfig', 'BannedSymbols.txt', 'coverlet.runsettings', 'Directory.Build.props',
-                  '.gitleaks.toml', '.gitattributes', '.github/dependabot.yml', '.github/pull_request_template.md',
+                  '.gitleaks.toml', '.gitattributes', '.gitignore', '.github/dependabot.yml', '.github/pull_request_template.md',
                   '.github/ISSUE_TEMPLATE/BUG_REPORT.yaml', '.github/ISSUE_TEMPLATE/feature_request.yaml',
                   '.github/ISSUE_TEMPLATE/maintenance-task.yaml', 'changelog/unreleased/README.md')
 if ($IncludeDocs) { $managedPrefixes += 'docs/' }
@@ -89,15 +100,32 @@ function Test-Managed([string]$Path)
 
 function Get-TemplateFile([string]$Path, [string]$Ref)
 {
-    # Raw content at a ref; $null when the file does not exist there.
+    # Raw content at a ref; $null only when the file does not exist there (HTTP 404). Any other
+    # failure (rate limit, auth, network) throws: treating it as "absent" would misclassify
+    # files as new-in-template or skip them, and -Apply would then advance the stamp past them.
     $tmp = [System.IO.Path]::GetTempFileName()
+    $errFile = [System.IO.Path]::GetTempFileName()
     try
     {
-        & gh api "repos/$Template/contents/${Path}?ref=${Ref}" -H 'Accept: application/vnd.github.raw' > $tmp 2>$null
-        if ($LASTEXITCODE -ne 0) { return $null }
+        & gh api "repos/$Template/contents/${Path}?ref=${Ref}" -H 'Accept: application/vnd.github.raw' > $tmp 2> $errFile
+        if ($LASTEXITCODE -ne 0)
+        {
+            $err = Get-Content $errFile -Raw -ErrorAction SilentlyContinue
+            if ($err -match 'HTTP 404') { return $null }
+            throw "gh api repos/$Template/contents/$Path@$Ref failed (exit $LASTEXITCODE): $err"
+        }
         return [System.IO.File]::ReadAllText($tmp)
     }
-    finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+    finally { Remove-Item $tmp, $errFile -Force -ErrorAction SilentlyContinue }
+}
+
+function Get-TemplateContent([string]$Path, [string]$Ref)
+{
+    # Template content with setup placeholders substituted from the stamp, normalised.
+    $text = Get-TemplateFile $Path $Ref
+    if ($null -eq $text) { return $null }
+    foreach ($k in $placeholders.Keys) { $text = $text.Replace('{{' + $k + '}}', $placeholders[$k]) }
+    return Get-Normalized $text
 }
 
 function Get-Normalized($Text)
@@ -113,30 +141,47 @@ Write-Host "Template: $Template @ $($head.Substring(0, 7))" -ForegroundColor Cya
 Write-Host "Base:     $(if ($base) { $base.Substring(0, [Math]::Min(7, $base.Length)) + ' (' + $(if ($Since) { '-Since' } else { '.template-version' }) + ')' } else { 'none - no .template-version; every difference is reported as review' })" -ForegroundColor Cyan
 Write-Host ''
 
-# Candidate files: everything managed that exists in the template head.
-$tree = (& gh api "repos/$Template/git/trees/${head}?recursive=1" --jq '.tree[] | select(.type == "blob") | .path')
-if ($LASTEXITCODE -ne 0) { throw "could not list $Template tree" }
-$candidates = @($tree | Where-Object { Test-Managed $_ } | Sort-Object)
+function Get-ManagedPaths([string]$Ref)
+{
+    $tree = (& gh api "repos/$Template/git/trees/${Ref}?recursive=1" --jq '.tree[] | select(.type == "blob") | .path')
+    if ($LASTEXITCODE -ne 0) { throw "could not list $Template tree at $Ref" }
+    return @($tree | Where-Object { Test-Managed $_ })
+}
 
-$safe = @(); $review = @(); $inSync = @(); $missing = @()
+# Candidate files: everything managed at the template head, plus anything managed at the
+# base that the template has since removed (so deletions are reported, not silently kept).
+$headPaths = Get-ManagedPaths $head
+$basePaths = if ($base) { Get-ManagedPaths $base } else { @() }
+$candidates = @($headPaths + $basePaths | Sort-Object -Unique)
+
+$safe = @(); $review = @(); $inSync = @(); $missing = @(); $removed = @()
 foreach ($path in $candidates)
 {
-    $templateNow = Get-Normalized (Get-TemplateFile $path $head)
-    if ($null -eq $templateNow) { continue }
+    $templateNow = if ($path -in $headPaths) { Get-TemplateContent $path $head } else { $null }
     $local = if (Test-Path $path) { Get-Normalized ([System.IO.File]::ReadAllText($path)) } else { $null }
+
+    if ($null -eq $templateNow)
+    {
+        # Removed from the template since the base. Deleting is safe only when the local copy
+        # is still exactly what the template last shipped; otherwise leave it for a human.
+        if ($null -eq $local) { continue }
+        $templateThen = Get-TemplateContent $path $base
+        $removed += [pscustomobject]@{ Path = $path; Safe = ($null -ne $templateThen -and $local -eq $templateThen) }
+        continue
+    }
 
     if ($null -eq $local)
     {
         # New in the template since setup, or deliberately deleted here. New-in-template is
         # safe to add when the base did not have it either; otherwise it is a local deletion.
-        $templateThen = if ($base) { Get-Normalized (Get-TemplateFile $path $base) } else { $null }
+        $templateThen = if ($base) { Get-TemplateContent $path $base } else { $null }
         if ($base -and $null -eq $templateThen) { $safe += [pscustomobject]@{ Path = $path; Reason = 'new in template'; Content = $templateNow } }
         else { $missing += $path }
         continue
     }
     if ($local -eq $templateNow) { $inSync += $path; continue }
 
-    $templateThen = if ($base) { Get-Normalized (Get-TemplateFile $path $base) } else { $null }
+    $templateThen = if ($base) { Get-TemplateContent $path $base } else { $null }
     if ($base -and $null -ne $templateThen -and $local -eq $templateThen)
     {
         $safe += [pscustomobject]@{ Path = $path; Reason = 'template changed, local untouched since setup'; Content = $templateNow }
@@ -157,6 +202,11 @@ Write-Host "Safe    : $($safe.Count) file(s)$(if (-not $Apply -and $safe.Count) 
 foreach ($s in $safe) { Write-Host "    $($s.Path)  ($($s.Reason))" }
 Write-Host "Review  : $($review.Count) file(s)$(if ($review.Count) { ' - template version written as <file>.template for a manual merge' })" -ForegroundColor $(if ($review.Count) { 'Yellow' } else { 'Green' })
 foreach ($r in $review) { Write-Host "    $($r.Path)  ($($r.Reason))" }
+if ($removed.Count -gt 0)
+{
+    Write-Host "Removed : $($removed.Count) file(s) no longer in the template$(if (-not $Apply) { ' - -Apply deletes the unmodified ones' })" -ForegroundColor Yellow
+    foreach ($d in $removed) { Write-Host "    $($d.Path)  ($(if ($d.Safe) { 'unmodified since setup; deleted by -Apply' } else { 'modified locally; delete by hand' }))" }
+}
 
 if (-not $Apply)
 {
@@ -174,15 +224,28 @@ foreach ($s in $safe)
 }
 foreach ($r in $review)
 {
-    Set-Content -Path "$($r.Path).template" -Value ($r.Content + "`n") -Encoding utf8NoBOM -NoNewline
-    Write-Host "  sidecar  $($r.Path).template" -ForegroundColor Yellow
+    $sidecar = "$($r.Path).template"
+    if (Test-Path $sidecar)
+    {
+        # A sidecar from an earlier run may hold half-finished merge work; never clobber it.
+        Write-Host "  kept     $sidecar (already exists - finish or delete it, then re-run)" -ForegroundColor Yellow
+        continue
+    }
+    Set-Content -Path $sidecar -Value ($r.Content + "`n") -Encoding utf8NoBOM -NoNewline
+    Write-Host "  sidecar  $sidecar" -ForegroundColor Yellow
+}
+foreach ($d in $removed)
+{
+    if ($d.Safe) { Remove-Item -Path $d.Path -Force; Write-Host "  removed  $($d.Path)" -ForegroundColor Green }
+    else { Write-Host "  left     $($d.Path) (modified locally; template removed it)" -ForegroundColor Yellow }
 }
 
 $newStamp = [ordered]@{
-    template  = $Template
-    commit    = $head
-    updated   = (Get-Date).ToString('yyyy-MM-dd')
-    note      = 'Written by scripts/setup.ps1 and scripts/upgrade.ps1; the template commit this repository last took template-managed files from.'
+    template     = $Template
+    commit       = $head
+    updated      = (Get-Date).ToString('yyyy-MM-dd')
+    placeholders = $(if ($placeholders.Count) { [ordered]@{} + $placeholders } else { $null })
+    note         = 'Written by scripts/setup.ps1 and scripts/upgrade.ps1; the template commit this repository last took template-managed files from, and the placeholder values setup used.'
 }
 $newStamp | ConvertTo-Json | Set-Content -Path $stampPath -Encoding utf8NoBOM
 Write-Host ''

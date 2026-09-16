@@ -420,7 +420,7 @@ Your repository now has:
 template moves on (a workflow fix, a new analyzer rule, a bumped tool pin), run:
 
 ```powershell
-pwsh ./scripts/upgrade.ps1          # dry run: safe / review / in-sync per file
+pwsh ./scripts/upgrade.ps1          # dry run: safe / review / in-sync / removed per file
 pwsh ./scripts/upgrade.ps1 -Apply   # take the safe files, sidecar the rest, re-stamp
 ```
 

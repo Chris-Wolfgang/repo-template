@@ -850,11 +850,16 @@ if ($solutionName) {
         }
     }
     catch { $templateCommit = $null }
+    # The placeholder values are recorded too: a few template-managed files (BannedSymbols.txt,
+    # benchmarks.yaml) carry placeholders, and upgrade.ps1 substitutes these before comparing.
+    $stampPlaceholders = [ordered]@{}
+    foreach ($k in ($replacements.Keys | Sort-Object)) { $stampPlaceholders[$k] = $replacements[$k] }
     $templateStamp = [ordered]@{
-        template = "$templateRepoOwner/$templateRepoName"
-        commit   = $templateCommit
-        updated  = (Get-Date).ToString('yyyy-MM-dd')
-        note     = 'Written by scripts/setup.ps1 and scripts/upgrade.ps1; the template commit this repository last took template-managed files from.'
+        template     = "$templateRepoOwner/$templateRepoName"
+        commit       = $templateCommit
+        updated      = (Get-Date).ToString('yyyy-MM-dd')
+        placeholders = $stampPlaceholders
+        note         = 'Written by scripts/setup.ps1 and scripts/upgrade.ps1; the template commit this repository last took template-managed files from, and the placeholder values setup used.'
     }
     $templateStamp | ConvertTo-Json | Out-File -FilePath '.template-version' -Encoding utf8NoBOM
     if ($templateCommit) { Write-Success "Recorded template commit $($templateCommit.Substring(0, 7)) in .template-version" }
