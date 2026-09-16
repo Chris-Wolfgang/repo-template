@@ -50,7 +50,8 @@ param
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$usesRe = [regex]'^(?<lead>\s*-?\s*uses:\s*)(?<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[^@\s]+)?)@(?<ref>[^\s#]+)(?<gap>[ \t]*)(?:#[ \t]*(?<comment>[^\r\n]*))?(?<eol>\r?)$'
+# The value may be quoted ('actions/checkout@v7' or "..."); the quote is captured and put back.
+$usesRe = [regex]'^(?<lead>\s*-?\s*uses:\s*)(?<q>["'']?)(?<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[^@\s"'']+)?)@(?<ref>[^\s#"'']+)\k<q>(?<gap>[ \t]*)(?:#[ \t]*(?<comment>[^\r\n]*))?(?<eol>\r?)$'
 $tagCache = @{}
 
 function Get-ActionTags([string]$Repo)
@@ -135,7 +136,8 @@ foreach ($f in $files)
         }
 
         if ($newRef -eq $ref -and $newComment -eq $comment) { $ok++; continue }
-        $newLine = "$($m.Groups['lead'].Value)$action@$newRef # $newComment$($m.Groups['eol'].Value)" + $(if ($lines[$i].EndsWith("`n")) { "`n" } else { '' })
+        $q = $m.Groups['q'].Value
+        $newLine = "$($m.Groups['lead'].Value)$q$action@$newRef$q # $newComment$($m.Groups['eol'].Value)" + $(if ($lines[$i].EndsWith("`n")) { "`n" } else { '' })
         Write-Host "  ~  ${rel}: $action@$(if ($ref.Length -eq 40) { $ref.Substring(0,7) } else { $ref }) # $(if ($comment) { $comment } else { '(none)' })  ->  @$($newRef.Substring(0,7)) # $newComment" -ForegroundColor Cyan
         $lines[$i] = $newLine
         $fileChanged = $true
