@@ -164,10 +164,12 @@ function Read-Input {
     
     do {
         Write-Host $message -NoNewline -ForegroundColor Yellow
-        $userInput = Read-Host
-        
+        # Trim: a trailing space pasted after a name or URL would otherwise end
+        # up in file names, the NuGet id and every generated link.
+        $userInput = (Read-Host).Trim()
+
         if ([string]::IsNullOrWhiteSpace($userInput) -and $Default) {
-            return $Default
+return $Default
         }
         
         if ([string]::IsNullOrWhiteSpace($userInput) -and $Required) {
@@ -377,7 +379,7 @@ function Start-Setup {
     Write-Host "  3) MPL-2.0 - Weak copyleft, file-level"
     Write-Host "  4) custom/TBD - All rights reserved pending license selection (no reuse, redistribution, or hosting rights)"
     Write-Host ""
-    Write-Host "For detailed comparison, see LICENSE-SELECTION.md" -ForegroundColor Cyan
+    Write-Host "For a detailed comparison see https://choosealicense.com/licenses/" -ForegroundColor Cyan
     Write-Host ""
     
     do {
@@ -579,7 +581,7 @@ function Start-Setup {
         )
         
         # Save as LICENSE
-        Set-Content -Path 'LICENSE' -Value $licenseContent -NoNewline
+        Set-Content -Path 'LICENSE' -Value $licenseContent -Encoding utf8NoBOM -NoNewline
         Write-Success "Created LICENSE file ($licenseType)"
         
         # Delete all license templates
@@ -600,7 +602,7 @@ function Start-Setup {
                     '(?m)^file_header_template = unset\s*$',
                     [System.Text.RegularExpressions.MatchEvaluator]{ param($m) "file_header_template = $header`ndotnet_diagnostic.IDE0073.severity = warning" }
                 )
-                Set-Content -Path '.editorconfig' -Value $editorConfig -NoNewline
+                Set-Content -Path '.editorconfig' -Value $editorConfig -Encoding utf8NoBOM -NoNewline
                 Write-Success "Set .editorconfig file_header_template (LicenseRef-TBD) and enabled IDE0073"
             }
             else {
@@ -615,19 +617,22 @@ function Start-Setup {
                 $licenseSentence = 'This project is licensed under the **TBD License**. See the [LICENSE](LICENSE) file for details.'
                 if ($readmeText.Contains($licenseSentence)) {
                     $readmeText = $readmeText.Replace($licenseSentence, $tbdSentence)
-                    Set-Content -Path $readmeFile -Value $readmeText -NoNewline
+                    Set-Content -Path $readmeFile -Value $readmeText -Encoding utf8NoBOM -NoNewline
                     Write-Success "Replaced the license sentence in $readmeFile with the pending-license wording"
                 }
             }
         }
     }
     else {
-        Write-Error "License template file not found: $licenseFile"
+        # Unreachable on a configured repo: the README-TEMPLATE.md guard above
+        # already refuses to re-run there. Reaching this means a partially
+        # restored template (README-TEMPLATE.md put back, LICENSE-*.txt not).
+        Write-TemplateError "License template file not found: $licenseFile - restore it from Chris-Wolfgang/repo-template alongside README-TEMPLATE.md"
         exit 1
     }
-    
+
     # Step 4: Create solution (if requested)
-    if ($solutionName) {
+if ($solutionName) {
         Write-Info "Step 4/${totalSteps}: Creating solution file..."
         
         # Create blank solution in .slnx format
@@ -701,17 +706,18 @@ function Start-Setup {
             }
         }
         
-        # Get all files in the repository
-        $allFiles = Get-ChildItem -Recurse -File -Force | Where-Object {
+        # Get all files in the repository. Skip .git at the enumeration level
+        # rather than filtering its files out afterwards: on a repo with any
+        # history it holds far more objects than the working tree.
+        $topLevel = Get-ChildItem -Force | Where-Object { $_.Name -ne '.git' }
+        $allFiles = @(
+            @($topLevel | Where-Object { -not $_.PSIsContainer }) +
+            @($topLevel | Where-Object { $_.PSIsContainer } | Get-ChildItem -Recurse -File -Force)
+        ) | Where-Object {
             # Get relative path safely
             $relativePath = Get-SafeRelativePath $_.FullName
-            
-            # Exclude files under .git directory specifically (not .github)
-            if ($relativePath -like '.git/*') {
-                return $false
-            }
-            
-            # Exclude hidden files (starting with .) except those in .github directory
+
+# Exclude hidden files (starting with .) except those in .github directory
             $fileName = [System.IO.Path]::GetFileName($relativePath)
             $isInGitHubDir = $relativePath -like '.github/*'
             if ($fileName.StartsWith('.') -and -not $isInGitHubDir) {
@@ -816,7 +822,7 @@ function Start-Setup {
         
         # Write solution file with error handling
         try {
-            Set-Content -Path $solutionFileName -Value $xmlBuilder.ToString() -ErrorAction Stop
+            Set-Content -Path $solutionFileName -Value $xmlBuilder.ToString() -Encoding utf8NoBOM -ErrorAction Stop
             Write-Success "Created solution file: $solutionFileName"
             
             # Show summary
@@ -860,8 +866,8 @@ function Start-Setup {
     foreach ($file in $filesToUpdate) {
         if (Test-Path $file) {
             $content = Get-Content $file -Raw
-            $matches = [regex]::Matches($content, '\{\{([A-Z_]+)\}\}')
-            foreach ($match in $matches) {
+            $placeholderMatches = [regex]::Matches($content, '\{\{([A-Z_]+)\}\}')
+            foreach ($match in $placeholderMatches) {
                 $placeholderName = $match.Groups[1].Value
                 
                 # Categorize placeholder
@@ -1135,7 +1141,9 @@ try {
     Start-Setup
 }
 catch {
-    Write-Error "Setup failed: $_"
+    # Not Write-Error: with $ErrorActionPreference = 'Stop' that call would
+    # itself terminate before the stack trace below is printed.
+    Write-Host "Setup failed: $_" -ForegroundColor Red
     Write-Host $_.ScriptStackTrace -ForegroundColor Red
     exit 1
 }
