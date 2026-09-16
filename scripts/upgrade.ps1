@@ -192,7 +192,14 @@ foreach ($path in $candidates)
         else { $missing += $path }
         continue
     }
-    if ((Get-CompareKey $local) -eq (Get-CompareKey $templateNow)) { $inSync += $path; continue }
+    if ($local -eq $templateNow) { $inSync += $path; continue }
+    if ((Get-CompareKey $local) -eq (Get-CompareKey $templateNow))
+    {
+        # Same content, only the comment after a pinned SHA differs: apply so the template's
+        # full-precision comment lands (otherwise the file would sit in-sync and never update).
+        $safe += [pscustomobject]@{ Path = $path; Reason = 'only the SHA-pin version comment differs'; Content = $templateNow }
+        continue
+    }
 
     $templateThen = if ($base) { Get-TemplateContent $path $base } else { $null }
     if ($base -and $null -ne $templateThen -and (Get-CompareKey $local) -eq (Get-CompareKey $templateThen))
