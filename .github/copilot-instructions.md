@@ -6,14 +6,14 @@ This is a **repository template** for creating new .NET repositories. It provide
 
 **Repository Type**: Template (not a working project — it contains no csproj)
 **Target Platforms**: .NET Framework 4.6.2–4.8.1, .NET Core 3.1, .NET 5.0–10.0
-**Primary Language**: C#; all tooling is PowerShell 7 (`pwsh`) — there are no bash scripts
+**Primary Language**: C#; the `scripts/` tooling is PowerShell 7 (`pwsh`). The one shell script is the git hook `.githooks/pre-commit` (bash, as git hooks must be), and CI `run:` steps use bash on the Linux/macOS stages.
 
 ## Build and Validation Instructions
 
 ### Prerequisites
 - .NET SDK — the current release (10.0); CI installs 3.1 through 10.0 for the multi-target matrix
 - PowerShell 7 (`pwsh`) — every script under `scripts/`
-- Optional: gitleaks CLI for the pre-commit hook (`git config core.hooksPath .githooks`)
+- A bash on PATH for the pre-commit hook (`.githooks/pre-commit`; Git for Windows ships one) plus the optional gitleaks CLI (`git config core.hooksPath .githooks`)
 
 ### Build Process (For Repositories Created from This Template)
 **IMPORTANT**: This template has no buildable projects. These commands apply to repositories created FROM this template.
