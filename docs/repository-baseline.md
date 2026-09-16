@@ -145,7 +145,7 @@ Scope rules:
 ### 20. Security-alert triage workflow present
 
 - **Verify:** `.github/workflows/security-alerts.yml` (or `.yaml`) exists.
-- **Fix:** Copy `.github/workflows/security-alerts.yml` and `scripts/security-alerts.ps1` from the template. Dependabot alerts need a `SECURITY_ALERTS_TOKEN` repository secret (see the workflow header).
+- **Fix:** Copy `.github/workflows/security-alerts.yml` and `scripts/security-alerts.ps1` from the template, then add the `SECURITY_ALERTS_TOKEN` repository secret (fine-grained PAT: Secret scanning alerts read, Dependabot alerts read, Metadata read; one token scoped to all repositories is fine). Without it secret-scanning and Dependabot alerts are skipped with a notice.
 - **Label:** `security`
 
 ### 21. Warnings-as-errors on for Release builds

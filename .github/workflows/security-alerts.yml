@@ -5,12 +5,13 @@
 # bypasses get their own issue. Mondays (or on demand): a summary issue of alerts open
 # longer than 7 days. Logic lives in scripts/security-alerts.ps1 so it can be run locally.
 #
-# Tokens: GITHUB_TOKEN does everything except read Dependabot alerts (not readable with
-# GITHUB_TOKEN on a personal account). Add a repository secret SECURITY_ALERTS_TOKEN
-# (fine-grained PAT, this repository only, permissions: Dependabot alerts read, Metadata
-# read — nothing else) and the script uses it for the Dependabot listing ONLY; code-scanning,
-# secret-scanning, and all issue writes stay on GITHUB_TOKEN. Without the secret the
-# Dependabot kind is skipped with a notice.
+# Tokens: GITHUB_TOKEN reads code-scanning alerts and does all issue writes. It CANNOT read
+# secret-scanning alerts (even with security-events: read), and Dependabot readability varies
+# by account. Add a repository secret SECURITY_ALERTS_TOKEN — a fine-grained PAT with
+# permissions: Secret scanning alerts read, Dependabot alerts read, Metadata read — nothing
+# else. It may be scoped to all your repositories (one token, one secret value pasted into
+# each repo that runs this workflow). The script uses it for the secret-scanning and
+# Dependabot listings ONLY. Without it those kinds are skipped with a notice.
 #
 # Copilot Autofix needs `security-events: write`, so it is isolated in a second job that
 # only runs when the repository variable SECURITY_ALERTS_AUTOFIX is 'true'.
