@@ -32,6 +32,17 @@ function Write-Fail { param([string]$Message) Write-Host "  ❌ $Message"; $scri
 function Write-Warn { param([string]$Message) Write-Host "  ⚠️  $Message" }
 function Write-Skip { param([string]$Message) Write-Host "  ⏭️  $Message" }
 
+# Case-SENSITIVE property read. PowerShell's `$obj.name` is case-insensitive,
+# but the browser consumer (docfx_project/public/version-picker.js) reads
+# `v.version` / `v.url` exactly, so `"Version"` / `"URL"` would pass a naive
+# check here and still be ignored by the picker.
+function Get-ExactProperty {
+    param([object]$Object, [string]$Name)
+    $prop = $Object.PSObject.Properties | Where-Object { $_.Name -ceq $Name } | Select-Object -First 1
+    if ($prop) { return $prop.Value }
+    return $null
+}
+
 function Write-Summary {
     Write-Host ""
     Write-Host "────────────────────────────────────────────────────────"
@@ -142,11 +153,11 @@ try {
                 if ($entry -isnot [System.Management.Automation.PSCustomObject]) {
                     $problem = "Entry [$i] is not a JSON object: $($entry | ConvertTo-Json -Compress)"
                 }
-                elseif ($entry.version -isnot [string] -or -not $entry.version) {
-                    $problem = "Entry [$i] has missing or non-string 'version': $($entry | ConvertTo-Json -Compress)"
+                elseif ((Get-ExactProperty $entry 'version') -isnot [string] -or -not (Get-ExactProperty $entry 'version')) {
+                    $problem = "Entry [$i] has missing or non-string 'version' (exact, lower-case key): $($entry | ConvertTo-Json -Compress)"
                 }
-                elseif ($entry.url -isnot [string] -or -not $entry.url) {
-                    $problem = "Entry [$i] has missing or non-string 'url': $($entry | ConvertTo-Json -Compress)"
+                elseif ((Get-ExactProperty $entry 'url') -isnot [string] -or -not (Get-ExactProperty $entry 'url')) {
+                    $problem = "Entry [$i] has missing or non-string 'url' (exact, lower-case key): $($entry | ConvertTo-Json -Compress)"
                 }
             }
         }
@@ -157,7 +168,7 @@ try {
         else {
             Write-Pass "versions.json is valid ($($versions.Count) version(s))"
             foreach ($v in $versions) {
-                Write-Host ("       {0,-20}  ->  {1}" -f $v.version, $v.url)
+                Write-Host ("       {0,-20}  ->  {1}" -f (Get-ExactProperty $v 'version'), (Get-ExactProperty $v 'url'))
             }
             $step3Ok = $true
         }
@@ -190,7 +201,8 @@ try {
         $realRoot = [System.IO.Path]::GetFullPath($workDir)
         $missing = @()
         foreach ($v in $versions) {
-            $url = $v.url
+            $ver = Get-ExactProperty $v 'version'
+            $url = Get-ExactProperty $v 'url'
             if (-not $url -or $url -eq '/') {
                 # Root-level alias (typically 'latest' on a user/org Pages site);
                 # the root index.html is already validated in step 2.
@@ -207,21 +219,21 @@ try {
             # malformed (or hostile) versions.json on the deployed site.
             $parts = $folderName -split '/'
             if ($parts | Where-Object { $_ -in @('', '..', '.') -or $_.Contains('\') }) {
-                $missing += "$($v.version)  (url '$($v.url)' would escape gh-pages root - rejected)"
+                $missing += "$ver  (url '$url' would escape gh-pages root - rejected)"
                 continue
             }
             $folder = Join-Path $workDir $folderName
             # Belt-and-braces: the resolved full path must still be under the root.
             $realFolder = [System.IO.Path]::GetFullPath($folder)
             if (-not $realFolder.StartsWith($realRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
-                $missing += "$($v.version)  (resolved path '$realFolder' is outside gh-pages root - rejected)"
+                $missing += "$ver  (resolved path '$realFolder' is outside gh-pages root - rejected)"
                 continue
             }
             if (-not (Test-Path $folder -PathType Container)) {
-                $missing += "$($v.version)  (folder '$folderName/' not found)"
+                $missing += "$ver  (folder '$folderName/' not found)"
             }
             elseif (-not (Test-Path (Join-Path $folder 'index.html') -PathType Leaf)) {
-                $missing += "$($v.version)  (index.html missing in '$folderName/')"
+                $missing += "$ver  (index.html missing in '$folderName/')"
             }
         }
 

@@ -230,7 +230,7 @@ are served at `https://[username].github.io/[repo-name]/`.
 
 After a docs deploy, validate the result with:
 
-```bash
+```powershell
 pwsh ./scripts/Validate-DocsDeploy.ps1
 ```
 
