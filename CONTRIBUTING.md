@@ -41,16 +41,36 @@ You can contribute in several ways:
    ```
 6. **Open a pull request** describing your changes.
 
-7. **PR Checks:**  
-   Once you create a pull request (PR), several Continuous Integration (CI) steps will run automatically. These may include:
-   - Building the project
-   - Running automated tests
-   - Checking code style and linting
-   - Running static analysis with multiple static analyzers (see list below)
+7. **PR Checks:**
+   Opening a pull request runs these checks (`.github/workflows/pr.yaml` unless noted):
+   - **Secrets Scan (gitleaks)** — the same scan as the pre-commit hook.
+   - **Detect .NET Projects** — also the *protected-file guard*: a PR that changes `.editorconfig`,
+     `Directory.Build.props/.targets`, `BannedSymbols.txt`, `*.globalconfig`, `*.ruleset`, `*.DotSettings`
+     or anything under `.github/workflows/` fails here on purpose and is held for maintainer review
+     (see [docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md)).
+   - **Changelog Fragment Check** — a PR that touches `src/` must add a fragment (see below).
+   - **ReSharper InspectCode** — error-severity findings fail; warnings go to the Security tab.
+   - **Stage 1 (Linux), Stage 2 (Windows), Stage 3 (macOS)** — build and test every target framework
+     of every test project, with coverage gates of **90 % line coverage for `src/`** and
+     **100 % for `tests/`**. A framework on which zero tests ran fails the stage.
+   - **Security Scan (DevSkim)** and **Security Scan (CodeQL)** (`codeql.yaml`).
+   - **actionlint** and **zizmor** (`actions-audit.yaml`) on the workflow files themselves.
+   - License audit and SBOM generation for the dependency closure (`license-audit.yaml`, `sbom.yaml`).
 
-   **It is important to make sure that all CI steps pass before your PR can be merged.**
-   - If any CI step fails, please review the error messages and update your PR as needed.
-   - Maintainers will review your PR once all checks have passed.
+   **All checks must pass before the PR can be merged.** If one fails, read its log, fix, and push.
+   Run the same matrix locally first with `pwsh ./scripts/build-pr.ps1` (see *Build and Test* below).
+
+8. **Add a changelog fragment** if the PR changes anything under `src/`:
+   ```sh
+   # changelog/unreleased/<short-change-name>.md
+   type: fix
+
+   One user-facing sentence describing what changed for the consumer.
+   ```
+   `type` is one of `breaking`, `feature`, `fix`, `docs`, `internal`. `CHANGELOG.md` is never edited by
+   hand — the fragments are assembled into it at release time (`scripts/changelog.ps1 assemble`). A
+   `src/` change with no user-visible effect can carry the `no-changelog` label instead. Details in
+   [changelog/unreleased/README.md](changelog/unreleased/README.md).
 
 ---
 
@@ -58,9 +78,9 @@ You can contribute in several ways:
 
 This project maintains **extremely high code quality standards** through multiple layers of static analysis and automated enforcement.
 
-### The 7 Analyzers
+### The Analyzers
 
-All code is analyzed by these tools during build:
+Seven analyzers run on every build via `Directory.Build.props`; an eighth is opt-in per project:
 
 1. **Microsoft.CodeAnalysis.NetAnalyzers** (Built-in .NET SDK)
    - Correctness, performance, and security rules
@@ -96,6 +116,12 @@ All code is analyzed by these tools during build:
    - Security vulnerability detection
    - Code smell identification
 
+8. **Microsoft.CodeAnalysis.PublicApiAnalyzers** (opt-in)
+   - Tracks the public API surface in `PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt`
+   - Loaded only for a project that has those two files next to its `.csproj` — add them to a
+     library under `src/` to opt in; test, example and benchmark projects never see it
+   - New or changed public members must be recorded in `PublicAPI.Unshipped.txt` or the build fails
+
 ### Async-First Enforcement
 
 This library **prohibits synchronous blocking calls** via `BannedSymbols.txt`. The following APIs are **banned**:
@@ -105,11 +131,14 @@ This library **prohibits synchronous blocking calls** via `BannedSymbols.txt`. T
 // Banned - blocks threads
 task.Wait();
 task.Result;
+task.GetAwaiter().GetResult();
 Task.WaitAll(tasks);
+Parallel.ForEach(items, Work);
 
 // Required - truly async
 await task;
 await Task.WhenAll(tasks);
+await Parallel.ForEachAsync(items, WorkAsync);
 ```
 
 #### ❌ Synchronous I/O
@@ -117,12 +146,12 @@ await Task.WhenAll(tasks);
 // Banned
 File.ReadAllText(path);
 stream.Read(buffer, 0, count);
-streamReader.ReadLine();
+source.CopyTo(destination);
 
 // Required
 await File.ReadAllTextAsync(path);
 await stream.ReadAsync(buffer, 0, count);
-await streamReader.ReadLineAsync();
+await source.CopyToAsync(destination);
 ```
 
 #### ❌ Thread Blocking
@@ -151,13 +180,16 @@ var now = DateTimeOffset.UtcNow;
 
 **Why?** This ensures all code is **truly asynchronous** and **non-blocking**, providing optimal performance in async contexts.
 
+The complete list (65 symbols, each with the reason and the replacement) is [`BannedSymbols.txt`](BannedSymbols.txt).
+
 ---
 
 ## Build and Test Instructions
 
 ### Prerequisites
-- Latest .NET SDK recommended (the CI matrix tests .NET 5.0-10.0 and .NET Framework 4.6.2-4.8.1; the SDK you actually need depends on your project's target frameworks. The template itself contains no csproj.)
-- PowerShell Core (optional, for formatting scripts)
+- Latest .NET SDK recommended (the CI matrix tests .NET Core 3.1, .NET 5.0-10.0 and .NET Framework 4.6.2-4.8.1; the SDK you actually need depends on your project's target frameworks. The template itself contains no csproj.)
+- PowerShell 7 (`pwsh`) — every script under `scripts/` is PowerShell (`build-pr.ps1`, `changelog.ps1`, `format.ps1`, `setup.ps1`, ...)
+- [gitleaks](https://github.com/gitleaks/gitleaks#installing) for the pre-commit hook (optional locally; CI runs it regardless)
 
 ### Build the Project
 
@@ -181,6 +213,17 @@ dotnet test --configuration Release
 dotnet test --collect:"XPlat Code Coverage"
 ```
 
+### Run the PR checks locally
+
+```powershell
+# Mirrors pr.yaml: build, every-TFM tests, coverage gates (90 % src / 100 % tests), DevSkim, gitleaks
+pwsh ./scripts/build-pr.ps1
+
+# Skip the security scans or the coverage gate while iterating
+pwsh ./scripts/build-pr.ps1 -SkipSecurity
+pwsh ./scripts/build-pr.ps1 -SkipCoverage
+```
+
 ### Code Formatting
 
 This project uses `.editorconfig` for consistent code style:
@@ -189,7 +232,7 @@ This project uses `.editorconfig` for consistent code style:
 # Format all code
 dotnet format
 
-# Check formatting without changes (CI mode)
+# Check formatting without changes
 dotnet format --verify-no-changes
 
 # PowerShell formatting script
@@ -202,18 +245,21 @@ See [docs/README-FORMATTING.md](docs/README-FORMATTING.md) for detailed formatti
 
 ## .editorconfig Rules
 
-Key style rules enforced:
+Key style rules:
 
-- **Indentation:** 4 spaces (C#), 2 spaces (XML/JSON)
-- **Line endings:** LF (Unix-style)
+- **Indentation:** 4 spaces (C#), 2 spaces (XML/JSON/YAML)
+- **Line endings:** LF for every text file (`.gitattributes`), including `*.ps1`
 - **Charset:** UTF-8
 - **Trim trailing whitespace:** Yes
 - **Final newline:** Yes
-- **Braces:** New line style (Allman)
-- **Naming:** PascalCase for public members, camelCase for parameters/locals
-- **File-scoped namespaces:** Required in C# 10+
-- **`var` preferences:** Use for built-in types and when type is obvious
-- **Null checks:** Prefer pattern matching (`is null`, `is not null`)
+- **Braces:** Opening brace on its own line (Allman)
+- **Using directives:** `System` namespaces first, then sorted
+- **Naming:** PascalCase for types and non-field members, `I`-prefixed interfaces, camelCase for parameters/locals
+- **File-scoped namespaces**, **`var`** where the type is apparent, **pattern-matching null checks**
+  (`is null` / `is not null`): configured as suggestions, so the IDE nudges but the build does not fail on them
+
+Analyzer severities (what *does* fail a Release build) are also set in `.editorconfig`, per directory:
+`src/` is strictest, `tests/`, `benchmarks/` and `examples/` relax rules that only make sense for shipped code.
 
 View the complete configuration in [.editorconfig](.editorconfig).
 
@@ -224,7 +270,7 @@ View the complete configuration in [.editorconfig](.editorconfig).
 - Follow the coding style used in the project.
 - Write clear, concise commit messages.
 - Add relevant tests for new features or bug fixes.
-- Document any public APIs with XML documentation comments.
+- Document any public APIs with XML documentation comments — `GenerateDocumentationFile` is on for every project under `src/`, so a missing comment (CS1591) fails the Release build.
 - Ensure all analyzer warnings are addressed (they're treated as errors in Release builds).
 - Use async/await patterns - no blocking calls allowed.
 - Include `CancellationToken` parameters in async methods where appropriate.
@@ -234,6 +280,8 @@ View the complete configuration in [.editorconfig](.editorconfig).
 ## Pull Requests
 
 If this repository requires linear history, stacked pull requests are restacked with `scripts/restack.ps1` after each merge — see [docs/STACKED-PRS.md](docs/STACKED-PRS.md).
+
+Changes to protected configuration files (`.editorconfig`, `Directory.Build.props`, workflows, ...) are tested against the `main` versions, not yours, and the PR is held for maintainer review — keep them in their own PR, separate from code that depends on them. See [docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md#making-changes-to-protected-configuration-files).
 
 - Ensure your pull request passes all tests and analyzer checks.
 - Respond to review feedback in a timely manner.

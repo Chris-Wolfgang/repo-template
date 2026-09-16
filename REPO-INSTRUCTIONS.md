@@ -176,16 +176,16 @@ root
 
 If you plan to publish NuGet packages using the automated release workflow, you need to configure the following:
 
-### Add NuGet API Key Secret
+### Register a NuGet.org Trusted Publishing Policy
 
-1. Go to your repository's Settings → Secrets and variables → Actions
-2. Click **"New repository secret"**
-3. **Name:** `NUGET_API_KEY`
-4. **Value:** Your NuGet.org API key
-   - Get your key from [NuGet.org Account → API Keys](https://www.nuget.org/account/apikeys)
-   - Recommended scopes: **Push new packages and package versions**
-   - Set expiration date (recommended: 1 year)
-5. Click **"Add secret"**
+The workflow publishes with a short-lived key issued through GitHub's OIDC token (`NuGet/login`), so there is **no `NUGET_API_KEY` secret** to create or rotate.
+
+1. Sign in to NuGet.org → your username → **Trusted Publishing** → add a policy
+2. **Repository owner:** your GitHub account or org; **Repository:** this repo's name; **Workflow file:** `release.yaml`; **Environment:** leave empty
+3. Give the policy the *new packages* scope if this repo has never published, or push the first version by hand
+4. Make sure the `user:` input of the `NuGet login` step in `.github/workflows/release.yaml` is the NuGet.org account that owns the policy
+
+Full walkthrough and troubleshooting: [docs/RELEASE-WORKFLOW-SETUP.md](docs/RELEASE-WORKFLOW-SETUP.md).
 
 **Note:** The release workflow automatically publishes packages to NuGet.org when you **publish a GitHub Release** (the workflow triggers on `release: types: [published]`, not on a tag push). Create a tag like `v1.0.0`, then publish a GitHub Release from that tag to trigger the workflow.
 
