@@ -838,6 +838,28 @@ if ($solutionName) {
         }
     }
     
+    # Record which template commit this repository was generated from so that
+    # scripts/upgrade.ps1 has a base to compare against later. Best effort: gh may be
+    # missing or offline, in which case the stamp carries no commit and upgrade.ps1
+    # falls back to a two-way compare (or -Since).
+    $templateCommit = $null
+    try {
+        if (Get-Command gh -ErrorAction SilentlyContinue) {
+            $templateCommit = gh api "repos/$templateRepoOwner/$templateRepoName/commits/main" --jq '.sha' 2>$null
+            if ($LASTEXITCODE -ne 0) { $templateCommit = $null }
+        }
+    }
+    catch { $templateCommit = $null }
+    $templateStamp = [ordered]@{
+        template = "$templateRepoOwner/$templateRepoName"
+        commit   = $templateCommit
+        updated  = (Get-Date).ToString('yyyy-MM-dd')
+        note     = 'Written by scripts/setup.ps1 and scripts/upgrade.ps1; the template commit this repository last took template-managed files from.'
+    }
+    $templateStamp | ConvertTo-Json | Out-File -FilePath '.template-version' -Encoding utf8NoBOM
+    if ($templateCommit) { Write-Success "Recorded template commit $($templateCommit.Substring(0, 7)) in .template-version" }
+    else { Write-TemplateWarning "Could not read the template's current commit (gh missing or offline); .template-version written without one. Pass -Since to scripts/upgrade.ps1 later." }
+
     # Step 5: Validation
     Write-Info "Step ${totalSteps}/${totalSteps}: Validating changes..."
     

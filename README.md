@@ -414,6 +414,20 @@ Your repository now has:
 - ✅ Professional README
 - ✅ Proper licensing
 
+### 5. Keep Up With the Template
+
+`setup.ps1` records the template commit it used in `.template-version`. When the
+template moves on (a workflow fix, a new analyzer rule, a bumped tool pin), run:
+
+```powershell
+pwsh ./scripts/upgrade.ps1          # dry run: safe / review / in-sync per file
+pwsh ./scripts/upgrade.ps1 -Apply   # take the safe files, sidecar the rest, re-stamp
+```
+
+Files you never touched come across as-is; files you customised get a
+`<file>.template` sidecar to merge by hand. See the script table in
+[REPO-INSTRUCTIONS.md](REPO-INSTRUCTIONS.md#maintenance--repair-scripts).
+
 ---
 
 ## 📚 Additional Resources
