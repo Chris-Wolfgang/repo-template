@@ -10,6 +10,7 @@ The release workflow triggers when you **publish a GitHub Release** and implemen
 - ✅ Enforces the coverage gates (90 % line coverage for `src/`, 100 % for `tests/`)
 - ✅ Validates NuGet package integrity with smoke tests and generates a CycloneDX SBOM
 - ✅ Builds the DocFX documentation before publishing, so a docs failure blocks the package
+- ✅ Records a SLSA build-provenance attestation for every package (`gh attestation verify`)
 - ✅ Publishes to NuGet.org via OIDC trusted publishing — no stored API key
 - ✅ Deploys the versioned documentation to `gh-pages`
 - ✅ Attaches the packages, SBOM and coverage report to the GitHub Release
@@ -91,6 +92,7 @@ Ensure the following settings are enabled:
    - Builds the DocFX site without deploying, so a docs error blocks the package instead of landing after it
 
 4. **publish-nuget** (1-2 minutes, Windows) — only when packages were produced
+   - `actions/attest-build-provenance` signs a SLSA provenance attestation for each `.nupkg` (recorded under the repo's Attestations; verify with `gh attestation verify <pkg>.nupkg --repo <owner>/<repo> --signer-workflow <owner>/<repo>/.github/workflows/release.yaml`)
    - `NuGet/login` mints a short-lived key via OIDC trusted publishing
    - `dotnet nuget push --skip-duplicate` for every `.nupkg`
 
@@ -209,6 +211,7 @@ Before publishing a production GitHub Release (for example `v1.0.0`):
               ▼ (only if docs build)└──────────────────────────┘
 ┌──────────────────────────────────────────────────────────────┐
 │  publish-nuget (Windows)                                     │
+│  • SLSA build-provenance attestation per .nupkg              │
 │  • NuGet/login (OIDC trusted publishing)                     │
 │  • dotnet nuget push --skip-duplicate                        │
 └──────────────────────────────────────────────────────────────┘
