@@ -1078,6 +1078,13 @@ jobs:
             if ($LASTEXITCODE -eq 0) {
               Write-Host "  ✓ Copying $configFile from main branch"
               git show "main-branch:$configFile" | Out-File -FilePath $configFile -Encoding UTF8NoBOM
+              # Out-File succeeds even when git show fails mid-stream, leaving
+              # an empty/partial file that silently puts the PR's own config in
+              # force. $LASTEXITCODE is git's exit code after the pipeline.
+              if ($LASTEXITCODE -ne 0) {
+                Write-Host "::error::Failed to copy $configFile from main-branch (git show exited $LASTEXITCODE) - aborting to prevent silent fall-back to PR-supplied protected config."
+                exit 1
+              }
             } else {
               Write-Host "  ℹ️  $configFile not found in main branch, skipping"
             }
@@ -1093,6 +1100,10 @@ jobs:
                 $dir = Split-Path -Parent $file
                 if ($dir) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
                 git show "main-branch:$file" | Out-File -FilePath $file -Encoding UTF8NoBOM
+                if ($LASTEXITCODE -ne 0) {
+                  Write-Host "::error::Failed to copy $file from main-branch (git show exited $LASTEXITCODE) - aborting to prevent silent fall-back to PR-supplied protected config."
+                  exit 1
+                }
               }
             }
           }
