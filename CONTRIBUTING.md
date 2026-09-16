@@ -18,21 +18,30 @@ You can contribute in several ways:
 ## Getting Started
 
 1. **Fork the repository** and clone it locally.
-2. **Create a new branch** for your feature or bug fix:
+2. **Enable the pre-commit secret scan** (once per clone). The repository ships a
+   [gitleaks](https://github.com/gitleaks/gitleaks) hook in `.githooks/pre-commit` that blocks
+   commits containing credentials; CI runs the same scan, so enabling it locally only saves you a
+   failed PR check:
+   ```sh
+   git config core.hooksPath .githooks
+   ```
+   Install the `gitleaks` CLI (`winget install gitleaks` / `brew install gitleaks`). Without it the
+   hook prints a warning and lets the commit through. `git commit --no-verify` skips it for one commit.
+3. **Create a new branch** for your feature or bug fix:
    ```sh
    git checkout -b your-feature-name
    ```
-3. **Make your changes** and commit them with clear messages:
+4. **Make your changes** and commit them with clear messages:
    ```sh
    git commit -m "Describe your changes"
    ```
-4. **Push your branch** to your fork:
+5. **Push your branch** to your fork:
    ```sh
    git push origin your-feature-name
    ```
-5. **Open a pull request** describing your changes.
+6. **Open a pull request** describing your changes.
 
-6. **PR Checks:**  
+7. **PR Checks:**  
    Once you create a pull request (PR), several Continuous Integration (CI) steps will run automatically. These may include:
    - Building the project
    - Running automated tests

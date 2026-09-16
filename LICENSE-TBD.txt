@@ -1,0 +1,8 @@
+Copyright (c) {{YEAR}} {{COPYRIGHT_HOLDER}}
+
+All rights reserved pending license selection.
+
+No reuse, redistribution, or hosting rights are granted. This repository is
+published for reference only until a license is chosen; at that point this
+file will be replaced and the SPDX identifier LicenseRef-TBD in source-file
+headers will be updated.

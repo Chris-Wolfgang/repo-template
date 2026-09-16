@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Pre-commit hook: block commits that contain secrets (gitleaks).
+#
+# Enable once per clone:   git config core.hooksPath .githooks
+# Skip once (emergency):   git commit --no-verify
+#
+# Requires the gitleaks CLI on PATH (https://github.com/gitleaks/gitleaks#installing):
+#   winget install gitleaks      # Windows
+#   brew install gitleaks        # macOS
+#   see releases page            # Linux
+# The same scan runs in CI (pr.yaml "Secrets Scan (gitleaks)"), so a missing local
+# binary only delays detection; the hook warns and lets the commit through.
+
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks not found on PATH — skipping local secret scan (CI will still scan)." >&2
+  echo "            Install: https://github.com/gitleaks/gitleaks#installing" >&2
+  exit 0
+fi
+
+config=()
+if [ -f .gitleaks.toml ]; then
+  config=(--config .gitleaks.toml)
+fi
+
+# Scan only what is staged for this commit. --redact keeps secret values out of the terminal.
+if ! gitleaks protect --staged --redact --no-banner "${config[@]}"; then
+  echo "" >&2
+  echo "pre-commit: gitleaks found a possible secret in the staged changes; commit blocked." >&2
+  echo "            Remove the secret (and rotate it if it is real), or add a narrow allowlist" >&2
+  echo "            entry to .gitleaks.toml for a confirmed false positive." >&2
+  exit 1
+fi

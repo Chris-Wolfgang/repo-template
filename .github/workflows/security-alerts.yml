@@ -1,0 +1,103 @@
+# Security alert triage (baseline item 20, E86.6)
+#
+# Nightly: every open code-scanning, secret-scanning, and Dependabot alert becomes one
+# issue (label `security`); the issue is closed when the alert closes; push-protection
+# bypasses get their own issue. Mondays (or on demand): a summary issue of alerts open
+# longer than 7 days. Logic lives in scripts/security-alerts.ps1 so it can be run locally.
+#
+# Tokens: GITHUB_TOKEN reads code-scanning alerts and does all issue writes. It CANNOT read
+# secret-scanning alerts (even with security-events: read), and Dependabot readability varies
+# by account. Add a repository secret SECURITY_ALERTS_TOKEN — a fine-grained PAT with
+# permissions: Secret scanning alerts read, Dependabot alerts read, Metadata read — nothing
+# else. It may be scoped to all your repositories (one token, one secret value pasted into
+# each repo that runs this workflow). The script uses it for every READ of secret-scanning
+# and Dependabot alerts (listing, locations, detail) and for nothing else; without it those
+# reads fall back to GITHUB_TOKEN, and a kind is skipped with a notice only when that
+# fallback is denied (always for secret-scanning; account-dependent for Dependabot).
+#
+# Copilot Autofix needs `security-events: write`, so it is isolated in a second job that
+# only runs when the repository variable SECURITY_ALERTS_AUTOFIX is 'true'.
+
+name: Security Alert Triage
+
+on:
+  schedule:
+    - cron: '17 3 * * *'   # nightly 03:17 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Print actions without creating or closing anything'
+        type: boolean
+        default: false
+      weekly_summary:
+        description: 'Also produce the "open longer than 7 days" summary'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    name: "Triage security alerts"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      security-events: read
+    outputs:
+      new-code-alerts: ${{ steps.triage.outputs.new-code-alerts }}
+    steps:
+      - name: Checkout scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/security-alerts.ps1
+          sparse-checkout-cone-mode: false
+
+      - name: Triage
+        id: triage
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SECURITY_ALERTS_TOKEN: ${{ secrets.SECURITY_ALERTS_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run == true && '1' || '' }}
+          FORCE_SUMMARY: ${{ inputs.weekly_summary == true && '1' || '' }}
+        run: |
+          $flags = @()
+          if ($env:DRY_RUN) { $flags += '-DryRun' }
+          # Weekly summary on Mondays (UTC) or when requested.
+          if ($env:FORCE_SUMMARY -or (Get-Date).ToUniversalTime().DayOfWeek -eq 'Monday') { $flags += '-WeeklySummary' }
+          pwsh ./scripts/security-alerts.ps1 -Repository $env:GITHUB_REPOSITORY @flags
+
+  autofix:
+    name: "Request Copilot Autofix"
+    needs: triage
+    if: vars.SECURITY_ALERTS_AUTOFIX == 'true' && needs.triage.outputs.new-code-alerts != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      security-events: write
+    steps:
+      - name: Checkout scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/security-alerts.ps1
+          sparse-checkout-cone-mode: false
+
+      - name: Request autofix for new code-scanning alerts
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERTS: ${{ needs.triage.outputs.new-code-alerts }}
+          DRY_RUN: ${{ inputs.dry_run == true && '1' || '' }}
+        run: |
+          $flags = @()
+          if ($env:DRY_RUN) { $flags += '-DryRun' }
+          pwsh ./scripts/security-alerts.ps1 -Repository $env:GITHUB_REPOSITORY -RequestAutofix -AlertNumbers $env:ALERTS @flags

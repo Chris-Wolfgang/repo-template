@@ -108,6 +108,7 @@ This creates the labels used by Dependabot and the Maintenance framework.
 The canonical list lives in `scripts/Setup-Labels.ps1`; today it is:
 
 - `dependencies` — applied automatically by Dependabot to every update PR.
+- `no-changelog` — waives the *Changelog Fragment Check* for a PR that touches `src/` but has no user-visible effect (see `changelog/unreleased/README.md`).
 - `maintenance` — kind label for the per-repo parent Maintenance issue.
 - `maintenance-task` — kind label for every Maintenance sub-issue.
 - `maintenance - security` — scans, finding fixes, dependency vulnerability audit.
