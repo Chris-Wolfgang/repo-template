@@ -77,11 +77,14 @@ jobs:
           fi
 
       - name: Run gitleaks
-        # gitleaks-action@v2 does not support pull_request_target, so invoke the CLI directly
-        # Pinned to a specific version with SHA256 checksum verification for supply-chain safety
+        # gitleaks-action@v2 does not support pull_request_target, so invoke the CLI directly.
+        # Pinned to a specific version with SHA256 checksum verification for supply-chain
+        # safety. Dependabot cannot bump a version inside a run: block - when bumping,
+        # take the new SHA256 from gitleaks_<ver>_checksums.txt on the release page and
+        # update scripts/build-pr.ps1 to the same version.
         run: |
-          GITLEAKS_VERSION="8.24.0"
-          GITLEAKS_SHA256="cb49b7de5ee986510fe8666ca0273a6cc15eb82571f2f14832c9e8920751f3a4"
+          GITLEAKS_VERSION="8.30.1"
+          GITLEAKS_SHA256="551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
           mkdir -p "$HOME/.local/bin"
           TARBALL="$(mktemp)"
           curl -sSfL -o "$TARBALL" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
@@ -89,7 +92,10 @@ jobs:
           tar xzf "$TARBALL" -C "$HOME/.local/bin" gitleaks
           rm -f "$TARBALL"
           export PATH="$HOME/.local/bin:$PATH"
-          gitleaks detect --source . --verbose --redact
+          # `gitleaks git` (8.19+) replaces the deprecated `detect --source`: scans the
+          # full history of the checkout (fetch-depth: 0 above) with .gitleaks.toml
+          # picked up from the repository root.
+          gitleaks git --verbose --redact .
         shell: bash
 
   # ============================================================================
