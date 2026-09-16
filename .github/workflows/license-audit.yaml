@@ -19,6 +19,12 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Weekly re-audit of main: a package can change its license between the
+  # versions Dependabot bumps, or a transitive can be re-licensed upstream
+  # without any PR touching this repo. Tuesdays 06:15 UTC, off the Monday
+  # Scorecard / Sunday CodeQL+Stryker slots.
+  schedule:
+    - cron: '15 6 * * 2'
   workflow_dispatch:
 
 permissions:
