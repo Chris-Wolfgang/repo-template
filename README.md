@@ -12,10 +12,12 @@ Before using this template, ensure you have the following installed:
   - Windows: `winget install Microsoft.PowerShell`
   - macOS: `brew install powershell`
   - Linux: [Install instructions](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell)
-- **GitHub CLI (gh)** - For branch protection setup
+- **GitHub CLI (gh)** - For branch protection, labels, Pages and the setup PR
   - Windows: `winget install GitHub.cli`
   - macOS: `brew install gh`
   - Linux: [Install instructions](https://cli.github.com/)
+- **.NET SDK** - the current LTS/STS SDK (10.0 at the time of writing); older SDKs are installed by CI for the multi-target matrix
+- **gitleaks** (optional) - `winget install gitleaks` / `brew install gitleaks`; enables the pre-commit secret scan (`git config core.hooksPath .githooks`)
 
 ## 🚀 Quick Start
 
@@ -51,13 +53,18 @@ Before using this template, ensure you have the following installed:
    ```powershell
    pwsh ./scripts/Setup-GitHubPages.ps1
    ```
-   
+
    The script will:
    - Configure DocFX documentation files with your project details
    - Create a gh-pages branch for hosting documentation
    - Enable GitHub Pages in repository settings
    - Your docs will be live at `https://<username>.github.io/<repo>/`
-8. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
+9. **(Optional) Create the maintenance tracker** - Opens the evergreen "Maintenance: <repo>" issue and the `maintenance - <category>` labels:
+   ```powershell
+   pwsh ./scripts/Setup-Maintenance.ps1
+   ```
+10. **Enable the pre-commit secret scan** (once per clone): `git config core.hooksPath .githooks`
+11. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
 
 The setup script automatically:
 - ✅ Replaces all placeholders with your project information
@@ -66,14 +73,11 @@ The setup script automatically:
 - ✅ Validates all changes
 - ✅ Optionally cleans up template files
 
-**Additional optional setup:**
-- 📚 Run `pwsh ./scripts/Setup-GitHubPages.ps1` to configure documentation and enable GitHub Pages
-
 ---
 
 ## ✨ What's Included
 
-### 🔍 Code Quality Enforcement (7 Analyzers)
+### 🔍 Code Quality Enforcement (7 Analyzers + 1 Opt-in)
 
 All code is analyzed during builds by these industry-standard tools:
 
@@ -84,13 +88,24 @@ All code is analyzed during builds by these industry-standard tools:
 5. **Microsoft.CodeAnalysis.BannedApiAnalyzers** - Blocks banned APIs via `BannedSymbols.txt`
 6. **Meziantou.Analyzer** - Comprehensive code quality and performance checks
 7. **SonarAnalyzer.CSharp** - Industry-standard code analysis and security
+8. **Microsoft.CodeAnalysis.PublicApiAnalyzers** (opt-in) - Tracks the public API surface; activates for a project that carries `PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt`
+
+Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn analyzers, results in the Security tab) and `GenerateDocumentationFile` on for every `src/` project, so undocumented public members fail the Release build.
 
 **Result:** Enforces async-first patterns, prevents common mistakes, and maintains consistent code quality.
 
 ### 🔐 Security & Safety
 
+- **gitleaks** secret scanning - pre-commit hook and a PR check (default rules + `.gitleaks.toml` allowlist)
 - **DevSkim** security scanning in CI/CD
-- **CodeQL** analysis for vulnerability detection
+- **CodeQL** analysis (security-extended query pack) on every PR and weekly
+- **Semgrep** (C# + security-audit + secrets rule packs)
+- **actionlint + zizmor** audit of the workflow files themselves; High-severity zizmor findings fail the PR
+- **OpenSSF Scorecard** weekly, with the badge in the README
+- **License audit** of the full transitive dependency closure against an OSI-permissive allow-list, and a **CycloneDX SBOM** per package
+- **Nightly security-alert triage** - opens an issue per new Dependabot / code-scanning / secret-scanning alert and closes it when the alert closes
+- **SLSA build-provenance attestation** on every published package; **NuGet trusted publishing** (OIDC) - no stored API key
+- **Every action pinned by commit SHA**; Dependabot keeps the pins moving
 - **BannedSymbols.txt** - Prevents usage of dangerous/obsolete APIs:
   - ❌ `Task.Wait()`, `Task.Result` → Use `await` instead
   - ❌ `Thread.Sleep()` → Use `await Task.Delay()`
@@ -101,50 +116,55 @@ All code is analyzed during builds by these industry-standard tools:
 
 #### Pull Request Workflow (`.github/workflows/pr.yaml`)
 - **Multi-stage testing** across Linux, Windows, macOS
-- **Multi-framework testing** (.NET 5.0-10.0, .NET Framework 4.6.2-4.8.1)
-- **Code coverage** with 90% threshold enforcement
-- **Security scanning** with DevSkim
-- **Coverage reports** as build artifacts
-- **Branch protection** integration
+- **Multi-framework testing** (.NET Core 3.1, .NET 5.0-10.0, .NET Framework 4.6.2-4.8.1) - every TFM of every test project, discovered at run time; a TFM that runs zero tests fails
+- **Code coverage gates** - 90 % line coverage for `src/`, 100 % for `tests/`
+- **Protected-file guard** - the workflow runs from `main` (`pull_request_target`) and re-fetches `.editorconfig`, `Directory.Build.props`, `BannedSymbols.txt`, `*.DotSettings`, workflows, ... from `main`; a PR that changes them is held for maintainer review ([docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md))
+- **Changelog fragment check** - a PR touching `src/` must add `changelog/unreleased/<name>.md`
+- **gitleaks**, **DevSkim**, **ReSharper InspectCode**, **coverage reports** as build artifacts
+- **Local mirror** - `pwsh ./scripts/build-pr.ps1` reproduces the Windows stage on your machine
 
 #### Release Workflow (`.github/workflows/release.yaml`)
-- **Automated NuGet publishing** on version tags (e.g., `v1.0.0`)
-- **Package signing** (if configured)
-- **GitHub Releases** with changelogs
-- **Multi-targeting** support
+- Triggered by **publishing a GitHub Release**; the tag must match the `<Version>` in `src/`
+- **Full-matrix tests + coverage gates**, then **pack**, **smoke-test install**, **SBOM**
+- **DocFX build verified** before anything is published
+- **SLSA build-provenance attestation** per package, then **NuGet publish via trusted publishing**
+- **Versioned docs deploy** to GitHub Pages; packages, SBOM and coverage report **attached to the Release**
 
 #### Documentation Workflow (`.github/workflows/docfx.yaml`)
-- **Automatic DocFX builds** on pushes to main
-- **GitHub Pages deployment** for API documentation
-- **Live documentation** at `https://<username>.github.io/<repo>/`
+- **Called by the release workflow** (or run manually) - builds DocFX and deploys to `gh-pages` under `versions/<tag>/` plus `versions/latest/`
+- **Version picker** on every page, previous versions preserved
+- **Live documentation** at `https://<username>.github.io/<repo>/`; validate a deploy with `pwsh ./scripts/Validate-DocsDeploy.ps1`
 
 #### Additional Workflows
-- **CodeQL** security analysis
-- **Dependabot** automated dependency updates - Automatically creates PRs to keep NuGet packages up-to-date with security patches and new versions
-- **Label automation** for Dependabot PRs
-- **PR template** with comprehensive checklists
+- **codeql.yaml** - CodeQL security analysis (PRs + weekly)
+- **actions-audit.yaml** - actionlint + zizmor on the workflow files
+- **scorecard.yaml** - OpenSSF Scorecard (weekly)
+- **semgrep.yaml**, **license-audit.yaml**, **sbom.yaml**, **sourcelink.yaml** - SAST, license allow-list, SBOM, SourceLink verification
+- **security-alerts.yml** - nightly alert → issue triage
+- **stryker.yaml** - mutation testing (weekly); **benchmarks.yaml** - BenchmarkDotNet results to gh-pages; **build-all-versions.yaml**
+- **Dependabot** for NuGet, GitHub Actions and the pinned pip tooling, grouped, labelled `dependencies`
+- **PR template** with comprehensive checklists; **issue templates** including the maintenance-task form
 
 ### 📚 Documentation System
 
 - **DocFX integration** for API documentation
-- **Automatic builds** and deployment to GitHub Pages
+- **Automatic builds** and versioned deployment to GitHub Pages on every release
 - **Local preview** support with `docfx build --serve`
 - **Markdown + API reference** combined documentation
 - **Live API Reference** at `https://<username>.github.io/<repo>/api/`
 
 ### 🎨 Code Style & Formatting
 
-- **Comprehensive `.editorconfig`** with 200+ rules
-- **Automated formatting** via `dotnet format`
-- **Consistent style** across team members
-- **CI enforcement** with `dotnet format --verify-no-changes`
+- **Comprehensive `.editorconfig`** with 200+ rules, analyzer severities layered per directory (`src/` strictest)
+- **Formatting** via `dotnet format` / `pwsh ./scripts/format.ps1` (developer-side; the PR workflow does not run a format check)
+- **Consistent style** across team members and IDEs
 
 Key style rules:
-- 4-space indentation for C#
-- File-scoped namespaces (C# 10+)
-- PascalCase for public members
-- camelCase for parameters/locals
-- Unix-style line endings (LF)
+- 4-space indentation for C#, 2 for XML/JSON/YAML
+- Allman braces; `System` usings first
+- PascalCase for types and members, camelCase for parameters/locals
+- File-scoped namespaces, `var` where apparent, pattern-matching null checks (suggestions, not build errors)
+- Unix-style line endings (LF) for every text file, including `*.ps1`
 
 ### 📋 Project Structure
 
@@ -152,39 +172,48 @@ Key style rules:
 root/
 ├── .github/
 │   ├── workflows/          # CI/CD pipelines
-│   ├── ISSUE_TEMPLATE/     # Issue templates
+│   ├── ISSUE_TEMPLATE/     # Issue templates (bug, feature, maintenance task)
+│   ├── license-audit/      # Allowed-license list for license-audit.yaml
+│   ├── requirements/       # Hash-pinned pip tooling (zizmor, semgrep)
 │   ├── CODEOWNERS          # Code review assignments
 │   └── dependabot.yml      # Dependency updates
-├── src/                    # Application projects
-├── tests/                  # Test projects
+├── .githooks/pre-commit    # gitleaks secret scan (git config core.hooksPath .githooks)
+├── changelog/unreleased/   # One changelog fragment per PR; assembled at release
+├── scripts/                # setup, build-pr, changelog, format, ruleset, Pages, restack, ...
+├── src/                    # Library / application projects
+├── tests/                  # Test projects (*.Tests.Unit, *.Tests.Integration)
 ├── benchmarks/             # Performance benchmarks (optional)
 ├── examples/               # Example projects (optional)
-├── docfx_project/          # DocFX documentation
-├── docs/                   # Generated documentation
-├── .editorconfig           # Code style rules
+├── docfx_project/          # DocFX source (built docs go to the gh-pages branch)
+├── docs/                   # Guides: baseline, workflow security, release setup, stacked PRs, ...
+├── .editorconfig           # Code style rules and analyzer severities
+├── .gitattributes          # LF for every text file
 ├── .gitignore              # Comprehensive .NET gitignore
+├── .gitleaks.toml          # gitleaks allowlist (extends the default rules)
 ├── .globalconfig           # Global analyzer config
 ├── BannedSymbols.txt       # Banned API list
-├── Directory.Build.props   # Shared MSBuild properties
-├── Solution.slnx           # Solution file
+├── CHANGELOG.md            # Assembled from changelog/unreleased/
+├── coverlet.runsettings    # Coverage collection settings
+├── Directory.Build.props   # Shared MSBuild properties and analyzers
 ├── LICENSE                 # Project license
 ├── README.md               # Project README (from README-TEMPLATE.md)
+├── SECURITY.md             # Reporting channel, response timelines
 ├── CONTRIBUTING.md         # Contribution guidelines
-├── CODE_OF_CONDUCT.md      # Contributor Covenant
-└── format.ps1              # Code formatting script
+└── CODE_OF_CONDUCT.md      # Contributor Covenant
 ```
 
 ### 🏷️ License Options
 
-Choose from three popular open-source licenses or add your own during setup:
+Choose from three popular open-source licenses, or defer the decision, during setup:
 
 | License | Best For | Key Characteristics |
 |---------|----------|---------------------|
 | **MIT** | Maximum freedom, libraries | Permissive, minimal restrictions |
 | **Apache 2.0** | Patent protection, enterprise | Permissive + patent grant |
 | **MPL 2.0** | File-level copyleft | Weak copyleft, file-based |
+| **custom/TBD** | Publishing before the license is chosen | All rights reserved; `LicenseRef-TBD` file header, README wording says a license is pending |
 
-See [LICENSE-SELECTION.md](docs/LICENSE-SELECTION.md) for detailed comparison and guidance.
+See [choosealicense.com](https://choosealicense.com/licenses/) for a detailed comparison.
 > **Note:** You will be prompted for a license when you run the setup script (`pwsh ./scripts/setup.ps1`)
 
 ---
@@ -232,35 +261,34 @@ The script will:
 | Copyright Holder | `Chris Wolfgang` | Yes (from git) |
 | NuGet Status | `Coming soon to NuGet.org` | No |
 
-**Note:** The setup scripts handle the placeholders above. Additional optional content placeholders (`{{QUICK_START_EXAMPLE}}`, `{{FEATURES_TABLE}}`, `{{FEATURE_EXAMPLES}}`, `{{TARGET_FRAMEWORKS}}`, `{{ACKNOWLEDGMENTS}}`) remain in your README.md for you to fill in as you develop your project. See [TEMPLATE-PLACEHOLDERS.md](docs/TEMPLATE-PLACEHOLDERS.md) for details.
+**Note:** The setup scripts handle the placeholders above. Additional optional content placeholders (`{{QUICK_START_EXAMPLE}}`, `{{FEATURES_TABLE}}`, `{{FEATURE_EXAMPLES}}`, `{{TARGET_FRAMEWORKS}}`, `{{ACKNOWLEDGMENTS}}`) remain in your README.md for you to fill in as you develop your project. See [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS.md) for details.
 
 ### Manual Setup (Not Recommended)
 
-If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](docs/TEMPLATE-PLACEHOLDERS.md) for a complete list of placeholders and instructions.
+If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS.md) for a complete list of placeholders and instructions.
 
 ---
 
 ## 🧪 Quality Standards
 
 ### Code Coverage
-- **Minimum:** 90% line coverage (enforced in CI)
+- **Gates:** 90 % line coverage for `src/` assemblies, 100 % for `tests/` assemblies (test code that never runs is dead code) - enforced per assembly in CI
 - **Reports:** Generated with ReportGenerator
 - **Formats:** HTML, Markdown, CSV
 
 ### Test Strategy
-- Unit tests in `/tests` folder
-- Pattern: `*Test*.csproj` for test projects
-- Coverage collection with `XPlat Code Coverage`
+- Every project under `tests/` is a test project; `*.Tests.Integration.*` projects run on the Windows stage only
+- Every `<TargetFrameworks>` entry is tested; a TFM on which zero tests ran fails the stage
+- Coverage collection with `XPlat Code Coverage` (`coverlet.runsettings`)
 
 ### Build Configuration
 - **Debug:** Warnings allowed (development)
-- **Release:** Warnings treated as errors (CI)
-- **Multi-targeting:** Supports .NET 5.0-10.0 + .NET Framework 4.6.2-4.8.1
+- **Release:** Warnings treated as errors (CI); `LangVersion` is `latestMajor`
+- **Multi-targeting:** Supports .NET Core 3.1, .NET 5.0-10.0 + .NET Framework 4.6.2-4.8.1
 
 ### Security Scanning
-- **DevSkim:** CLI-based security analysis
-- **CodeQL:** Vulnerability detection
-- **Results:** Included in PR checks
+- **gitleaks, DevSkim, CodeQL, Semgrep, InspectCode:** on every PR, results as checks and in the Security tab
+- **zizmor, Scorecard, license audit, SBOM, nightly alert triage:** see *Security & Safety* above
 
 ---
 
@@ -272,10 +300,10 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](docs/TEMPLATE-PLACEHO
 |------|---------|
 | `README.md`[^1] | **THIS FILE** - Deleted during setup, replaced by renamed README-TEMPLATE.md |
 | `README-TEMPLATE.md`[^1] | Project README template (renamed to `README.md` during setup) |
-| `docs/TEMPLATE-PLACEHOLDERS.md` | Complete placeholder documentation including template identification |
-| `docs/LICENSE-SELECTION.md` | License comparison and selection guide |
-| `REPO-INSTRUCTIONS.md` | Manual setup instructions |
-| `scripts/setup.ps1` | PowerShell setup automation |
+| `TEMPLATE-PLACEHOLDERS.md` | Complete placeholder documentation including template identification |
+| `REPO-INSTRUCTIONS.md` | Manual setup instructions and the post-setup script reference |
+| `scripts/setup.ps1` | PowerShell setup automation (self-deletes on success) |
+| `docs/repository-baseline.md` | The 22-item hardening baseline every repo is audited against (`scripts/audit-repos.ps1`) |
 
 [^1]: Modified during setup process
 
@@ -294,12 +322,14 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](docs/TEMPLATE-PLACEHO
 
 | File | Purpose |
 |------|---------|
-| `.editorconfig` | Code style rules (200+ settings) |
+| `.editorconfig` | Code style rules (200+ settings) and per-directory analyzer severities |
 | `.globalconfig` | Global analyzer configuration |
 | `BannedSymbols.txt` | Banned API list |
-| `Directory.Build.props` | Shared MSBuild properties |
+| `Directory.Build.props` | Shared MSBuild properties, analyzer packages, `GenerateDocumentationFile` for `src/` |
+| `coverlet.runsettings` | Coverage collection settings |
+| `.gitleaks.toml` | gitleaks allowlist (extends the default rule set) |
 | `.gitignore` | Comprehensive .NET gitignore |
-| `.gitattributes` | Git attributes |
+| `.gitattributes` | LF line endings for every text file |
 
 ### GitHub Integration
 
@@ -308,8 +338,10 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](docs/TEMPLATE-PLACEHO
 | `.github/workflows/` | CI/CD pipeline definitions |
 | `.github/ISSUE_TEMPLATE/` | Bug and feature request templates |
 | `.github/CODEOWNERS` | Code review assignments |
-| `.github/dependabot.yml` | Dependency update configuration |
+| `.github/dependabot.yml` | Dependency update configuration (NuGet, Actions, pip tooling) |
 | `.github/pull_request_template.md` | PR template with checklists |
+| `.github/license-audit/` | Allowed licenses, URL mappings and ignored packages for the license audit |
+| `.github/requirements/` | Hash-pinned `zizmor` / `semgrep` requirements |
 
 ---
 
@@ -410,18 +442,24 @@ This template includes automated security scanning and a local setup script for 
 Configured by running the local PowerShell setup script (see "How It Works" below):
 
 - ✅ **Require pull requests** before merging
-- ✅ **Require all status checks to pass:**
+- ✅ **Require these status checks to pass:**
+  - Detect .NET Projects
   - Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate
   - Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)
   - Stage 3: macOS Tests (.NET 6.0-10.0)
   - Security Scan (DevSkim)
-  - Security Scan (CodeQL)
+  - Security Scan (CodeQL) (csharp)
+  - Secrets Scan (gitleaks)
+  - Changelog Fragment Check
 - ✅ **Require branches to be up to date** before merging
 - ✅ **Require conversation resolution** before merging
 - ✅ **Dismiss stale reviews** when new commits are pushed
+- ✅ **Require code scanning** - CodeQL alerts at *errors* / security *high or higher* block the merge
+- ✅ **Require Copilot code review** and the **code quality** rule
 - ✅ **Block force pushes** to main
 - ✅ **Prevent branch deletion**
-- ✅ **Repository admins can bypass** these rules
+- ⬜ **Require linear history** - optional (`-RequireLinearHistory`), see [docs/STACKED-PRS.md](docs/STACKED-PRS.md)
+- Admins are not in the bypass list; use the per-PR admin bypass when a protected-file change needs to land
 
 **Repository Type Options:**
 - **Single Developer:** No PR approvals required (you can merge your own PRs)
@@ -430,6 +468,7 @@ Configured by running the local PowerShell setup script (see "How It Works" belo
 #### 🔍 Code Quality Gates
 - **CodeQL:** Blocks merges on High or Critical security findings
 - **Code Quality:** Blocks merges on errors
+- **Advisory (not required checks):** ReSharper InspectCode, actionlint/zizmor, license audit, SBOM - they annotate the PR and the Security tab
 
 ### How It Works
 
@@ -464,15 +503,16 @@ The script provides interactive prompts to choose between single-developer or mu
 
 ## ⚡ Key Features Summary
 
-✅ **7 Code Analyzers** - Comprehensive quality enforcement  
-✅ **Multi-Platform CI/CD** - Linux, Windows, macOS  
-✅ **Multi-Framework** - .NET 5.0-10.0 + Framework 4.6.2-4.8.1  
-✅ **90% Coverage Requirement** - Automated enforcement  
-✅ **Security Scanning** - DevSkim + CodeQL  
-✅ **Automated Documentation** - DocFX + GitHub Pages  
-✅ **4 License Options** - MIT, Apache 2.0, MPL 2.0, or custom/TBD (pending selection)  
-✅ **Setup Automation** - PowerShell + Bash scripts  
-✅ **Professional Structure** - Industry best practices  
+✅ **7 Code Analyzers + InspectCode** - Comprehensive quality enforcement
+✅ **Multi-Platform CI/CD** - Linux, Windows, macOS
+✅ **Multi-Framework** - .NET Core 3.1, .NET 5.0-10.0 + Framework 4.6.2-4.8.1
+✅ **Coverage Gates** - 90 % src / 100 % tests, automated
+✅ **Security Scanning** - gitleaks, DevSkim, CodeQL, Semgrep, zizmor, Scorecard, license audit, SBOM
+✅ **Supply Chain** - SHA-pinned actions, trusted publishing, SLSA provenance attestations
+✅ **Automated Documentation** - DocFX + versioned GitHub Pages
+✅ **4 License Options** - MIT, Apache 2.0, MPL 2.0, or custom/TBD (pending selection)
+✅ **Setup Automation** - PowerShell scripts (cross-platform, no bash)
+✅ **Repository Baseline** - 22 audited hardening items
 
 ---
 
@@ -500,12 +540,12 @@ Projects created from this template can use any license - the setup script offer
 Created by [Chris Wolfgang](https://github.com/Chris-Wolfgang) and Copilot
 
 Built with:
-- .NET 8.0+ SDK
+- .NET SDK (10.0 and the older SDKs the matrix needs)
 - DocFX for documentation
-- Multiple Roslyn analyzers
+- Multiple Roslyn analyzers and ReSharper InspectCode
 - GitHub Actions for CI/CD
 - ReportGenerator for coverage
-- DevSkim for security
+- gitleaks, DevSkim, CodeQL, Semgrep, zizmor, actionlint and OpenSSF Scorecard for security
 
 ---
 
