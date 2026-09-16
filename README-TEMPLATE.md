@@ -33,7 +33,7 @@ This project is licensed under the **{{LICENSE_TYPE}} License**. See the [LICENS
 
 - **GitHub Repository:** [{{GITHUB_REPO_URL}}]({{GITHUB_REPO_URL}})
 - **API Documentation:** {{DOCS_URL}}
-- **Formatting Guide:** [README-FORMATTING.md](README-FORMATTING.md)
+- **Formatting Guide:** [docs/README-FORMATTING.md](docs/README-FORMATTING.md)
 - **Contributing Guide:** [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ---
@@ -63,7 +63,7 @@ See the [NuGet package page](https://www.nuget.org/packages/{{PACKAGE_NAME}}/) f
 
 ## 🔍 Code Quality & Static Analysis
 
-This project enforces **strict code quality standards** through **7 specialized analyzers** and custom async-first rules:
+This project enforces **strict code quality standards** through **7 specialized analyzers**, ReSharper InspectCode on every PR, and custom async-first rules:
 
 ### Analyzers in Use
 
@@ -94,8 +94,8 @@ This library uses **`BannedSymbols.txt`** to prohibit synchronous APIs and enfor
 ## 🛠️ Building from Source
 
 ### Prerequisites
-- [.NET 8.0 SDK](https://dotnet.microsoft.com/download) or later
-- Optional: [PowerShell Core](https://github.com/PowerShell/PowerShell) for formatting scripts
+- [.NET SDK](https://dotnet.microsoft.com/download) - the current release (10.0); see *Supported Frameworks* for the targets that are built
+- [PowerShell 7](https://github.com/PowerShell/PowerShell) (`pwsh`) for the scripts under `scripts/`
 
 ### Build Steps
 
@@ -113,8 +113,11 @@ dotnet build --configuration Release
 # Run tests
 dotnet test --configuration Release
 
-# Run code formatting (PowerShell Core)
-pwsh ./format.ps1
+# Run code formatting
+pwsh ./scripts/format.ps1
+
+# Run the PR workflow's Windows stage locally (build, tests on every TFM, coverage gates, DevSkim, gitleaks)
+pwsh ./scripts/build-pr.ps1
 ```
 
 ### Code Formatting
@@ -125,11 +128,11 @@ This project uses `.editorconfig` and `dotnet format`:
 # Format code
 dotnet format
 
-# Verify formatting (as CI does)
+# Verify formatting without changing files
 dotnet format --verify-no-changes
 ```
 
-See [README-FORMATTING.md](README-FORMATTING.md) for detailed formatting guidelines.
+See [docs/README-FORMATTING.md](docs/README-FORMATTING.md) for detailed formatting guidelines.
 
 ### Building Documentation
 
@@ -142,12 +145,10 @@ dotnet tool install -g docfx
 # Generate API metadata and build documentation
 cd docfx_project
 docfx metadata  # Extract API metadata from source code
-docfx build     # Build HTML documentation
-
-# Documentation is generated in the docs/ folder at the repository root
+docfx build     # Build HTML documentation into docfx_project/_site/
 ```
 
-The documentation is automatically built and deployed to GitHub Pages when changes are pushed to the `main` branch.
+The documentation is built and deployed to GitHub Pages by the release workflow: each release lands under `versions/<tag>/` (plus `versions/latest/`) with a version picker on every page, so earlier versions stay online.
 
 **Local Preview:**
 ```bash
@@ -159,8 +160,8 @@ docfx build --serve
 ```
 
 **Documentation Structure:**
-- `docfx_project/` - DocFX configuration and source files
-- `docs/` - Generated HTML documentation (published to GitHub Pages)
+- `docfx_project/` - DocFX configuration and source files (`_site/` is the local build output, not committed)
+- `docs/` - Repository guides (workflow security, release setup, stacked PRs, ...) - not the generated site, which lives on the `gh-pages` branch
 - `docfx_project/index.md` - Main landing page content
 - `docfx_project/docs/` - Additional documentation articles
 - `docfx_project/api/` - Auto-generated API reference YAML files
