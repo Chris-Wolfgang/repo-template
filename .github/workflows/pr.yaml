@@ -157,7 +157,7 @@ jobs:
               # but a pattern like `*.ruleset` legitimately has no matches in
               # repos that don't ship one. The empty stream is fine; the while
               # loop simply doesn't iterate.
-              done < <(git ls-tree -r --name-only main-branch | { grep -E "${config_file//\*/.*}" || true; })
+              done < <(git ls-tree -r --name-only main-branch | { grep -iE "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
@@ -215,9 +215,12 @@ jobs:
           # .globalconfig, .ruleset, .DotSettings) also triggers the
           # maintainer-review gate — a silent deletion is just as
           # security-relevant as a silent edit.
+          # -i: Windows (and ReSharper on it) resolve file names case-
+          # insensitively, so `foo.dotsettings` is as live as `foo.DotSettings`
+          # and must be caught the same way.
           while IFS= read -r file; do
             changed_files+=("$file")
-          done < <(git diff --name-only --diff-filter=AMRCD main-branch HEAD 2>/dev/null | grep -E '(\.(globalconfig|ruleset|DotSettings)|^\.github/workflows/.*\.ya?ml)$' || true)
+          done < <(git diff --name-only --diff-filter=AMRCD main-branch HEAD 2>/dev/null | grep -iE '(\.(globalconfig|ruleset|DotSettings)|^\.github/workflows/.*\.ya?ml)$' || true)
           
           if [ ${#changed_files[@]} -gt 0 ]; then
             echo ""
@@ -456,7 +459,7 @@ jobs:
               # but a pattern like `*.ruleset` legitimately has no matches in
               # repos that don't ship one. The empty stream is fine; the while
               # loop simply doesn't iterate.
-              done < <(git ls-tree -r --name-only main-branch | { grep -E "${config_file//\*/.*}" || true; })
+              done < <(git ls-tree -r --name-only main-branch | { grep -iE "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
@@ -514,6 +517,18 @@ jobs:
           fi
           echo "Solution: ${solutions[0]}"
           echo "path=${solutions[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore .NET workloads
+        # Same conditional as the test stages: a solution with workload-bearing
+        # TFMs (net10.0-android, -ios, -maui, ...) cannot restore without them;
+        # pure-library repos skip the ~5-15s of network-dependent setup.
+        run: |
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' {} \; | grep -q .; then
+            echo "Workload-bearing TFMs detected — running dotnet workload restore"
+            dotnet workload restore
+          else
+            echo "No workload-bearing TFMs in any csproj — skipping dotnet workload restore"
+          fi
 
       - name: Restore + Build (Release)
         env:
@@ -621,7 +636,7 @@ jobs:
               # but a pattern like `*.ruleset` legitimately has no matches in
               # repos that don't ship one. The empty stream is fine; the while
               # loop simply doesn't iterate.
-              done < <(git ls-tree -r --name-only main-branch | { grep -E "${config_file//\*/.*}" || true; })
+              done < <(git ls-tree -r --name-only main-branch | { grep -iE "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
@@ -1425,7 +1440,7 @@ jobs:
               # but a pattern like `*.ruleset` legitimately has no matches in
               # repos that don't ship one. The empty stream is fine; the while
               # loop simply doesn't iterate.
-              done < <(git ls-tree -r --name-only main-branch | { grep -E "${config_file//\*/.*}" || true; })
+              done < <(git ls-tree -r --name-only main-branch | { grep -iE "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
@@ -1853,7 +1868,7 @@ jobs:
               # but a pattern like `*.ruleset` legitimately has no matches in
               # repos that don't ship one. The empty stream is fine; the while
               # loop simply doesn't iterate.
-              done < <(git ls-tree -r --name-only main-branch | { grep -E "${config_file//\*/.*}" || true; })
+              done < <(git ls-tree -r --name-only main-branch | { grep -iE "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
