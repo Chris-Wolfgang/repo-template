@@ -15,6 +15,9 @@
                 template's version is written next to the file as <name>.template for a manual merge.
       in-sync - identical to the template; nothing to do.
 
+    "Identical" ignores the version comment after a SHA-pinned action (`@<sha> # v7` vs
+    `@<sha> # v7.0.1`): same SHA is the same action. The template's comment is what -Apply writes.
+
     Only files the template owns are considered (workflows, analyzer config, scripts, hooks,
     license-audit and pip pins, docs/ guides). Files that are this repository's after setup -
     README, CONTRIBUTING, SECURITY, CODEOWNERS, docfx_project, LICENSE - are never compared.
@@ -135,6 +138,16 @@ function Get-Normalized($Text)
     return ([string]$Text -replace "`r`n", "`n").TrimEnd("`n")
 }
 
+function Get-CompareKey($Text)
+{
+    # Equality is decided on this key, never on the raw text. The one thing it hides is the
+    # version comment Dependabot writes after a SHA-pinned action (`@<sha> # v7` here vs
+    # `@<sha>  # v7.0.1` upstream): same SHA is the same action, and the template's
+    # full-precision comment is what gets written when the file is applied.
+    if ($null -eq $Text) { return $null }
+    return [regex]::Replace([string]$Text, '(@[0-9a-f]{40})[ \t]*#[ \t]*v?\d[^\n]*', '$1')
+}
+
 $head = (& gh api "repos/$Template/commits/main" --jq '.sha')
 if ($LASTEXITCODE -ne 0 -or -not $head) { throw "could not read $Template main" }
 Write-Host "Template: $Template @ $($head.Substring(0, 7))" -ForegroundColor Cyan
@@ -166,7 +179,7 @@ foreach ($path in $candidates)
         # is still exactly what the template last shipped; otherwise leave it for a human.
         if ($null -eq $local) { continue }
         $templateThen = Get-TemplateContent $path $base
-        $removed += [pscustomobject]@{ Path = $path; Safe = ($null -ne $templateThen -and $local -eq $templateThen) }
+        $removed += [pscustomobject]@{ Path = $path; Safe = ($null -ne $templateThen -and (Get-CompareKey $local) -eq (Get-CompareKey $templateThen)) }
         continue
     }
 
@@ -179,10 +192,10 @@ foreach ($path in $candidates)
         else { $missing += $path }
         continue
     }
-    if ($local -eq $templateNow) { $inSync += $path; continue }
+    if ((Get-CompareKey $local) -eq (Get-CompareKey $templateNow)) { $inSync += $path; continue }
 
     $templateThen = if ($base) { Get-TemplateContent $path $base } else { $null }
-    if ($base -and $null -ne $templateThen -and $local -eq $templateThen)
+    if ($base -and $null -ne $templateThen -and (Get-CompareKey $local) -eq (Get-CompareKey $templateThen))
     {
         $safe += [pscustomobject]@{ Path = $path; Reason = 'template changed, local untouched since setup'; Content = $templateNow }
     }
