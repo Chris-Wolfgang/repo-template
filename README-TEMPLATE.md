@@ -116,7 +116,7 @@ dotnet test --configuration Release
 # Run code formatting
 pwsh ./scripts/format.ps1
 
-# Run the PR checks locally (build, every-TFM tests, coverage gates, DevSkim, gitleaks)
+# Run the PR workflow's Windows stage locally (build, tests on every TFM, coverage gates, DevSkim, gitleaks)
 pwsh ./scripts/build-pr.ps1
 ```
 

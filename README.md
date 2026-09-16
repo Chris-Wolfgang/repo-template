@@ -59,9 +59,9 @@ Before using this template, ensure you have the following installed:
    - Create a gh-pages branch for hosting documentation
    - Enable GitHub Pages in repository settings
    - Your docs will be live at `https://<username>.github.io/<repo>/`
-9. **(Optional) Create the maintenance tracker** - Opens the evergreen "Maintenance: <repo>" issue and the `maintenance - <category>` labels:
+9. **(Optional) Create the maintenance tracker** - Opens the evergreen "Maintenance: <repo>" issue with its category sub-issues. Requires the labels from step 7 (`maintenance`, `maintenance-task`, `maintenance - <category>`) and the URL of the GitHub Projects board the tasks roll up to:
    ```powershell
-   pwsh ./scripts/Setup-Maintenance.ps1
+   pwsh ./scripts/Setup-Maintenance.ps1 -MaintenanceProjectUrl https://github.com/users/<username>/projects/<n>
    ```
 10. **Enable the pre-commit secret scan** (once per clone): `git config core.hooksPath .githooks`
 11. **Your repository is ready!** - Branch protection is now configured and enforcing CI/CD checks
@@ -119,12 +119,12 @@ Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn
 - **Multi-framework testing** (.NET Core 3.1, .NET 5.0-10.0, .NET Framework 4.6.2-4.8.1) - every TFM of every test project, discovered at run time; a TFM that runs zero tests fails
 - **Code coverage gates** - 90 % line coverage for `src/`, 100 % for `tests/`
 - **Protected-file guard** - the workflow runs from `main` (`pull_request_target`) and re-fetches `.editorconfig`, `Directory.Build.props`, `BannedSymbols.txt`, `*.DotSettings`, workflows, ... from `main`; a PR that changes them is held for maintainer review ([docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md))
-- **Changelog fragment check** - a PR touching `src/` must add `changelog/unreleased/<name>.md`
-- **gitleaks**, **DevSkim**, **ReSharper InspectCode**, **coverage reports** as build artifacts
+- **Changelog fragment check** - a PR touching `src/` must add `changelog/unreleased/<name>.md` or carry the `no-changelog` label
+- **gitleaks** (check log), **DevSkim** (text artifact), **ReSharper InspectCode** (SARIF to the Security tab), **coverage reports** (artifact per stage)
 - **Local mirror** - `pwsh ./scripts/build-pr.ps1` reproduces the Windows stage on your machine
 
 #### Release Workflow (`.github/workflows/release.yaml`)
-- Triggered by **publishing a GitHub Release**; the tag must match the `<Version>` in `src/`
+- Triggered by **publishing a GitHub Release**; the tag must match a `<Version>` or `<PackageVersion>` declared under `src/`
 - **Full-matrix tests + coverage gates**, then **pack**, **smoke-test install**, **SBOM**
 - **DocFX build verified** before anything is published
 - **SLSA build-provenance attestation** per package, then **NuGet publish via trusted publishing**
@@ -178,7 +178,7 @@ root/
 │   ├── CODEOWNERS          # Code review assignments
 │   └── dependabot.yml      # Dependency updates
 ├── .githooks/pre-commit    # gitleaks secret scan (git config core.hooksPath .githooks)
-├── changelog/unreleased/   # One changelog fragment per PR; assembled at release
+├── changelog/unreleased/   # A fragment per PR that changes src/ (or the no-changelog label); assembled at release
 ├── scripts/                # setup, build-pr, changelog, format, ruleset, Pages, restack, ...
 ├── src/                    # Library / application projects
 ├── tests/                  # Test projects (*.Tests.Unit, *.Tests.Integration)
@@ -287,7 +287,8 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 - **Multi-targeting:** Supports .NET Core 3.1, .NET 5.0-10.0 + .NET Framework 4.6.2-4.8.1
 
 ### Security Scanning
-- **gitleaks, DevSkim, CodeQL, Semgrep, InspectCode:** on every PR, results as checks and in the Security tab
+- **gitleaks, DevSkim:** PR checks (gitleaks logs findings; DevSkim uploads a text artifact)
+- **CodeQL, Semgrep, InspectCode:** PR checks whose SARIF lands in the Security tab
 - **zizmor, Scorecard, license audit, SBOM, nightly alert triage:** see *Security & Safety* above
 
 ---
@@ -302,7 +303,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 | `README-TEMPLATE.md`[^1] | Project README template (renamed to `README.md` during setup) |
 | `TEMPLATE-PLACEHOLDERS.md` | Complete placeholder documentation including template identification |
 | `REPO-INSTRUCTIONS.md` | Manual setup instructions and the post-setup script reference |
-| `scripts/setup.ps1` | PowerShell setup automation (self-deletes on success) |
+| `scripts/setup.ps1` | PowerShell setup automation (offers to delete itself at the end; default is to keep it) |
 | `docs/repository-baseline.md` | The 22-item hardening baseline every repo is audited against (`scripts/audit-repos.ps1`) |
 
 [^1]: Modified during setup process
@@ -468,7 +469,7 @@ Configured by running the local PowerShell setup script (see "How It Works" belo
 #### 🔍 Code Quality Gates
 - **CodeQL:** Blocks merges on High or Critical security findings
 - **Code Quality:** Blocks merges on errors
-- **Advisory (not required checks):** ReSharper InspectCode, actionlint/zizmor, license audit, SBOM - they annotate the PR and the Security tab
+- **Advisory (not required checks):** ReSharper InspectCode and zizmor (SARIF to the Security tab), actionlint (check log), license audit (table in the job log, fails on a disallowed license), SBOM (artifact)
 
 ### How It Works
 
