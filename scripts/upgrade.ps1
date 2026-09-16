@@ -26,7 +26,8 @@
     recorded in .template-version, so they still flow.
 
     Files the template has removed since the base are reported as "removed"; -Apply deletes
-    them only when the local copy still equals the template's last version.
+    them only when the local copy still equals the template's last version and nothing else in
+    the repository (solution file, docs, workflows) still names the path.
 
     Without .template-version (a repository set up before stamping existed) every differing file
     is reported as review, since there is no base to tell "template moved" from "we customised".
@@ -138,6 +139,14 @@ function Get-Normalized($Text)
     return ([string]$Text -replace "`r`n", "`n").TrimEnd("`n")
 }
 
+function Get-PathReferences([string]$Path)
+{
+    # Tracked files (other than the file itself) whose text mentions the path.
+    $hits = & git grep -l -F -- $Path 2>$null
+    if ($LASTEXITCODE -gt 1) { return @() }
+    return @($hits | Where-Object { $_ -and $_ -ne $Path })
+}
+
 function Get-CompareKey($Text)
 {
     # Equality is decided on this key, never on the raw text. The one thing it hides is the
@@ -176,10 +185,13 @@ foreach ($path in $candidates)
     if ($null -eq $templateNow)
     {
         # Removed from the template since the base. Deleting is safe only when the local copy
-        # is still exactly what the template last shipped; otherwise leave it for a human.
+        # is still exactly what the template last shipped AND nothing else in the repository
+        # names it (a solution file, a doc, a workflow); otherwise leave it for a human.
         if ($null -eq $local) { continue }
         $templateThen = Get-TemplateContent $path $base
-        $removed += [pscustomobject]@{ Path = $path; Safe = ($null -ne $templateThen -and (Get-CompareKey $local) -eq (Get-CompareKey $templateThen)) }
+        $unmodified = $null -ne $templateThen -and (Get-CompareKey $local) -eq (Get-CompareKey $templateThen)
+        $refs = @(Get-PathReferences $path)
+        $removed += [pscustomobject]@{ Path = $path; Safe = ($unmodified -and $refs.Count -eq 0); References = $refs }
         continue
     }
 
@@ -218,7 +230,13 @@ foreach ($r in $review) { Write-Host "    $($r.Path)  ($($r.Reason))" }
 if ($removed.Count -gt 0)
 {
     Write-Host "Removed : $($removed.Count) file(s) no longer in the template$(if (-not $Apply) { ' - -Apply deletes the unmodified ones' })" -ForegroundColor Yellow
-    foreach ($d in $removed) { Write-Host "    $($d.Path)  ($(if ($d.Safe) { 'unmodified since setup; deleted by -Apply' } else { 'modified locally; delete by hand' }))" }
+    foreach ($d in $removed)
+    {
+        $why = if ($d.Safe) { 'unmodified since setup; deleted by -Apply' }
+               elseif ($d.References.Count -gt 0) { "still referenced by $($d.References -join ', '); update those, then delete by hand" }
+               else { 'modified locally; delete by hand' }
+        Write-Host "    $($d.Path)  ($why)"
+    }
 }
 
 if (-not $Apply)
@@ -250,7 +268,7 @@ foreach ($r in $review)
 foreach ($d in $removed)
 {
     if ($d.Safe) { Remove-Item -Path $d.Path -Force; Write-Host "  removed  $($d.Path)" -ForegroundColor Green }
-    else { Write-Host "  left     $($d.Path) (modified locally; template removed it)" -ForegroundColor Yellow }
+    else { Write-Host "  left     $($d.Path) ($(if ($d.References.Count -gt 0) { "still referenced by $($d.References -join ', ')" } else { 'modified locally' }); template removed it)" -ForegroundColor Yellow }
 }
 
 $newStamp = [ordered]@{
