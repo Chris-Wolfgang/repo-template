@@ -763,7 +763,10 @@ jobs:
     needs: validate-release
     permissions:
       contents: write  # Required by docfx.yaml to push to gh-pages branch
-    uses: ./.github/workflows/docfx.yaml
+    # GitHub's `$/` self-repository syntax is preferred here, but actionlint
+    # (a required check) rejects it until rhysd/actionlint#732 ships. Switch
+    # to `$/.github/workflows/docfx.yaml` and drop the ignore when it does.
+    uses: ./.github/workflows/docfx.yaml  # zizmor: ignore[self-repository]
     with:
       version: ${{ github.event.release.tag_name }}
 
@@ -791,13 +794,16 @@ jobs:
       - name: Zip coverage report
         run: zip -r release-coverage.zip ./release-coverage
 
+      # `gh` is pre-installed on the runner, so no third-party action is needed
+      # to upload release assets (zizmor superfluous-actions).
       - name: Attach artifacts to release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3.0.3
-        with:
-          tag_name: ${{ github.event.release.tag_name }}
-          files: |
-            ./nuget-packages/*.nupkg
-            ./nuget-packages/*.snupkg
-            ./nuget-packages/*.bom.json
-            release-coverage.zip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          shopt -s nullglob
+          files=(./nuget-packages/*.nupkg ./nuget-packages/*.snupkg ./nuget-packages/*.bom.json release-coverage.zip)
+          echo "Uploading ${#files[@]} asset(s) to release $TAG_NAME"
+          gh release upload "$TAG_NAME" "${files[@]}" --clobber
 

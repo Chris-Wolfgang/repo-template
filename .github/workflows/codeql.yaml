@@ -167,14 +167,22 @@ jobs:
     - name: Complete Security Scan
       if: always()
       shell: pwsh
+      # Step outcomes/outputs are passed through env rather than expanded into
+      # the script body, so no expression is ever interpolated into code
+      # (zizmor template-injection).
+      env:
+        CHECK_CSHARP_OUTCOME: ${{ steps.check-csharp.outcome }}
+        HAS_CSHARP: ${{ steps.check-csharp.outputs.has-csharp }}
+        BUILD_OUTCOME: ${{ steps.build.outcome }}
+        CODEQL_OUTCOME: ${{ steps.perform-codeql-analysis.outcome }}
       run: |
         Write-Host "=== CodeQL Security Scan Complete ===" -ForegroundColor Cyan
         
         # Check the outcome of previous steps
-        $checkCsharpOutcome = "${{ steps.check-csharp.outcome }}"
-        $hasCsharp = "${{ steps.check-csharp.outputs.has-csharp }}"
-        $buildOutcome = "${{ steps.build.outcome }}"
-        $codeqlOutcome = "${{ steps.perform-codeql-analysis.outcome }}"
+        $checkCsharpOutcome = $env:CHECK_CSHARP_OUTCOME
+        $hasCsharp = $env:HAS_CSHARP
+        $buildOutcome = $env:BUILD_OUTCOME
+        $codeqlOutcome = $env:CODEQL_OUTCOME
         
         # Determine overall status
         $hasFailure = $false
