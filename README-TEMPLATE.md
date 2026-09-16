@@ -10,6 +10,7 @@
 [![.NET](https://img.shields.io/badge/.NET-Multi--Targeted-purple.svg)](https://dotnet.microsoft.com/)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)]({{GITHUB_REPO_URL}})
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/{{GITHUB_OWNER}}/{{REPO_NAME}}/badge)](https://scorecard.dev/viewer/?uri=github.com/{{GITHUB_OWNER}}/{{REPO_NAME}})
+[![Coverage](https://img.shields.io/endpoint?url={{DOCS_URL}}versions/latest/coverage/badge.json&logo=github)]({{DOCS_URL}}versions/latest/coverage/)
 
 ---
 

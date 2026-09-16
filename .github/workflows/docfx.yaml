@@ -222,6 +222,23 @@ jobs:
           reportgenerator "-reports:$reports" "-targetdir:$outDir" "-reporttypes:Html;TextSummary" "-historydir:$historyDir"
           Write-Host "Coverage report (with trend) written to $outDir"
 
+          # Coverage BADGE (#283): a shields.io endpoint document next to the
+          # report. The README badge reads it from
+          # <docs site>/versions/latest/coverage/badge.json, so it updates on
+          # every release with no gist, PAT or third-party service. Colour
+          # steps follow the CI gate: >= 90 is the src/ threshold.
+          $summary = Get-Content (Join-Path $outDir 'Summary.txt') -Raw
+          $m = [regex]::Match($summary, 'Line coverage:\s*([0-9]+(?:\.[0-9]+)?)%')
+          if ($m.Success) {
+            $pct = [double]$m.Groups[1].Value
+            $color = if ($pct -ge 90) { 'brightgreen' } elseif ($pct -ge 80) { 'green' } elseif ($pct -ge 70) { 'yellow' } else { 'red' }
+            $badge = [ordered]@{ schemaVersion = 1; label = 'coverage'; message = "$($m.Groups[1].Value)%"; color = $color }
+            $badge | ConvertTo-Json -Compress | Set-Content -Path (Join-Path $outDir 'badge.json') -Encoding utf8NoBOM -NoNewline
+            Write-Host "Coverage badge: $($m.Groups[1].Value)% ($color)"
+          } else {
+            Write-Host "::notice::Could not read 'Line coverage' from Summary.txt - no badge.json written"
+          }
+
       - name: Generate versions.json
         # Produces versions.json consumed by the DocFX version-switcher dropdown.
         # Site layout:
