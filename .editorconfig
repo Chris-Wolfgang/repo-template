@@ -188,7 +188,8 @@ dotnet_diagnostic.CA1828.severity = warning       # Do not use CountAsync/LongCo
 dotnet_diagnostic.CA1829.severity = warning       # Use Length/Count property instead of Enumerable.Count method
 dotnet_diagnostic.CA1851.severity = warning       # Possible multiple enumerations of IEnumerable collection
 
-# Async/IAsyncEnumerable specific rules (CRITICAL for this library)
+# Async rules - library code must not capture the caller's synchronization
+# context (ConfigureAwait(false)); see the src/ section below for the scope.
 dotnet_diagnostic.CA2007.severity = warning       # ConfigureAwait - enforce usage in library async code
 dotnet_diagnostic.CA2012.severity = error         # Use ValueTasks correctly
 dotnet_diagnostic.CA2016.severity = warning       # Forward CancellationToken parameter
@@ -349,16 +350,18 @@ dotnet_diagnostic.CA1707.severity = error
 
 # Source code - strict rules
 [src/**/*.cs]
-# Documentation required
-dotnet_diagnostic.SA1600.severity = warning
-dotnet_diagnostic.SA1601.severity = warning
-dotnet_diagnostic.SA1602.severity = warning
+# Documentation is required through GenerateDocumentationFile (Directory.Build.props
+# turns it on for src/) - a public member without a doc comment is CS1591, an
+# error in Release builds.
 
-# Library code should preserve synchronization context by default
-# Consumers decide whether to use ConfigureAwait(false) when calling library methods
-dotnet_diagnostic.MA0004.severity = none     # Meziantou: Use ConfigureAwait
-dotnet_diagnostic.S3216.severity = none      # SonarAnalyzer: ConfigureAwait
-dotnet_diagnostic.CA2007.severity = none     # .NET Analyzer: Use ConfigureAwait
+# Library code awaits with ConfigureAwait(false): a library that captures the
+# caller's synchronization context can deadlock a consumer that blocks on it
+# (WinForms/WPF/ASP.NET Framework, and any net462/netstandard2.0 consumer).
+# CA2007 is the enforced rule; MA0004/S3216 report the same thing and stay at
+# suggestion so a violation shows once, not three times.
+dotnet_diagnostic.CA2007.severity = warning  # .NET Analyzer: Use ConfigureAwait
+dotnet_diagnostic.MA0004.severity = suggestion  # Meziantou: Use ConfigureAwait
+dotnet_diagnostic.S3216.severity = suggestion   # SonarAnalyzer: ConfigureAwait
 
 # Test projects - relaxed naming, no doc requirements
 [tests/**/*.cs]
@@ -408,11 +411,6 @@ dotnet_diagnostic.CA2007.severity = none         # ConfigureAwait not needed in 
 # SecurityCodeScan - Relax in tests (but keep serious ones)
 dotnet_diagnostic.SCS0005.severity = suggestion  # Weak random OK for test data
 
-# No documentation required for tests
-dotnet_diagnostic.SA1600.severity = none
-dotnet_diagnostic.SA1601.severity = none
-dotnet_diagnostic.SA1602.severity = none
-
 # Benchmark projects - relaxed naming, no doc requirements
 [benchmarks/**/*.cs]
 # Allow Benchmark_Method_Names
@@ -430,11 +428,6 @@ dotnet_diagnostic.CA2007.severity = none          # .NET Analyzer: Use Configure
 
 # Banned API Analyzer - Allow in benchmarks (sync APIs are often the benchmark target)
 dotnet_diagnostic.RS0030.severity = none          # Allow banned APIs in benchmarks
-
-# No documentation required for benchmarks
-dotnet_diagnostic.SA1600.severity = none
-dotnet_diagnostic.SA1601.severity = none
-dotnet_diagnostic.SA1602.severity = none
 
 # Suppress Meziantou, Sonar, and VSTHRD analyzers in benchmarks
 dotnet_diagnostic.MA0002.severity = none
@@ -460,11 +453,6 @@ dotnet_diagnostic.VSTHRD200.severity = none
 dotnet_diagnostic.SA1300.severity = none
 dotnet_diagnostic.IDE1006.severity = none
 dotnet_diagnostic.CA1707.severity = none
-
-# Documentation helpful but not required
-dotnet_diagnostic.SA1600.severity = suggestion
-dotnet_diagnostic.SA1601.severity = suggestion
-dotnet_diagnostic.SA1602.severity = suggestion
 
 # Banned API Analyzer - Allow in examples for demonstration purposes
 dotnet_diagnostic.RS0030.severity = none          # Allow banned APIs in examples for demonstration
