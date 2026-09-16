@@ -179,6 +179,12 @@ $corePlaceholders = @(
 | 1 | `{{PROJECT_NAME}}` | Main heading |
 | 3 | `{{PROJECT_NAME}}` | Introduction paragraph |
 
+### 2a. SECURITY.md
+
+| Line(s) | Placeholder | Context |
+|---------|-------------|---------|
+| 8 | `{{GITHUB_REPO_URL}}` | Private vulnerability report form link |
+
 ### 3. .github/CODEOWNERS
 
 | Line(s) | Placeholder | Context |
@@ -316,6 +322,7 @@ If you must replace manually:
    - Files to search:
      - `README.md` (now the renamed template)
      - `CONTRIBUTING.md`
+     - `SECURITY.md`
      - `.github/CODEOWNERS`
      - `REPO-INSTRUCTIONS.md`
      - `docfx_project/docfx.json`
@@ -332,7 +339,7 @@ If you must replace manually:
    # Note: README.md will still contain optional placeholders like {{QUICK_START_EXAMPLE}},
    # {{FEATURES_TABLE}}, {{FEATURE_EXAMPLES}}, {{TARGET_FRAMEWORKS}}, {{ACKNOWLEDGMENTS}}
    # which you fill in as you develop your project
-   grep -r "{{.*}}" CONTRIBUTING.md .github/CODEOWNERS REPO-INSTRUCTIONS.md docfx_project/ || echo "No required placeholders found in core files"
+   grep -r "{{.*}}" CONTRIBUTING.md SECURITY.md .github/CODEOWNERS REPO-INSTRUCTIONS.md docfx_project/ || echo "No required placeholders found in core files"
    
    # Check README.md separately for required placeholders only
    grep -E "{{(PROJECT_NAME|PROJECT_DESCRIPTION|PACKAGE_NAME|GITHUB_REPO_URL|REPO_NAME|DOCS_URL|LICENSE_TYPE|NUGET_STATUS)}}" README.md && echo "⚠️  Found required placeholders in README.md - please replace them" || echo "✓ All required placeholders replaced in README.md"

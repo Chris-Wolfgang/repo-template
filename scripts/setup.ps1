@@ -536,6 +536,7 @@ function Start-Setup {
     $filesToUpdate = @(
         'README.md',
         'CONTRIBUTING.md',
+        'SECURITY.md',
         '.github/CODEOWNERS',
         'REPO-INSTRUCTIONS.md',
         'scripts/Setup-BranchRuleset.ps1',
