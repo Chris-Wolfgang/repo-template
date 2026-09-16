@@ -298,7 +298,8 @@ because they are useful in steady-state:
 | `scripts/Fix-BranchRuleset.ps1` | Repair the branch ruleset if a check name changes upstream and the rule gets stuck waiting. Inspects and patches in place; does not recreate from scratch. |
 | `scripts/Setup-Labels.ps1` | Re-run when new canonical labels are added (e.g. a new `maintenance - X` kind). Idempotent. |
 | `scripts/Validate-DocsDeploy.ps1` | Post-deploy validation of the `gh-pages` branch. See the **Setup GitHub Pages** section above. |
-| `scripts/build-pr.ps1` | Local dry-run of the full PR CI matrix (Linux Stage 1 + Windows Stage 2 + macOS Stage 3). Useful before pushing a workflow change to confirm it still passes. |
+| `scripts/build-pr.ps1` | Local dry-run of the PR workflow's Windows stage (build, every-TFM tests, coverage gates, DevSkim, gitleaks) on this machine; the Linux and macOS stages only run in CI. |
+| `scripts/tfm-parity.ps1` | Warns when a `src/` project targets a framework no test project exercises (test-matrix guard 3). Runs on the Windows PR stage and inside `build-pr.ps1`; warning-only. |
 | `scripts/format.ps1` | One-shot formatter (CSharpier + analyzer auto-fixups). Mirrors what the CI build expects, so running it locally avoids surprise CI failures. |
 
 

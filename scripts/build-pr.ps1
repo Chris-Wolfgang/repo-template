@@ -88,6 +88,17 @@ else {
 if (-not $SkipTests -and $failed.Count -eq 0) {
     Write-Step "Step 2: Run Tests (all target frameworks)"
 
+    # Mirrors pr.yaml's Stage 2 TFM parity check (guard 3). Findings are
+    # warnings (exit 0); a non-zero exit means the evaluation itself broke and
+    # is a failure here exactly as it is in CI.
+    if (Test-Path './scripts/tfm-parity.ps1') {
+        & pwsh -NoProfile -File './scripts/tfm-parity.ps1'
+        if ($LASTEXITCODE -ne 0) {
+            Write-Fail "TFM parity guard failed to run (exit $LASTEXITCODE)"
+            $failed += "TFM parity"
+        }
+    }
+
     $testProjects = @(Get-ChildItem -Path './tests' -Recurse -File -Include '*.csproj', '*.vbproj', '*.fsproj' -ErrorAction SilentlyContinue)
 
     if ($testProjects.Count -eq 0) {
@@ -108,17 +119,24 @@ if (-not $SkipTests -and $failed.Count -eq 0) {
             Write-Host ""
             Write-Host "Testing: $($testProj.FullName)" -ForegroundColor White
 
-            $content = Get-Content $testProj.FullName -Raw
-            $tfmMatch = [regex]::Match($content, '<TargetFramework[s]?>([^<]+)</TargetFramework[s]?>')
+            # Evaluate the TFMs through MSBuild exactly as pr.yaml does, so
+            # values inherited from Directory.Build.props or set conditionally
+            # are seen; a regex over the raw csproj misses both.
+            $tfmRaw = (dotnet msbuild $testProj.FullName -noLogo -p:Configuration=Release -getProperty:TargetFrameworks 2>$null |
+                Where-Object { $_ -and "$_".Trim() } | Select-Object -Last 1)
+            if (-not $tfmRaw) {
+                $tfmRaw = (dotnet msbuild $testProj.FullName -noLogo -p:Configuration=Release -getProperty:TargetFramework 2>$null |
+                    Where-Object { $_ -and "$_".Trim() } | Select-Object -Last 1)
+            }
+            $tfmRaw = ("$tfmRaw" -replace '^TargetFrameworks?[=:]\s*', '') -replace '\s', ''
 
-            if (-not $tfmMatch.Success) {
+            if (-not $tfmRaw) {
                 Write-Host "  No target frameworks found — skipping" -ForegroundColor Yellow
                 continue
             }
 
-            $frameworks = $tfmMatch.Groups[1].Value -split ';' |
-                ForEach-Object { $_.Trim() } |
-                Where-Object { $_ -match '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0|462|47|471|472|48|481|coreapp3\.1)$' }
+            $frameworks = @($tfmRaw -split ';' |
+                Where-Object { $_ -match '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0|462|47|471|472|48|481|coreapp3\.1)$' })
 
             if ($frameworks.Count -eq 0) {
                 Write-Host "  No compatible frameworks — skipping" -ForegroundColor Yellow
