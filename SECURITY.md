@@ -44,9 +44,10 @@ the deadline passes, not after.
    about the vulnerability is visible in public pull requests until the fix is released.
 4. **Release** — a new version ships with the fix. The release notes say a security issue was fixed
    without giving details that would help exploit unpatched versions.
-5. **Publish** — the advisory is published, which issues a CVE (via GitHub) and notifies dependents
-   through Dependabot. Publication happens at release time, or after 90 days from the initial report
-   if no fix is possible, whichever comes first.
+5. **Publish** — the advisory is published, which notifies dependents through Dependabot. A CVE is
+   requested from GitHub for confirmed vulnerabilities; assignment is GitHub's decision, so the
+   advisory may publish without one. Publication happens at release time, or after 90 days from the
+   initial report if no fix is possible, whichever comes first.
 
 Please keep the details private until the advisory is published.
 
