@@ -82,11 +82,11 @@ jobs:
 
       - name: Restore
         if: steps.detect.outputs.exists == 'true'
-        run: dotnet restore benchmarks/{{PROJECT_NAME}}.Benchmarks/{{PROJECT_NAME}}.Benchmarks.csproj
+        run: dotnet restore "benchmarks/{{PROJECT_NAME}}.Benchmarks/{{PROJECT_NAME}}.Benchmarks.csproj"
 
       - name: Build (Release)
         if: steps.detect.outputs.exists == 'true'
-        run: dotnet build -c Release --no-restore benchmarks/{{PROJECT_NAME}}.Benchmarks/{{PROJECT_NAME}}.Benchmarks.csproj
+        run: dotnet build -c Release --no-restore "benchmarks/{{PROJECT_NAME}}.Benchmarks/{{PROJECT_NAME}}.Benchmarks.csproj"
 
       - name: Run benchmarks
         if: steps.detect.outputs.exists == 'true'

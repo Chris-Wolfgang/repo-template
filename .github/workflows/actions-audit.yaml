@@ -1,0 +1,84 @@
+name: Actions Audit
+
+# GitHub Actions workflow security/quality audit (#185).
+#
+#  - actionlint: static checker for workflow YAML + embedded shell (via
+#    shellcheck). Gates the build on findings — workflows should be lint-clean.
+#  - zizmor: security auditor for Actions (injection, unpinned actions,
+#    over-broad permissions, ...). Reports to the Security tab (SARIF) rather
+#    than hard-gating, since it is opinionated; promote to a gate once the
+#    baseline is clean.
+#
+# Installed via `go install` / `pip install` (pinned) rather than third-party
+# wrapper actions, to keep the supply chain small.
+
+on:
+  # Runs on every PR (not path-filtered) so the actionlint job can be a required
+  # status check — a path-filtered required check would hang PRs that don't touch
+  # .github/workflows/**. actionlint/zizmor are cheap (~20s) and idempotent.
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: actions-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: 'stable'
+
+      - name: Install actionlint
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+
+      - name: Run actionlint
+        run: actionlint -color
+
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.x'
+
+      - name: Install zizmor
+        run: pip install zizmor
+
+      - name: Run zizmor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Report-only for now: don't fail the job on findings, upload them to
+        # Code Scanning instead. Remove `|| true` to turn this into a gate.
+        run: zizmor --format sarif .github/workflows/ > zizmor.sarif || true
+
+      - name: Upload zizmor SARIF
+        uses: github/codeql-action/upload-sarif@02c5e83432fe5497fd85b873b6c9f16a8578e1d9 # v3.37.0
+        with:
+          sarif_file: zizmor.sarif
