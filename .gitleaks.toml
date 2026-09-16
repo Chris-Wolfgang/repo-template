@@ -6,6 +6,11 @@
 
 title = "gitleaks config"
 
+# REQUIRED. gitleaks loads this file INSTEAD of its built-in rules whenever it exists,
+# so without this block the file defines zero detection rules and every scan passes.
+[extend]
+useDefault = true
+
 [allowlist]
   description = "Global allowlist"
   paths = [
