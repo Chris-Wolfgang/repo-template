@@ -393,6 +393,7 @@ Your repository now has:
 - **Code of Conduct:** [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - **Release Workflow:** [RELEASE-WORKFLOW-SETUP.md](docs/RELEASE-WORKFLOW-SETUP.md)
 - **Repository Baseline:** [repository-baseline.md](docs/repository-baseline.md)
+- **Stacked PRs with linear history:** [STACKED-PRS.md](docs/STACKED-PRS.md)
 - **Setup Instructions:** [REPO-INSTRUCTIONS.md](REPO-INSTRUCTIONS.md)
 <!-- -**API Reference:** `https://<username>.github.io/<repo>/api/` (live documentation)-->
 
