@@ -52,11 +52,20 @@ body:
       required: true
 
   - type: input
+    id: package-version
+    attributes:
+      label: "Package version"
+      description: "The NuGet package version (or commit) that shows the problem."
+      placeholder: "e.g. 1.4.2"
+    validations:
+      required: false
+
+  - type: input
     id: environment
     attributes:
       label: "Environment"
-      description: "Please provide information about your environment (OS, browser, version, etc.)"
-      placeholder: "e.g. Windows 11, Chrome 124.0.1"
+      description: "OS and the .NET runtime / SDK you are running on."
+      placeholder: "e.g. Windows 11, .NET 10.0.1 runtime; or Ubuntu 24.04, .NET Framework 4.8.1"
     validations:
       required: false
 

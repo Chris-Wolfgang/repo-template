@@ -97,8 +97,9 @@ Seven analyzers run on every build via `Directory.Build.props`; an eighth is opt
    - Detects common async/await anti-patterns (AsyncFixer01–05)
    - Flags missing or incorrect cancellation-token propagation
    - Prevents fire-and-forget async calls (`async void` outside event handlers)
-   - NOTE: `ConfigureAwait()` enforcement is handled by Meziantou's
-     MA0004 / SonarAnalyzer S3216 / CA2007, not by AsyncFixer.
+   - NOTE: `ConfigureAwait(false)` enforcement is `CA2007` (a warning, so a
+     Release error, in `src/`); Meziantou MA0004 and SonarAnalyzer S3216 report
+     the same thing at suggestion level. AsyncFixer does not check it.
 
 4. **Microsoft.VisualStudio.Threading.Analyzers**
    - Thread safety enforcement
