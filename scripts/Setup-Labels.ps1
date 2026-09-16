@@ -9,6 +9,7 @@
     
     Labels created:
     - dependencies             (blue)   — applied automatically by Dependabot to every update PR
+    - no-changelog             (yellow) — waives the changelog-fragment PR check for src/ changes with no user-visible effect
     - maintenance              (steel)  — kind label, applied to the per-repo parent Maintenance issue
     - maintenance-task         (steel)  — kind label, applied to every Maintenance sub-issue
     - maintenance - security   (red)    — category: scans, finding fixes, dependency vuln audit
@@ -88,6 +89,9 @@ Write-Host "`n🏷️  Creating labels for: $Repository`n" -ForegroundColor Cyan
 $labels = @(
     # Dependabot — applies `dependencies` automatically per .github/dependabot.yml
     @{ name = "dependencies";             color = "0366d6"; description = "Pull requests that update a dependency file" },
+
+    # Changelog fragments — waives the changelog-check job for PRs with no user-visible effect
+    @{ name = "no-changelog";             color = "e4e669"; description = "PR touches src/ but needs no changelog fragment" },
 
     # Maintenance framework — kind labels (neutral steel: the meta is colorless)
     @{ name = "maintenance";              color = "9aa7b3"; description = "Per-repo parent Maintenance issue (living improvement menu)" },
