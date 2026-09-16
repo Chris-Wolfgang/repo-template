@@ -6,9 +6,13 @@ name: License Audit
 # not allowed (e.g. a copyleft or non-OSI license slipping in via a bump).
 #
 # Config lives in .github/license-audit/:
-#  - allowed-licenses.json     — the OSI-permissive licenses we accept.
-#  - url-license-mappings.json — maps a couple of Microsoft packages that expose a
-#    license URL (not an SPDX expression) to their actual license (MIT).
+#  - allowed-licenses.json     — the licenses we accept: OSI-permissive ones plus one
+#    explicit non-OSI exception, MS-.NET-Library (the Microsoft .NET Library license
+#    some older System.* packages ship under - proprietary, but freely redistributable
+#    with the package, so it imposes nothing on consumers of ours).
+#  - url-license-mappings.json — maps packages that expose a license URL (not an SPDX
+#    expression) to a license identifier: the dotnet/standard LICENSE.TXT is MIT, the
+#    go.microsoft.com LinkId=329770 URL is MS-.NET-Library.
 #  - ignored-packages.json     — SonarAnalyzer.CSharp: a build-time analyzer
 #    (PrivateAssets=all, not shipped) under the non-OSI SONAR Source-Available
 #    License, so it imposes no obligation on consumers of the package.

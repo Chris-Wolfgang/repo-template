@@ -344,7 +344,8 @@ if (-not $SkipSecurity) {
     $gitleaks = Get-Command gitleaks -ErrorAction SilentlyContinue
     if (-not $gitleaks) {
         Write-Host "gitleaks not found — installing..."
-        $version = "8.24.0"
+        # Keep in step with GITLEAKS_VERSION in .github/workflows/pr.yaml.
+        $version = "8.30.1"
         if ($IsWindows -or $env:OS -match 'Windows') {
             $archive = "gitleaks_${version}_windows_x64.zip"
             $url = "https://github.com/gitleaks/gitleaks/releases/download/v${version}/$archive"
@@ -392,7 +393,8 @@ if (-not $SkipSecurity) {
         }
     }
 
-    gitleaks detect --source . --verbose --redact
+    # `gitleaks git` (8.19+) replaces the deprecated `detect --source`.
+    gitleaks git --verbose --redact .
     if ($LASTEXITCODE -ne 0) {
         Write-Fail "Gitleaks found secrets"
         $failed += "Gitleaks"
