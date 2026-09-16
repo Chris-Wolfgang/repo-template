@@ -1,5 +1,11 @@
 # Security Policy
 
+## Supported Versions
+
+Security fixes are released for the **latest published version** only. If you are on an older
+version, upgrade to the latest release to receive the fix. Pre-1.0 releases (0.x) follow the same
+rule: the newest 0.x release is the supported one.
+
 ## Reporting a Vulnerability
 
 If you discover a security vulnerability, please follow these steps:
@@ -16,7 +22,38 @@ If you discover a security vulnerability, please follow these steps:
 
 ## Response Timeline
 
-We will acknowledge your report within 48 hours and provide an estimated timeline for a fix.
+This is a single-maintainer project; the commitments below are realistic for that, not aspirational.
+
+| Stage | Target |
+|-------|--------|
+| Acknowledgement of the report | Within 48 hours |
+| Initial assessment (confirmed / not a vulnerability / need more information) and severity | Within 7 days |
+| Fix for **Critical** severity | Within 30 days |
+| Fix for **High** or **Medium** severity | Within 90 days |
+| Fix for **Low** severity | Next scheduled release |
+
+If a target is going to slip, you will hear that from the maintainer in the advisory thread before
+the deadline passes, not after.
+
+## Disclosure Process
+
+1. **Report** — you open a private advisory (above). Only you and the maintainer can see it.
+2. **Triage** — the maintainer confirms the issue and assigns a severity, discussed with you in the
+   advisory thread.
+3. **Fix** — the fix is developed in a temporary private fork attached to the advisory, so nothing
+   about the vulnerability is visible in public pull requests until the fix is released.
+4. **Release** — a new version ships with the fix. The release notes say a security issue was fixed
+   without giving details that would help exploit unpatched versions.
+5. **Publish** — the advisory is published, which issues a CVE (via GitHub) and notifies dependents
+   through Dependabot. Publication happens at release time, or after 90 days from the initial report
+   if no fix is possible, whichever comes first.
+
+Please keep the details private until the advisory is published.
+
+## Credit
+
+Reporters are credited in the published advisory and in the release notes, unless you ask not to be.
+Tell us in the report how you would like to be named.
 
 ## Thank You
 
