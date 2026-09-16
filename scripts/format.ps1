@@ -5,10 +5,10 @@
 
 .DESCRIPTION
     This script runs 'dotnet format' on the solution to ensure consistent code formatting.
-    Run this before committing to ensure your code passes the formatting checks in CI.
+    Run this before committing; the PR workflow does not run a formatting check, so this is the only gate.
 
 .PARAMETER Check
-    If specified, only checks formatting without making changes (like CI does).
+    If specified, only checks formatting without making changes.
 
 .EXAMPLE
     .\scripts\format.ps1

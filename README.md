@@ -349,10 +349,7 @@ The script will prompt you to choose between single-developer or multi-developer
 
 ### 2. Set Up Release Workflow (Optional)
 
-If publishing to NuGet:
-1. Go to **Settings → Secrets → Actions**
-2. Add secret: `NUGET_API_KEY`
-3. Get API key from [NuGet.org](https://www.nuget.org/account/apikeys)
+If publishing to NuGet, register a **trusted publishing policy** on NuGet.org (Account → Trusted Publishing: repository owner, repository, workflow file `release.yaml`). The workflow authenticates with a short-lived OIDC-issued key — there is no API-key secret to store.
 
 See [RELEASE-WORKFLOW-SETUP.md](docs/RELEASE-WORKFLOW-SETUP.md) for details.
 
