@@ -69,7 +69,13 @@ jobs:
           python-version: '3.x'
 
       - name: Install zizmor
-        run: pip install zizmor
+        # Hash-pinned rather than a bare `pip install zizmor` (OSSF Scorecard
+        # Pinned-Dependencies: "pipCommand not pinned by hash"). --require-hashes
+        # makes pip verify every wheel it downloads and refuse anything not
+        # listed, so the transitive tree is pinned too. Regenerate with the uv
+        # command recorded in the header of the requirements file; the resolution
+        # is universal, so it covers every runner platform and Python version.
+        run: pip install --require-hashes -r .github/requirements/zizmor.txt
 
       - name: Run zizmor
         env:

@@ -24,3 +24,19 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  # Keep the hash-pinned pip tooling (zizmor, semgrep) under .github/requirements
+  # up to date. Without this the --require-hashes pins never move, leaving both
+  # tools frozen at whatever version was current when they were pinned;
+  # Dependabot regenerates the hashes along with the versions.
+  - package-ecosystem: "pip"
+    directory: "/.github/requirements"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    groups:
+      pip-tooling:
+        patterns:
+          - "*"
