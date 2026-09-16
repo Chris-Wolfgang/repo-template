@@ -5,7 +5,7 @@
 .SYNOPSIS
     Audits every repository owned by a GitHub user against docs/repository-baseline.md.
 .DESCRIPTION
-    For each in-scope repository the script checks all 22 baseline items via the GitHub API
+    For each in-scope repository the script checks all 23 baseline items via the GitHub API
     (settings, rulesets, workflow runs) and a shallow clone (file checks), then writes:
 
       audit-results.json  - one record per (repo, item): repo, item, name, status, evidence
@@ -82,6 +82,7 @@ $items = @(
     @{ N = 20; Name = 'Security-alert triage workflow present';                   Label = 'security' }
     @{ N = 21; Name = 'Warnings-as-errors on for Release builds';                 Label = 'process'  }
     @{ N = 22; Name = 'README present with build and test instructions';          Label = 'process'  }
+    @{ N = 23; Name = 'GitHub Pages deploy mode matches the docs workflow';        Label = 'process'  }
 )
 $itemByNumber = @{}
 foreach ($i in $items) { $itemByNumber[$i.N] = $i }
@@ -108,7 +109,10 @@ function Invoke-GhApi
     }
     if ($exit -ne 0)
     {
-        if ($AllowNotFound) { return $null }
+        # -AllowNotFound means exactly that: a 404 is a legitimate "not configured" answer.
+        # Rate limits, permission and transient errors still throw so the repository lands
+        # in the failed list instead of being scored as if the resource were absent.
+        if ($AllowNotFound -and $err -match 'HTTP 404') { return $null }
         throw "gh api $Path failed (exit $exit): $err"
     }
     return ($raw | Out-String | ConvertFrom-Json -Depth 20)
@@ -538,6 +542,47 @@ function Invoke-RepoAudit
     {
         if ($readmeTxt -match '(?im)^#+\s*(build|usage|getting started)') { $out.Add((New-Result $name 22 'pass' 'README has a Build/Usage/Getting Started section')) }
         else { $out.Add((New-Result $name 22 'fail' 'README has no Build, Usage, or Getting Started section')) }
+    }
+
+    # 23 -- GitHub Pages deploy mode vs the docs workflow
+    # A docs deployment workflow is any docfx*.yaml (the template's push-to-gh-pages pattern)
+    # or any workflow with an active `uses: actions/deploy-pages` step (the modern pattern),
+    # whatever it is named. Every one found is checked; comments do not count.
+    $docsWfs = @()
+    foreach ($wf in $workflows)
+    {
+        $active = @(Get-Content $wf.FullName | Where-Object { $_ -notmatch '^\s*#' })
+        $deployPages = [bool]($active -match '^\s*-?\s*uses:\s*actions/deploy-pages')
+        if ($deployPages -or $wf.Name -match '^docfx.*\.ya?ml$')
+        {
+            $docsWfs += [pscustomobject]@{ Name = $wf.Name; UsesDeployPages = $deployPages; Expected = $(if ($deployPages) { 'workflow' } else { 'legacy' }) }
+        }
+    }
+    if ($docsWfs.Count -eq 0)
+    {
+        $out.Add((New-Result $name 23 'na' 'no docs deployment workflow (docfx*.yaml or actions/deploy-pages)'))
+    }
+    else
+    {
+        $wfNames = ($docsWfs | ForEach-Object { $_.Name }) -join ', '
+        $pages = Invoke-GhApi "repos/$full/pages" -AllowNotFound
+        if ($null -eq $pages)
+        {
+            $out.Add((New-Result $name 23 'na' "$wfNames present but no Pages site configured yet"))
+        }
+        else
+        {
+            $bt = if ($pages.PSObject.Properties['build_type']) { $pages.build_type } else { 'unknown' }
+            $branch = if ($pages.PSObject.Properties['source'] -and $pages.source) { $pages.source.branch } else { $null }
+            $problems = @()
+            foreach ($d in $docsWfs)
+            {
+                if ($bt -ne $d.Expected) { $problems += "build_type=$bt but $($d.Name) $(if ($d.UsesDeployPages) { 'uses actions/deploy-pages' } else { 'pushes to gh-pages' }) (expected $($d.Expected))" }
+                if (-not $d.UsesDeployPages -and $branch -ne 'gh-pages') { $problems += "source.branch=$branch but $($d.Name) pushes to gh-pages" }
+            }
+            if ($problems.Count -eq 0) { $out.Add((New-Result $name 23 'pass' "build_type=$bt, source.branch=$branch, matches $wfNames")) }
+            else { $out.Add((New-Result $name 23 'fail' (($problems | Select-Object -Unique) -join '; '))) }
+        }
     }
 
     return $out
