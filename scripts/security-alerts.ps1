@@ -119,7 +119,12 @@ function Get-Alerts
     {
         $hint = switch ($r.status)
         {
-            403 { "token lacks permission — set a SECURITY_ALERTS_TOKEN repository secret (fine-grained PAT with '$(if ($Kind -eq 'secret-scanning') { 'Secret scanning alerts' } else { 'Dependabot alerts' }): read')" }
+            403
+            {
+                $perm = if ($Kind -eq 'secret-scanning') { 'Secret scanning alerts' } else { 'Dependabot alerts' }
+                if ($token) { "SECURITY_ALERTS_TOKEN is set but was denied — edit that PAT (Settings → Developer settings → Personal access tokens) and add '${perm}: Read-only', then re-run" }
+                else { "token lacks permission — set a SECURITY_ALERTS_TOKEN repository secret (fine-grained PAT with '${perm}: Read-only')" }
+            }
             404 { 'feature not enabled or no analyses yet' }
             default { "HTTP $($r.status)" }
         }
