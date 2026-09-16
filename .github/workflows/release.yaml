@@ -599,8 +599,10 @@ jobs:
     runs-on: windows-latest
     # Gate on the prior validation jobs so we don't burn ~5-10 min of Windows
     # runner time on a release that's already failing earlier in the pipeline.
+    # No repo guard here: validate-release carries it, and a `needs:` on a
+    # skipped job skips this one too. A guard of its own would make this job
+    # skip in a way publish-nuget's `needs:` treats as unmet (#420).
     needs: [validate-release, pack-and-validate]
-    if: github.repository != 'Chris-Wolfgang/repo-template'
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
