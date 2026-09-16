@@ -65,7 +65,8 @@ highest-ranked fragment kind present:
 
 | Current | `breaking` | `feature` | `fix` / `docs` / `internal` |
 |---------|-----------|-----------|------------------------------|
-| `0.x`   | minor     | patch     | patch                        |
+| `0.x`   | minor     | minor     | patch                        |
 | `>= 1.0` | major    | minor     | patch                        |
 
-Pre-1.0 the minor version is the compatibility line, so a breaking change bumps it and everything else is a patch.
+Patch releases are lean (fixes only): any new public surface is a minor. Pre-1.0 the minor version is also
+the compatibility line, so a breaking change lands on the same minor bump as a feature.

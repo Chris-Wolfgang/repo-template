@@ -258,6 +258,7 @@ if ($RequestAutofix)
 {
     $numbers = @($AlertNumbers -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^\d+$' })
     if ($numbers.Count -eq 0) { Write-Host 'no code-scanning alert numbers given'; exit 0 }
+    $autofixFailures = 0
     $tracked = Get-TrackedIssues
     foreach ($n in $numbers)
     {
@@ -269,13 +270,18 @@ if ($RequestAutofix)
             else
             {
                 $req = Invoke-Api "repos/$Repository/code-scanning/alerts/$n/autofix" -Method POST
-                if ($req.ok) { "Copilot Autofix requested (status: $($req.data.status))" } else { "Autofix not available (HTTP $($req.status))" }
+                if ($req.ok) { "Copilot Autofix requested (status: $($req.data.status))" } else { $autofixFailures++; "Autofix not available (HTTP $($req.status))" }
             }
         }
         Write-Host "alert ${n}: $result"
         $issue = $tracked["code-scanning#$n"]
-        if ($issue -and -not $DryRun) { & gh issue comment $issue.number -R $Repository --body $result | Out-Null }
+        if ($issue -and -not $DryRun)
+        {
+            $out = & gh issue comment $issue.number -R $Repository --body $result 2>&1
+            if ($LASTEXITCODE -ne 0) { Write-Warning "comment on #$($issue.number) failed: $out"; $autofixFailures++ }
+        }
     }
+    if ($autofixFailures -gt 0) { Write-Host "done with $autofixFailures failure(s)"; exit 1 }
     exit 0
 }
 
