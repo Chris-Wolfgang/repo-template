@@ -460,7 +460,7 @@ function Start-Setup {
     Write-Host "  Project Name:        $projectName"
     Write-Host "  Description:         $projectDescription"
     Write-Host "  Package Name:        $packageName"
-    Write-Host "  Repository URL:      $githubRepoUrl"
+    Write-Host "  Repository URL:      $normalizedUrl"
     Write-Host "  Repository Name:     $repoName"
     Write-Host "  GitHub Username:     $githubUsername"
     Write-Host "  Documentation URL:   $docsUrl"
@@ -487,7 +487,11 @@ function Start-Setup {
         'PROJECT_NAME' = $projectName
         'PROJECT_DESCRIPTION' = $projectDescription
         'PACKAGE_NAME' = $packageName
-        'GITHUB_REPO_URL' = $githubRepoUrl
+        # Always the normalized https://github.com/<owner>/<repo> form, never the
+        # raw input: an SSH origin (git@github.com:owner/repo.git) would otherwise
+        # produce broken links everywhere the placeholder is used as a URL base
+        # (README, docfx pages, SECURITY.md).
+        'GITHUB_REPO_URL' = $normalizedUrl
         'REPO_NAME' = $repoName
         'GITHUB_USERNAME' = $githubUsername
         'GITHUB_OWNER' = $githubUsername.TrimStart('@')

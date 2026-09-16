@@ -25,7 +25,7 @@ These placeholders are **required** and must be replaced in every project:
 | `{{PROJECT_NAME}}` | Full project/library name | `Wolfgang.Extensions.IAsyncEnumerable` | No |
 | `{{PROJECT_DESCRIPTION}}` | One-line project description | `High-performance extension methods for IAsyncEnumerable<T>` | No |
 | `{{PACKAGE_NAME}}` | NuGet package name | `Wolfgang.Extensions.IAsyncEnumerable` | No (usually same as PROJECT_NAME) |
-| `{{GITHUB_REPO_URL}}` | Full GitHub repository URL | `https://github.com/Chris-Wolfgang/MyProject` | Yes (from `git remote`) |
+| `{{GITHUB_REPO_URL}}` | Full GitHub repository URL, normalized to `https://github.com/<owner>/<repo>` (SSH form and trailing `.git` are converted) | `https://github.com/Chris-Wolfgang/MyProject` | Yes (from `git remote`) |
 | `{{REPO_NAME}}` | Repository name only | `MyProject` | Yes (extracted from URL) |
 | `{{GITHUB_USERNAME}}` | GitHub username with @ | `@Chris-Wolfgang` | Yes (from GitHub repo URL, or prompted if missing) |
 | `{{GITHUB_OWNER}}` | GitHub owner slug (no @, URL-safe) | `Chris-Wolfgang` | Yes (derived from `GITHUB_USERNAME`) |
