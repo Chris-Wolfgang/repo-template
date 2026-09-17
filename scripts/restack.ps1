@@ -112,6 +112,43 @@ function Invoke-GhJson
 
 
 
+function Show-NextPrs
+{
+    # The next few PRs to merge, in merge order, so the hand-off after a restack is a list of
+    # links rather than a branch name. Order: PRs whose base is $Base, lowest number first; each
+    # one is followed by whatever is stacked on it (depth-first), so a chain reads bottom to top.
+    param([string]$Base, [int]$Count = 5)
+
+    $res = Invoke-GhJson @('pr', 'list', '--state', 'open', '--limit', '100', '--json', 'number,title,url,headRefName,baseRefName,isDraft')
+    if (-not $res.Ok -or -not $res.Data) { return }
+    $prs = @($res.Data | Sort-Object number)
+    $ordered = New-Object System.Collections.Generic.List[object]
+    $visit = $null
+    $visit = {
+        param($pr)
+        if ($ordered.Contains($pr)) { return }
+        $ordered.Add($pr)
+        foreach ($child in ($prs | Where-Object { $_.baseRefName -eq $pr.headRefName })) { & $visit $child }
+    }
+    foreach ($root in ($prs | Where-Object { $_.baseRefName -eq $Base })) { & $visit $root }
+    # anything whose base is neither $Base nor another open PR's head (e.g. targets main) goes last
+    foreach ($pr in $prs) { & $visit $pr }
+    if ($ordered.Count -eq 0) { return }
+
+    Write-Host ''
+    Write-Host "Next $([Math]::Min($Count, $ordered.Count)) PR(s) in merge order:"
+    $i = 0
+    foreach ($pr in $ordered)
+    {
+        if ($i -ge $Count) { break }
+        $i++
+        $draft = if ($pr.isDraft) { ' (draft)' } else { '' }
+        Write-Host ("  {0}. [#{1} - {2}]({3}) -> {4}{5}" -f $i, $pr.number, $pr.title, $pr.url, $pr.baseRefName, $draft)
+    }
+}
+
+
+
 function Find-MergedTip
 {
     # The most recently merged PR whose head commit is an ancestor of the bottom branch.
@@ -209,3 +246,4 @@ finally
 }
 Write-Host ''
 Write-Host "restacked $($Stack.Count) branch(es); merge $($Stack[0]) next, then run again with -Stack $((@($Stack) | Select-Object -Skip 1) -join ',')"
+Show-NextPrs -Base $Base
