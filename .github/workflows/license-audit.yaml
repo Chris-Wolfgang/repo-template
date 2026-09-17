@@ -70,13 +70,23 @@ jobs:
         run: dotnet tool install --global nuget-license
 
       # Gate: fail if any src project's dependency license is not on the allow-list.
+      - name: Restore .NET workloads
+        # Same gate as pr.yaml: only repos with workload-bearing TFMs (net10.0-android,
+        # -ios, -maui, ...) need this, and they need it once, before the per-project restore.
+        if: steps.detect.outputs.found == 'true'
+        run: |
+          if find src -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' {} \; | grep -q .; then
+            echo "Workload-bearing TFMs detected - running dotnet workload restore"
+            dotnet workload restore
+          else
+            echo "No workload-bearing TFMs under src/ - skipping dotnet workload restore"
+          fi
+
       - name: Audit licenses (gate on allow-list)
         if: steps.detect.outputs.found == 'true'
         run: |
           while IFS= read -r proj; do
             echo "== $proj =="
-            # Platform projects (MAUI/Android/WPF) declare workloads; without them restore fails.
-            dotnet workload restore "$proj" >/dev/null 2>&1 || true
             dotnet restore "$proj"
             nuget-license -i "$proj" -t \
               -a .github/license-audit/allowed-licenses.json \
