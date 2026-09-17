@@ -45,7 +45,7 @@ param(
     # (replaced by setup.ps1), or a strict owner/repo format. Rejecting URLs
     # and malformed inputs here surfaces the problem at parameter binding
     # instead of as a confusing 404 from gh api downstream.
-    [ValidatePattern('^$|^\{\{GITHUB_USERNAME\}\}/\{\{REPO_NAME\}\}$|^[^/@\s]+/[^/@\s]+$')]
+    [ValidatePattern('^$|^\{\{GITHUB_(USERNAME|OWNER)\}\}/\{\{REPO_NAME\}\}$|^[^/@\s]+/[^/@\s]+$')]
     [string]$Repository
 )
 
