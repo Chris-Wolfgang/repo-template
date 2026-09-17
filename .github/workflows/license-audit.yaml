@@ -75,6 +75,8 @@ jobs:
         run: |
           while IFS= read -r proj; do
             echo "== $proj =="
+            # Platform projects (MAUI/Android/WPF) declare workloads; without them restore fails.
+            dotnet workload restore "$proj" >/dev/null 2>&1 || true
             dotnet restore "$proj"
             nuget-license -i "$proj" -t \
               -a .github/license-audit/allowed-licenses.json \

@@ -72,7 +72,9 @@ jobs:
             # Skip projects that don't target net10.0 (e.g. a netstandard2.0-only
             # Roslyn source generator) — `-f net10.0` would fail NETSDK1005 on them,
             # and they produce no net10.0 PDB for the SourceLink step to verify.
-            if ! grep -qE 'net10\.0' "$proj"; then
+            # Exact TFM only: net10.0-android / net10.0-windows10.0.x are platform TFMs that
+            # cannot be built with -f net10.0.
+            if ! grep -qE 'net10\.0([;<"]|$)' "$proj"; then
               echo "== skip $proj (no net10.0 target) =="
               continue
             fi
