@@ -92,7 +92,11 @@ if ($IncludeDocs) { $managedPrefixes += 'docs/' }
 # Template-only files that never belong in a generated repository, plus the one-time setup
 # scripts that delete themselves after a successful run (their absence is expected).
 $templateOnly = @('scripts/setup.ps1', 'scripts/audit-repos.ps1', 'scripts/upgrade.ps1', 'scripts/templates/', 'docs/repository-baseline.md',
-                  'scripts/Setup-BranchRuleset.ps1', 'scripts/Setup-GitHubPages.ps1', 'scripts/Setup-Maintenance.ps1')
+                  'scripts/Setup-GitHubPages.ps1', 'scripts/Setup-Maintenance.ps1')
+# Setup-BranchRuleset.ps1 self-deletes after its first run, but Fix-BranchRuleset.ps1 calls it
+# again later, so a repository that still has it needs the current version: managed while
+# present, never re-added once gone.
+if (-not (Test-Path 'scripts/Setup-BranchRuleset.ps1')) { $templateOnly += 'scripts/Setup-BranchRuleset.ps1' }
 
 function Test-Managed([string]$Path)
 {
@@ -219,8 +223,14 @@ foreach ($path in $candidates)
     {
         # New in the template since setup, or deliberately deleted here. New-in-template is
         # safe to add when the base did not have it either; otherwise it is a local deletion.
+        # A new file that still carries {{PLACEHOLDERS}} (no values in the stamp) is not safe:
+        # it would land verbatim, so it goes to review instead.
         $templateThen = if ($base) { Get-TemplateContent $path $base } else { $null }
-        if ($base -and $null -eq $templateThen) { $safe += [pscustomobject]@{ Path = $path; Reason = 'new in template'; Content = $templateNow } }
+        if ($base -and $null -eq $templateThen)
+        {
+            if ($templateNow -match '\{\{[A-Z_]+\}\}') { $review += [pscustomobject]@{ Path = $path; Content = $templateNow; Reason = 'new in template but carries setup placeholders and .template-version has no values - fill placeholders in .template-version, or merge by hand' } }
+            else { $safe += [pscustomobject]@{ Path = $path; Reason = 'new in template'; Content = $templateNow } }
+        }
         else { $missing += $path }
         continue
     }
