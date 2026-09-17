@@ -387,8 +387,13 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          # The checkout uses persist-credentials:false (nothing in .git/config for
+          # PR-controlled build steps to read), so a bare `git fetch origin` has no
+          # auth and fails on a private repository. Pass the job token on this one
+          # command only; it is never written to git config.
+          TRUSTED_MAIN_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: |
-          git fetch origin $env:BASE_SHA --depth=1
+          git fetch "$env:TRUSTED_MAIN_URL" $env:BASE_SHA --depth=1
           pwsh ./scripts/changelog.ps1 check -BaseRef $env:BASE_SHA -Labels $env:PR_LABELS
 
   # ============================================================================
