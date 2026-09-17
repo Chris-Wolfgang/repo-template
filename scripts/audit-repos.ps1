@@ -594,9 +594,17 @@ function Invoke-RepoAudit
     }
     else
     {
-        $wfState = Invoke-GhApi "repos/$full/actions/workflows?per_page=100"
-        $off = @($wfState.workflows | Where-Object { $_.path -like '.github/workflows/*' -and $_.state -ne 'active' })
-        if ($off.Count -eq 0) { $out.Add((New-Result $name 24 'pass' "$($wfState.workflows.Count) workflow(s) active")) }
+        # Paginate: the endpoint caps at 100 per page and a disabled workflow on page 2 must not pass.
+        $allWf = @(); $page = 1
+        do
+        {
+            $wfState = Invoke-GhApi "repos/$full/actions/workflows?per_page=100&page=$page"
+            $batch = @($wfState.workflows)
+            $allWf += $batch
+            $page++
+        } while ($batch.Count -eq 100)
+        $off = @($allWf | Where-Object { $_.path -like '.github/workflows/*' -and $_.state -ne 'active' })
+        if ($off.Count -eq 0) { $out.Add((New-Result $name 24 'pass' "$($allWf.Count) workflow(s) active")) }
         else { $out.Add((New-Result $name 24 'fail' (($off | ForEach-Object { "$($_.path -replace '^\.github/workflows/', '')=$($_.state)" }) -join ', '))) }
     }
 
