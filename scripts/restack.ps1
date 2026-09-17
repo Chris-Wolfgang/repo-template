@@ -225,6 +225,13 @@ try
     {
         Write-Host ''
         Write-Host "== $b"
+        # The rebase works from the remote tip. Refuse if the local branch has commits the
+        # remote does not: `checkout -B` would silently throw them away.
+        $localTip = & git rev-parse --verify --quiet "refs/heads/$b" 2>$null
+        if ($localTip -and -not (Test-Ancestor $localTip $oldTip[$b]))
+        {
+            throw "local branch $b has commits that are not on $Remote/$b; push or drop them first"
+        }
         Invoke-Git @('checkout', '--quiet', '-B', $b, $oldTip[$b]) | Out-Null
         $out = & git rebase --onto $onto $cut $b 2>&1
         if ($LASTEXITCODE -ne 0)

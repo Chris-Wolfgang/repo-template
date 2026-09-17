@@ -244,10 +244,12 @@ function Close-AlertIssue
 function Confirm-Label
 {
     $existing = @(& gh label list -R $Repository --limit 200 --json name --jq '.[].name')
+    if ($LASTEXITCODE -ne 0) { throw "gh label list failed for $Repository" }
     if ($label -notin $existing)
     {
         if ($DryRun) { Write-Host "DRY-RUN create label $label"; return }
-        & gh label create $label -R $Repository --color 'd93f0b' --description 'Security-related' | Out-Null
+        $out = & gh label create $label -R $Repository --color 'd93f0b' --description 'Security-related' 2>&1
+        if ($LASTEXITCODE -ne 0) { throw "gh label create $label failed: $out" }
     }
 }
 

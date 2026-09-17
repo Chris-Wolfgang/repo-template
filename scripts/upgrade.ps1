@@ -170,16 +170,29 @@ Write-Host "Template: $Template @ $($head.Substring(0, 7))" -ForegroundColor Cya
 Write-Host "Base:     $(if ($base) { $base.Substring(0, [Math]::Min(7, $base.Length)) + ' (' + $(if ($Since) { '-Since' } else { '.template-version' }) + ')' } else { 'none - no .template-version; every difference is reported as review' })" -ForegroundColor Cyan
 Write-Host ''
 
-function Get-ManagedPaths([string]$Ref)
+$executableInTemplate = @{}   # path -> $true when the template HEAD tree marks it 100755
+
+function Get-ManagedPaths([string]$Ref, [switch]$RecordModes)
 {
-    $tree = (& gh api "repos/$Template/git/trees/${Ref}?recursive=1" --jq '.tree[] | select(.type == "blob") | .path')
+    # Modes are recorded for the head tree only: what -Apply writes is head content, so
+    # head's mode is the only one that matters (a file that was +x at the base but not
+    # at head must not come back executable).
+    $tree = (& gh api "repos/$Template/git/trees/${Ref}?recursive=1" --jq '.tree[] | select(.type == "blob") | "\(.mode) \(.path)"')
     if ($LASTEXITCODE -ne 0) { throw "could not list $Template tree at $Ref" }
-    return @($tree | Where-Object { Test-Managed $_ })
+    $paths = @()
+    foreach ($line in $tree)
+    {
+        $mode, $path = $line -split ' ', 2
+        if (-not (Test-Managed $path)) { continue }
+        if ($RecordModes -and $mode -eq '100755') { $executableInTemplate[$path] = $true }
+        $paths += $path
+    }
+    return $paths
 }
 
 # Candidate files: everything managed at the template head, plus anything managed at the
 # base that the template has since removed (so deletions are reported, not silently kept).
-$headPaths = Get-ManagedPaths $head
+$headPaths = Get-ManagedPaths $head -RecordModes
 $basePaths = if ($base) { Get-ManagedPaths $base } else { @() }
 $candidates = @($headPaths + $basePaths | Sort-Object -Unique)
 
@@ -258,6 +271,13 @@ foreach ($s in $safe)
     $dir = Split-Path -Parent $s.Path
     if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
     Set-Content -Path $s.Path -Value ($s.Content + "`n") -Encoding utf8NoBOM -NoNewline
+    if ($executableInTemplate[$s.Path])
+    {
+        # Set-Content cannot carry a mode and Windows checkouts have core.fileMode off, so the
+        # template's +x (git hooks) would be committed as 100644 and never run on Linux/macOS.
+        $chmodOut = & git update-index --add --chmod=+x -- $s.Path 2>&1
+        if ($LASTEXITCODE -ne 0) { throw "could not mark $($s.Path) executable: $chmodOut" }
+    }
     Write-Host "  applied  $($s.Path)" -ForegroundColor Green
 }
 foreach ($r in $review)

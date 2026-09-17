@@ -256,10 +256,10 @@ try {
                 $missing += "$ver  (resolved path '$realFolder' is outside gh-pages root - rejected)"
                 continue
             }
-            if (-not (Test-Path $folder -PathType Container)) {
+            if (-not (Test-Path -LiteralPath $folder -PathType Container)) {
                 $missing += "$ver  (folder '$folderName/' not found)"
             }
-            elseif (-not (Test-Path (Join-Path $folder 'index.html') -PathType Leaf)) {
+            elseif (-not (Test-Path -LiteralPath (Join-Path $folder 'index.html') -PathType Leaf)) {
                 $missing += "$ver  (index.html missing in '$folderName/')"
             }
         }
