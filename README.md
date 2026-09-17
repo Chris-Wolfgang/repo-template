@@ -304,7 +304,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 | `TEMPLATE-PLACEHOLDERS.md` | Complete placeholder documentation including template identification |
 | `REPO-INSTRUCTIONS.md` | Manual setup instructions and the post-setup script reference |
 | `scripts/setup.ps1` | PowerShell setup automation (offers to delete itself at the end; default is to keep it) |
-| `docs/repository-baseline.md` | The 23-item hardening baseline every repo is audited against (`scripts/audit-repos.ps1`) |
+| `docs/repository-baseline.md` | The 24-item hardening baseline every repo is audited against (`scripts/audit-repos.ps1`) |
 
 [^1]: Modified during setup process
 

@@ -169,6 +169,13 @@ Scope rules:
 - **Fix:** `gh api -X PUT repos/{owner}/{repo}/pages -f build_type=legacy -f source[branch]=gh-pages -f source[path]=/` (or the Pages settings page: *Build and deployment → Source → Deploy from a branch*). Do not switch the workflow to `actions/deploy-pages` to match the setting — versioned docs need the branch.
 - **Label:** `process`
 
+### 24. No workflow disabled for inactivity
+
+- **Verify:** `gh api repos/{owner}/{repo}/actions/workflows` reports `state: active` for every workflow file under `.github/workflows/`. Any `disabled_inactivity` (or `disabled_manually`) entry fails.
+- **Why:** GitHub switches off *scheduled* workflows in a repository with no commits for 60 days. The switch is per workflow file, so it also stops the `pull_request` runs of that file — on Conflict.Classic and Conflict.Modern the weekly CodeQL run went quiet after 2026-08-30 and the next PR sat on "Expected — Security Scan (CodeQL)" forever, because a required check from a disabled workflow can never report. Nothing in the PR, the ruleset or the Actions tab of the run says why.
+- **Fix:** `gh api -X PUT repos/{owner}/{repo}/actions/workflows/{file}/enable`, then push a commit (or re-run) so the PR gets a fresh run — a workflow without `workflow_dispatch` cannot be triggered by hand. Any commit to the default branch resets the 60-day clock for the whole repository.
+- **Label:** `process`
+
 ## Account-level settings
 
 These are not per-repository and are not checked by the script. Verify on the account settings pages and record the state; the audit report lists them under "manual checks".
