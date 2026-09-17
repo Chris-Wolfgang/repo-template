@@ -64,14 +64,22 @@ jobs:
       #                          approver would force admin-bypass on every PR.
       #   CIIBestPracticesID   — bestpractices.dev badge is an external
       #                          registration, not something CI can earn.
-      #   PinnedDependenciesID / nugetCommand — `dotnet restore` without
-      #                          --locked-mode. Decided 2026-09-16 (D20-Dice):
-      #                          every csproj pins exact versions and nuget.org
-      #                          is immutable, so packages.lock.json only adds
-      #                          a content hash — and because the SDK injects
+      #   PinnedDependenciesID / nugetCommand, RESTORE commands only —
+      #                          `dotnet restore` / `nuget restore` /
+      #                          `msbuild /t:restore` without --locked-mode.
+      #                          Decided 2026-09-16 (D20-Dice): every csproj
+      #                          pins exact versions and nuget.org is immutable,
+      #                          so packages.lock.json only adds a content hash
+      #                          — and because the SDK injects
       #                          Microsoft.NET.ILLink.Tasks at whatever version
       #                          it bundles, RestoreLockedMode broke every PR
       #                          on each SDK patch. Not worth the point.
+      #                          Scorecard reports the same message for an
+      #                          unversioned `dotnet add package` / `nuget
+      #                          install`, so the filter also checks the SARIF
+      #                          snippet and keeps those (a real regression).
+      #                          (`dotnet tool install` is not something
+      #                          Scorecard inspects at all.)
       #
       # Template-only entries — this repository has no csproj, so nothing can
       # satisfy them. They are applied ONLY when the workflow runs in
@@ -91,9 +99,11 @@ jobs:
         shell: bash
         env:
           SUPPRESSED_RULES: 'DangerousWorkflowID CodeReviewID CIIBestPracticesID'
-          # PinnedDependenciesID message substrings suppressed everywhere (see
-          # the comment block above).
+          # PinnedDependenciesID message substrings suppressed everywhere, but
+          # only when the finding's snippet is a restore command (see the
+          # comment block above).
           SUPPRESSED_PIN_KINDS: 'nugetCommand not pinned'
+          SUPPRESSED_PIN_SNIPPET: '(^|[^A-Za-z0-9_.-])(dotnet(\.exe)?[[:space:]]+restore|nuget(\.exe)?[[:space:]]+restore|msbuild(\.exe)?[[:space:]].*/t:restore)'
           # Template-only rules (see the comment block above). Empty everywhere
           # except in repo-template itself, so downstream repositories never
           # inherit them.
@@ -109,7 +119,7 @@ jobs:
           # shellcheck disable=SC2086
           rules_json=$(printf '%s\n' $SUPPRESSED_RULES $TEMPLATE_ONLY_RULES | jq -R . | jq -s .)
           echo "Suppressed rules: $SUPPRESSED_RULES $TEMPLATE_ONLY_RULES"
-          echo "Suppressed PinnedDependenciesID kinds: '${SUPPRESSED_PIN_KINDS}'"
+          echo "Suppressed PinnedDependenciesID kinds: '${SUPPRESSED_PIN_KINDS}' when the snippet matches '${SUPPRESSED_PIN_SNIPPET}'"
           # Bind ruleId/message to variables before the boolean expression:
           # inside `$suppressed | index(.ruleId)` the `.ruleId` would be applied
           # to the array, not the result (jq 1.8 errors, older versions
@@ -117,13 +127,15 @@ jobs:
           jq \
             --argjson suppressed "$rules_json" \
             --arg pinKinds "$SUPPRESSED_PIN_KINDS" \
+            --arg pinSnippet "$SUPPRESSED_PIN_SNIPPET" \
             '
               .runs |= map(
                 .results |= map(select(
                   (.ruleId // "") as $r
                   | (.message.text // "") as $t
+                  | ([.locations[]?.physicalLocation.region.snippet.text // ""] | join(" ")) as $s
                   | (($suppressed | index($r)) == null)
-                    and (($pinKinds != "" and $r == "PinnedDependenciesID" and ($t | test($pinKinds))) | not)
+                    and (($pinKinds != "" and $r == "PinnedDependenciesID" and ($t | test($pinKinds)) and ($s | test($pinSnippet; "i"))) | not)
                 ))
               )
             ' results.sarif > results.filtered.sarif
