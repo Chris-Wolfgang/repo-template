@@ -9,11 +9,11 @@ body:
       value: |
         ## Maintenance framework sub-issue
 
-        This template creates a **`maintenance-task`** sub-issue under this repo's parent `Maintenance: <repo>` issue. The new issue will auto-appear in the cross-repo Maintenance project board (URL listed in the parent `Maintenance: <repo>` issue body).
+        Use this template for a **`maintenance-task`** issue belonging to this repo's parent `Maintenance: <repo>` issue. The `maintenance-task` label is applied automatically and the Maintenance project's own auto-add rule (configured on the project, not in this repo) puts labelled issues on the cross-repo board; the parent/sub-issue link is **not** automatic - add it from the parent issue's "Sub-issues" panel after creating this one.
 
         - Pick exactly **one** category in the dropdown below. The corresponding `maintenance - <category>` label will need to be added manually after creation (issue forms don't yet support dynamic label addition).
         - Fill in **Scope** (what's done & why), **Acceptance** (when do we close this?), and **Links** (PRs, scan output, related issues).
-        - If you're closing this issue via a PR, include `Fixes #<this-issue-number>` in the PR body so the auto-add workflow marks the project item as Done.
+        - If you're closing this issue via a PR, include `Fixes #<this-issue-number>` in the PR body so the issue closes with the merge; the Project's own status automation (configured on the project) then moves the item to Done.
 
   - type: dropdown
     id: category
