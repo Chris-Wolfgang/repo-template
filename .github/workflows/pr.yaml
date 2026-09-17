@@ -62,8 +62,14 @@ jobs:
         # defaults) from "checkout failed for any other reason" (abort —
         # silently using the PR version would defeat the guard).
         shell: bash
+        env:
+          # The checkout uses persist-credentials:false (nothing in .git/config for
+          # PR-controlled build steps to read), so a bare `git fetch origin` has no
+          # auth and fails on a private repository. Pass the job token on this one
+          # command only; it is never written to git config.
+          TRUSTED_MAIN_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: |
-          if ! git fetch origin main --depth=1; then
+          if ! git fetch "$TRUSTED_MAIN_URL" main:refs/remotes/origin/main --depth=1; then
             echo "::error::Failed to fetch origin/main — aborting before gitleaks scan."
             exit 1
           fi
@@ -119,11 +125,17 @@ jobs:
         # Directory.Build.props) are legitimate and should not be overwritten by main's
         # older versions. Dependabot's identity is GitHub-controlled and not spoofable.
         if: github.event.pull_request.user.login != 'dependabot[bot]'
+        env:
+          # The checkout uses persist-credentials:false (nothing in .git/config for
+          # PR-controlled build steps to read), so a bare `git fetch origin` has no
+          # auth and fails on a private repository. Pass the job token on this one
+          # command only; it is never written to git config.
+          TRUSTED_MAIN_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
           # Fetch the main branch
-          git fetch origin main:main-branch
+          git fetch "$TRUSTED_MAIN_URL" main:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(
@@ -347,8 +359,14 @@ jobs:
 
       - name: Fetch trusted changelog script from main
         shell: bash
+        env:
+          # The checkout uses persist-credentials:false (nothing in .git/config for
+          # PR-controlled build steps to read), so a bare `git fetch origin` has no
+          # auth and fails on a private repository. Pass the job token on this one
+          # command only; it is never written to git config.
+          TRUSTED_MAIN_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: |
-          if ! git fetch origin main --depth=1; then
+          if ! git fetch "$TRUSTED_MAIN_URL" main:refs/remotes/origin/main --depth=1; then
             echo "::error::Failed to fetch origin/main — aborting before changelog check."
             exit 1
           fi
@@ -369,8 +387,13 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          # The checkout uses persist-credentials:false (nothing in .git/config for
+          # PR-controlled build steps to read), so a bare `git fetch origin` has no
+          # auth and fails on a private repository. Pass the job token on this one
+          # command only; it is never written to git config.
+          TRUSTED_MAIN_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: |
-          git fetch origin $env:BASE_SHA --depth=1
+          git fetch "$env:TRUSTED_MAIN_URL" $env:BASE_SHA --depth=1
           pwsh ./scripts/changelog.ps1 check -BaseRef $env:BASE_SHA -Labels $env:PR_LABELS
 
   # ============================================================================
@@ -421,11 +444,17 @@ jobs:
         # Directory.Build.props) are legitimate and should not be overwritten by main's
         # older versions. Dependabot's identity is GitHub-controlled and not spoofable.
         if: github.event.pull_request.user.login != 'dependabot[bot]'
+        env:
+          # The checkout uses persist-credentials:false (nothing in .git/config for
+          # PR-controlled build steps to read), so a bare `git fetch origin` has no
+          # auth and fails on a private repository. Pass the job token on this one
+          # command only; it is never written to git config.
+          TRUSTED_MAIN_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
           # Fetch the main branch
-          git fetch origin main:main-branch
+          git fetch "$TRUSTED_MAIN_URL" main:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(
@@ -598,11 +627,17 @@ jobs:
         # Directory.Build.props) are legitimate and should not be overwritten by main's
         # older versions. Dependabot's identity is GitHub-controlled and not spoofable.
         if: github.event.pull_request.user.login != 'dependabot[bot]'
+        env:
+          # The checkout uses persist-credentials:false (nothing in .git/config for
+          # PR-controlled build steps to read), so a bare `git fetch origin` has no
+          # auth and fails on a private repository. Pass the job token on this one
+          # command only; it is never written to git config.
+          TRUSTED_MAIN_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
           # Fetch the main branch
-          git fetch origin main:main-branch
+          git fetch "$TRUSTED_MAIN_URL" main:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(
@@ -1079,11 +1114,17 @@ jobs:
         # older versions. Dependabot's identity is GitHub-controlled and not spoofable.
         if: github.event.pull_request.user.login != 'dependabot[bot]'
         shell: pwsh
+        env:
+          # The checkout uses persist-credentials:false (nothing in .git/config for
+          # PR-controlled build steps to read), so a bare `git fetch origin` has no
+          # auth and fails on a private repository. Pass the job token on this one
+          # command only; it is never written to git config.
+          TRUSTED_MAIN_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: |
           Write-Host "Fetching configuration files from main branch to prevent malicious overrides..."
           
           # Fetch the main branch
-          git fetch origin main:main-branch
+          git fetch "$env:TRUSTED_MAIN_URL" main:main-branch
           
           # List of configuration files that should come from trusted main branch
           $configFiles = @(
@@ -1154,8 +1195,14 @@ jobs:
         # taken from main so a PR cannot edit the check it is subject to;
         # when main does not carry it yet (first adoption) the step skips.
         shell: pwsh
+        env:
+          # The checkout uses persist-credentials:false (nothing in .git/config for
+          # PR-controlled build steps to read), so a bare `git fetch origin` has no
+          # auth and fails on a private repository. Pass the job token on this one
+          # command only; it is never written to git config.
+          TRUSTED_MAIN_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: |
-          git fetch origin main --depth=1
+          git fetch "$env:TRUSTED_MAIN_URL" main:refs/remotes/origin/main --depth=1
           if ($LASTEXITCODE -ne 0) { Write-Host "::error::Failed to fetch origin/main"; exit 1 }
           git cat-file -e origin/main:scripts/tfm-parity.ps1 2>$null
           if ($LASTEXITCODE -ne 0) {
@@ -1481,11 +1528,17 @@ jobs:
         # Directory.Build.props) are legitimate and should not be overwritten by main's
         # older versions. Dependabot's identity is GitHub-controlled and not spoofable.
         if: github.event.pull_request.user.login != 'dependabot[bot]'
+        env:
+          # The checkout uses persist-credentials:false (nothing in .git/config for
+          # PR-controlled build steps to read), so a bare `git fetch origin` has no
+          # auth and fails on a private repository. Pass the job token on this one
+          # command only; it is never written to git config.
+          TRUSTED_MAIN_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
           # Fetch the main branch
-          git fetch origin main:main-branch
+          git fetch "$TRUSTED_MAIN_URL" main:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(
@@ -1918,11 +1971,17 @@ jobs:
         # Directory.Build.props) are legitimate and should not be overwritten by main's
         # older versions. Dependabot's identity is GitHub-controlled and not spoofable.
         if: github.event.pull_request.user.login != 'dependabot[bot]'
+        env:
+          # The checkout uses persist-credentials:false (nothing in .git/config for
+          # PR-controlled build steps to read), so a bare `git fetch origin` has no
+          # auth and fails on a private repository. Pass the job token on this one
+          # command only; it is never written to git config.
+          TRUSTED_MAIN_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: |
           echo "Fetching configuration files from main branch to prevent malicious overrides..."
           
           # Fetch the main branch
-          git fetch origin main:main-branch
+          git fetch "$TRUSTED_MAIN_URL" main:main-branch
           
           # List of configuration files that should come from trusted main branch
           config_files=(
