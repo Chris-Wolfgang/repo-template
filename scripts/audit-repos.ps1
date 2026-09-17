@@ -5,7 +5,7 @@
 .SYNOPSIS
     Audits every repository owned by a GitHub user against docs/repository-baseline.md.
 .DESCRIPTION
-    For each in-scope repository the script checks all 23 baseline items via the GitHub API
+    For each in-scope repository the script checks all 24 baseline items via the GitHub API
     (settings, rulesets, workflow runs) and a shallow clone (file checks), then writes:
 
       audit-results.json  - one record per (repo, item): repo, item, name, status, evidence
@@ -83,6 +83,7 @@ $items = @(
     @{ N = 21; Name = 'Warnings-as-errors on for Release builds';                 Label = 'process'  }
     @{ N = 22; Name = 'README present with build and test instructions';          Label = 'process'  }
     @{ N = 23; Name = 'GitHub Pages deploy mode matches the docs workflow';        Label = 'process'  }
+    @{ N = 24; Name = 'No workflow disabled for inactivity';                       Label = 'process'  }
 )
 $itemByNumber = @{}
 foreach ($i in $items) { $itemByNumber[$i.N] = $i }
@@ -583,6 +584,28 @@ function Invoke-RepoAudit
             if ($problems.Count -eq 0) { $out.Add((New-Result $name 23 'pass' "build_type=$bt, source.branch=$branch, matches $wfNames")) }
             else { $out.Add((New-Result $name 23 'fail' (($problems | Select-Object -Unique) -join '; '))) }
         }
+    }
+
+    # 24 -- workflows switched off (60 days idle disables scheduled workflows, and with
+    # them that file's pull_request runs; a required check from one never reports)
+    if ($workflows.Count -eq 0)
+    {
+        $out.Add((New-Result $name 24 'na' 'no workflows'))
+    }
+    else
+    {
+        # Paginate: the endpoint caps at 100 per page and a disabled workflow on page 2 must not pass.
+        $allWf = @(); $page = 1
+        do
+        {
+            $wfState = Invoke-GhApi "repos/$full/actions/workflows?per_page=100&page=$page"
+            $batch = @($wfState.workflows)
+            $allWf += $batch
+            $page++
+        } while ($batch.Count -eq 100)
+        $off = @($allWf | Where-Object { $_.path -like '.github/workflows/*' -and $_.state -ne 'active' })
+        if ($off.Count -eq 0) { $out.Add((New-Result $name 24 'pass' "$($allWf.Count) workflow(s) active")) }
+        else { $out.Add((New-Result $name 24 'fail' (($off | ForEach-Object { "$($_.path -replace '^\.github/workflows/', '')=$($_.state)" }) -join ', '))) }
     }
 
     return $out
