@@ -132,7 +132,10 @@ foreach ($f in $files)
             $unpinned++
             if (-not $PinTags) { Write-Host "  !  ${rel}: $action@$ref is a tag reference (use -PinTags)" -ForegroundColor Yellow; continue }
             $newRef = $hit.Key
+            # A non-semver tag (stable, release, latest) has no more specific form: keep it as
+            # the comment rather than writing an empty one.
             $newComment = Select-ExactTag $tags[$hit.Key]
+            if (-not $newComment) { $newComment = $ref }
         }
 
         if ($newRef -eq $ref -and $newComment -eq $comment) { $ok++; continue }
