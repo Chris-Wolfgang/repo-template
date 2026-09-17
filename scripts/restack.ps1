@@ -119,8 +119,13 @@ function Show-NextPrs
     # one is followed by whatever is stacked on it (depth-first), so a chain reads bottom to top.
     param([string]$Base, [int]$Count = 5)
 
-    $res = Invoke-GhJson @('pr', 'list', '--state', 'open', '--limit', '100', '--json', 'number,title,url,headRefName,baseRefName,isDraft')
-    if (-not $res.Ok -or -not $res.Data) { return }
+    $res = Invoke-GhJson @('pr', 'list', '--state', 'open', '--limit', '500', '--json', 'number,title,url,headRefName,baseRefName,isDraft,isCrossRepository')
+    if (-not $res.Ok)
+    {
+        Write-Warning "Show-NextPrs: gh pr list failed, skipping the hand-off: $($res.Error)"
+        return
+    }
+    if (-not $res.Data) { return }
     $prs = @($res.Data | Sort-Object number)
     $ordered = New-Object System.Collections.Generic.List[object]
     $visit = $null
@@ -128,7 +133,9 @@ function Show-NextPrs
         param($pr)
         if ($ordered.Contains($pr)) { return }
         $ordered.Add($pr)
-        foreach ($child in ($prs | Where-Object { $_.baseRefName -eq $pr.headRefName })) { & $visit $child }
+        # A fork PR's headRefName is not unique in this repo, so only a
+        # same-repository head can be a parent branch another PR stacks on.
+        foreach ($child in ($prs | Where-Object { -not $_.isCrossRepository -and $_.baseRefName -eq $pr.headRefName })) { & $visit $child }
     }
     foreach ($root in ($prs | Where-Object { $_.baseRefName -eq $Base })) { & $visit $root }
     # anything whose base is neither $Base nor another open PR's head (e.g. targets main) goes last
