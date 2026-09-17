@@ -261,8 +261,13 @@ if (-not (Test-Path $setupScript)) {
 # but still-active ruleset and no replacement.
 function Restore-OldRulesetName {
     if ($script:oldRuleset) {
-        Invoke-RulesetUpdate -Id $script:oldRuleset.id -Payload @{ name = $script:oldRuleset.name } -What "Renaming '$($script:oldRuleset.name) (replacing)' back to '$($script:oldRuleset.name)'" | Out-Null
-        $script:oldRuleset = $null
+        # Clear the state only once the rename-back succeeded; otherwise the final failure
+        # path can still tell the user the ruleset is sitting under '(replacing)'.
+        if (Invoke-RulesetUpdate -Id $script:oldRuleset.id -Payload @{ name = $script:oldRuleset.name } -What "Renaming '$($script:oldRuleset.name) (replacing)' back to '$($script:oldRuleset.name)'") {
+            $script:oldRuleset = $null
+        } else {
+            Write-Host "Could not restore the name; the previous ruleset is still active as '$($script:oldRuleset.name) (replacing)' [$($script:oldRuleset.id)]. Rename it by hand at https://github.com/$Repository/settings/rules" -ForegroundColor Red
+        }
     }
 }
 

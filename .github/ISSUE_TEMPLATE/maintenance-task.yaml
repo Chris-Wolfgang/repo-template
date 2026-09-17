@@ -13,7 +13,7 @@ body:
 
         - Pick exactly **one** category in the dropdown below. The corresponding `maintenance - <category>` label will need to be added manually after creation (issue forms don't yet support dynamic label addition).
         - Fill in **Scope** (what's done & why), **Acceptance** (when do we close this?), and **Links** (PRs, scan output, related issues).
-        - If you're closing this issue via a PR, include `Fixes #<this-issue-number>` in the PR body so the auto-add workflow marks the project item as Done.
+        - If you're closing this issue via a PR, include `Fixes #<this-issue-number>` in the PR body so the issue closes with the merge; the Project's own status automation (configured on the project) then moves the item to Done.
 
   - type: dropdown
     id: category
