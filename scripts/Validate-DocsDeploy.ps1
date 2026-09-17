@@ -252,7 +252,10 @@ try {
             # point outside the worktree, so canonicalise segment by segment
             # before comparing (the .sh used realpath for this).
             $realFolder = Resolve-RealPath $folder
-            if (-not $realFolder.StartsWith($realRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+            # Ordinal on Linux/macOS: a resolved target differing from the root only by case is a
+            # different directory there. Windows paths are case-insensitive, so ignore case only there.
+            $cmp = if ([System.OperatingSystem]::IsWindows()) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+            if (-not $realFolder.StartsWith($realRoot + [System.IO.Path]::DirectorySeparatorChar, $cmp)) {
                 $missing += "$ver  (resolved path '$realFolder' is outside gh-pages root - rejected)"
                 continue
             }

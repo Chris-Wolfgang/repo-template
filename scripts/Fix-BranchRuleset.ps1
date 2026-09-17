@@ -248,6 +248,24 @@ function Invoke-RulesetUpdate {
     }
 }
 
+# The replacement is created by Setup-BranchRuleset.ps1; make sure it is there BEFORE the
+# old ruleset is renamed aside, so a missing script never leaves a '(replacing)' ruleset behind.
+$setupScript = Join-Path $PSScriptRoot "Setup-BranchRuleset.ps1"
+if (-not (Test-Path $setupScript)) {
+    Write-Host "Setup-BranchRuleset.ps1 not found next to this script; nothing was changed. Restore it (it is deleted after a successful first run) or create the ruleset manually." -ForegroundColor Yellow
+    Write-Host "View rulesets at: https://github.com/$Repository/settings/rules" -ForegroundColor Cyan
+    exit 1
+}
+
+# Undo the rename if anything after it fails, so main is never left with an oddly named
+# but still-active ruleset and no replacement.
+function Restore-OldRulesetName {
+    if ($script:oldRuleset) {
+        Invoke-RulesetUpdate -Id $script:oldRuleset.id -Payload @{ name = $script:oldRuleset.name } -What "Renaming '$($script:oldRuleset.name) (replacing)' back to '$($script:oldRuleset.name)'" | Out-Null
+        $script:oldRuleset = $null
+    }
+}
+
 foreach ($item in $plan) {
     $ruleset = $item.ruleset
     $rulesetId = $ruleset.id
@@ -270,6 +288,7 @@ foreach ($item in $plan) {
             "disable" {
                 if (-not (Invoke-RulesetUpdate -Id $rulesetId -Payload @{ enforcement = "disabled" } -What "Disabling ruleset [$rulesetId] '$($ruleset.name)'")) {
                     $errors++
+                    Restore-OldRulesetName
                 }
             }
         }
@@ -279,20 +298,12 @@ foreach ($item in $plan) {
 Write-Host ""
 
 if ($errors -gt 0) {
-    Write-Host "$errors action(s) failed. Review the errors above. Nothing was deleted." -ForegroundColor Red
+    Restore-OldRulesetName
+    Write-Host "$errors action(s) failed. Review the errors above. Nothing was deleted; the original ruleset keeps its name." -ForegroundColor Red
     exit 1
 }
 
 # Step 2: create the replacement. Only then is the old ruleset removed.
-$setupScript = Join-Path $PSScriptRoot "Setup-BranchRuleset.ps1"
-if (-not (Test-Path $setupScript)) {
-    Write-Host "Setup-BranchRuleset.ps1 not found. Run it manually to create a fresh ruleset." -ForegroundColor Yellow
-    if ($oldRuleset) {
-        Write-Host "The previous ruleset is still active as '$($oldRuleset.name) (replacing)' [$($oldRuleset.id)]; delete it once the replacement exists." -ForegroundColor Yellow
-    }
-    Write-Host "View rulesets at: https://github.com/$Repository/settings/rules" -ForegroundColor Cyan
-    exit 1
-}
 
 Write-Host "Running Setup-BranchRuleset.ps1 to create a fresh ruleset..." -ForegroundColor Cyan
 Write-Host ""
