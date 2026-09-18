@@ -20,12 +20,13 @@ You can contribute in several ways:
 1. **Fork the repository** and clone it locally.
 2. **Enable the pre-commit secret scan** (once per clone). The repository ships a
    [gitleaks](https://github.com/gitleaks/gitleaks) hook in `.githooks/pre-commit` that blocks
-   commits containing credentials; CI runs the same scan, so enabling it locally only saves you a
-   failed PR check:
+   commits containing secrets (credentials, tokens, private keys); CI runs the same scan, so
+   enabling it locally only saves you a failed PR check:
    ```sh
    git config core.hooksPath .githooks
    ```
-   Install the `gitleaks` CLI (`winget install gitleaks` / `brew install gitleaks`). Without it the
+   Install the `gitleaks` CLI: `winget install gitleaks` (Windows), `brew install gitleaks` (macOS), or a
+   binary from the [releases page](https://github.com/gitleaks/gitleaks/releases) (Linux). Without it, the
    hook prints a warning and lets the commit through. `git commit --no-verify` skips it for one commit.
 3. **Create a new branch** for your feature or bug fix:
    ```sh
