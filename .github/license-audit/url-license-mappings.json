@@ -1,6 +1,8 @@
 {
-  "_comment": "Packages that expose a license URL instead of an SPDX expression. LinkId=329770 is the MICROSOFT .NET LIBRARY license (proprietary but freely redistributable with the package) - mapped to its own identifier, which allowed-licenses.json lists explicitly; the dotnet/standard LICENSE.TXT really is MIT. xunit 2.x packages (xunit.abstractions and friends) point at the repo license.txt, which is Apache-2.0.",
+  "_comment": "Packages that expose a license URL instead of an SPDX expression. LinkId=329770 is the MICROSOFT .NET LIBRARY license (proprietary but freely redistributable with the package) - mapped to its own identifier, which allowed-licenses.json lists explicitly; the dotnet/standard LICENSE.TXT really is MIT. xunit 2.x packages (xunit.abstractions and friends) point at the repo license.txt, which is Apache-2.0. K4os.Compression.LZ4 / K4os.Compression.LZ4.Streams / K4os.Hash.xxHash (Milosz Krajewski) point at their repo LICENSE files, which are MIT.",
   "http://go.microsoft.com/fwlink/?LinkId=329770": "MS-.NET-Library",
   "https://github.com/dotnet/standard/blob/master/LICENSE.TXT": "MIT",
-  "https://raw.githubusercontent.com/xunit/xunit/master/license.txt": "Apache-2.0"
+  "https://raw.githubusercontent.com/xunit/xunit/master/license.txt": "Apache-2.0",
+  "https://github.com/MiloszKrajewski/K4os.Compression.LZ4/blob/master/LICENSE?raw=true": "MIT",
+  "https://raw.githubusercontent.com/MiloszKrajewski/K4os.Hash.xxHash/master/LICENSE": "MIT"
 }
