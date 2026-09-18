@@ -16,4 +16,8 @@ useDefault = true
   paths = [
     '''(^|/)tests?/.*fixtures?/''',
     '''(^|/)tests?/.*testdata/''',
+    # docfx's generated site bundle on gh-pages (public/chunk-*.min.js + source maps, also
+    # under versions/<tag>/public/). `gitleaks git` scans every fetched ref, and the
+    # minified vendor code trips generic-api-key on embedded constants.
+    '''(^|/)public/[^/]+\.min\.js(\.map)?$''',
   ]
