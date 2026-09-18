@@ -13,6 +13,8 @@ name: License Audit
 #  - url-license-mappings.json — maps packages that expose a license URL (not an SPDX
 #    expression) to a license identifier: the dotnet/standard LICENSE.TXT is MIT, the
 #    go.microsoft.com LinkId=329770 URL is MS-.NET-Library.
+#  - package-overrides.json    — packages whose licence is a file inside the package
+#    (nuget-license type "File", unmappable): id + pinned version + verified licence.
 #  - ignored-packages.json     — SonarAnalyzer.CSharp: a build-time analyzer
 #    (PrivateAssets=all, not shipped) under the non-OSI SONAR Source-Available
 #    License, so it imposes no obligation on consumers of the package.
@@ -92,5 +94,6 @@ jobs:
               -a .github/license-audit/allowed-licenses.json \
               -ignore .github/license-audit/ignored-packages.json \
               -mapping .github/license-audit/url-license-mappings.json \
+              -override .github/license-audit/package-overrides.json \
               -o Table
           done < <(git ls-files 'src/**/*.csproj' 'src/*.csproj')

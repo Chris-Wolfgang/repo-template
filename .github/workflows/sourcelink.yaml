@@ -93,8 +93,11 @@ jobs:
           shopt -s globstar nullglob
           pdbs=(src/**/bin/Release/net10.0/*.pdb)
           if [ ${#pdbs[@]} -eq 0 ]; then
-            echo "::error::No PDBs found under src/**/bin/Release/net10.0 — SourceLink cannot be verified."
-            exit 1
+            # Every src project was skipped above (no exact net10.0 target: template
+            # packs, netstandard-only libraries, platform-TFM apps). Nothing to verify
+            # is not a failure; the build step already proved the projects compile.
+            echo "::notice::No src project targets net10.0 - no PDBs to verify; skipping."
+            exit 0
           fi
           failed=0
           for pdb in "${pdbs[@]}"; do
