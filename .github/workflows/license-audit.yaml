@@ -13,6 +13,8 @@ name: License Audit
 #  - url-license-mappings.json — maps packages that expose a license URL (not an SPDX
 #    expression) to a license identifier: the dotnet/standard LICENSE.TXT is MIT, the
 #    go.microsoft.com LinkId=329770 URL is MS-.NET-Library.
+#  - package-overrides.json    — packages whose licence is a file inside the package
+#    (nuget-license type "File", unmappable): id + pinned version + verified licence.
 #  - ignored-packages.json     — SonarAnalyzer.CSharp: a build-time analyzer
 #    (PrivateAssets=all, not shipped) under the non-OSI SONAR Source-Available
 #    License, so it imposes no obligation on consumers of the package.
@@ -70,6 +72,18 @@ jobs:
         run: dotnet tool install --global nuget-license
 
       # Gate: fail if any src project's dependency license is not on the allow-list.
+      - name: Restore .NET workloads
+        # Same gate as pr.yaml: only repos with workload-bearing TFMs (net10.0-android,
+        # -ios, -maui, ...) need this, and they need it once, before the per-project restore.
+        if: steps.detect.outputs.found == 'true'
+        run: |
+          if find src -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' {} \; | grep -q .; then
+            echo "Workload-bearing TFMs detected - running dotnet workload restore"
+            dotnet workload restore
+          else
+            echo "No workload-bearing TFMs under src/ - skipping dotnet workload restore"
+          fi
+
       - name: Audit licenses (gate on allow-list)
         if: steps.detect.outputs.found == 'true'
         run: |
@@ -80,5 +94,6 @@ jobs:
               -a .github/license-audit/allowed-licenses.json \
               -ignore .github/license-audit/ignored-packages.json \
               -mapping .github/license-audit/url-license-mappings.json \
+              -override .github/license-audit/package-overrides.json \
               -o Table
           done < <(git ls-files 'src/**/*.csproj' 'src/*.csproj')

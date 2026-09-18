@@ -72,7 +72,9 @@ jobs:
             # Skip projects that don't target net10.0 (e.g. a netstandard2.0-only
             # Roslyn source generator) — `-f net10.0` would fail NETSDK1005 on them,
             # and they produce no net10.0 PDB for the SourceLink step to verify.
-            if ! grep -qE 'net10\.0' "$proj"; then
+            # Exact TFM only: net10.0-android / net10.0-windows10.0.x are platform TFMs that
+            # cannot be built with -f net10.0.
+            if ! grep -qE 'net10\.0([;<"]|$)' "$proj"; then
               echo "== skip $proj (no net10.0 target) =="
               continue
             fi
@@ -91,8 +93,11 @@ jobs:
           shopt -s globstar nullglob
           pdbs=(src/**/bin/Release/net10.0/*.pdb)
           if [ ${#pdbs[@]} -eq 0 ]; then
-            echo "::error::No PDBs found under src/**/bin/Release/net10.0 — SourceLink cannot be verified."
-            exit 1
+            # Every src project was skipped above (no exact net10.0 target: template
+            # packs, netstandard-only libraries, platform-TFM apps). Nothing to verify
+            # is not a failure; the build step already proved the projects compile.
+            echo "::notice::No src project targets net10.0 - no PDBs to verify; skipping."
+            exit 0
           fi
           failed=0
           for pdb in "${pdbs[@]}"; do

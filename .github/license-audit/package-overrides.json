@@ -1,0 +1,8 @@
+[
+  {
+    "_comment": "Packages whose licence ships as a LICENSE file inside the package (nuget-license reports type File, which it cannot map). Verified by reading the file; keep the version pinned so a licence change on a bump is re-checked.",
+    "Id": "SQLitePCLRaw.lib.e_sqlite3",
+    "Version": "3.53.3",
+    "License": "Apache-2.0"
+  }
+]
