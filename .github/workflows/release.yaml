@@ -820,7 +820,10 @@ jobs:
           TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
           shopt -s nullglob
-          files=(./nuget-packages/*.nupkg ./nuget-packages/*.snupkg ./nuget-packages/*.bom.json release-coverage.zip)
+          files=(./nuget-packages/*.nupkg ./nuget-packages/*.snupkg ./nuget-packages/*.bom.json)
+          # nullglob only drops unmatched *patterns*; a literal name stays and would make
+          # `gh release upload` fail, so add the coverage zip only when it exists.
+          if [ -f release-coverage.zip ]; then files+=(release-coverage.zip); fi
           echo "Uploading ${#files[@]} asset(s) to release $TAG_NAME"
           gh release upload "$TAG_NAME" "${files[@]}" --clobber
 
