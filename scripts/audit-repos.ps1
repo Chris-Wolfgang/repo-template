@@ -31,7 +31,9 @@
 .PARAMETER OutputDir
     Where audit-results.json and audit-summary.md are written. Default: current directory.
 .PARAMETER WorkDir
-    Where shallow clones are made. Default: a fresh temp directory, deleted at the end.
+    Where shallow clones are made. Default: a fresh temp directory, deleted at the end. A
+    directory reused from an earlier run is refreshed (each clone is fetched and reset to the
+    default branch) before auditing.
 .EXAMPLE
     pwsh ./scripts/audit-repos.ps1 -Owner Chris-Wolfgang
 .EXAMPLE
@@ -264,6 +266,16 @@ function Invoke-RepoAudit
     {
         $cloneOut = & git -c core.longpaths=true clone --quiet --depth 1 --branch $default "https://github.com/$full.git" $clone 2>&1
         if ($LASTEXITCODE -ne 0) { throw "clone of $full failed: $cloneOut" }
+    }
+    else
+    {
+        # A reused -WorkDir must audit the default branch as it is NOW, not as it was
+        # when the directory was first populated (a stale clone silently reports the
+        # previous run's state for every file-based item).
+        $fetchOut = & git -C $clone fetch --quiet --depth 1 origin $default 2>&1
+        if ($LASTEXITCODE -ne 0) { throw "fetch of $full failed: $fetchOut" }
+        & git -C $clone checkout --quiet --force -B $default FETCH_HEAD 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "checkout of $full $default failed" }
     }
 
     $csprojs   = @(Get-ChildItem $clone -Recurse -File -Filter *.csproj)
