@@ -55,6 +55,9 @@ jobs:
       - name: Checkout scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          # Always the default branch: a workflow_dispatch from any other ref must not run
+          # that ref's copy of the script with SECURITY_ALERTS_TOKEN in the environment.
+          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
           sparse-checkout: scripts/security-alerts.ps1
           sparse-checkout-cone-mode: false
@@ -87,6 +90,9 @@ jobs:
       - name: Checkout scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          # Always the default branch: a workflow_dispatch from any other ref must not run
+          # that ref's copy of the script with SECURITY_ALERTS_TOKEN in the environment.
+          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
           sparse-checkout: scripts/security-alerts.ps1
           sparse-checkout-cone-mode: false
