@@ -88,6 +88,12 @@ else {
 if (-not $SkipTests -and $failed.Count -eq 0) {
     Write-Step "Step 2: Run Tests (all target frameworks)"
 
+    # Results from an earlier run would be merged into this run's coverage report and could
+    # hide or invent misses; start every run from a clean slate.
+    foreach ($stale in @('TestResults', 'CoverageReport')) {
+        if (Test-Path $stale) { Remove-Item $stale -Recurse -Force }
+    }
+
     # Mirrors pr.yaml's Stage 2 TFM parity check (guard 3). Findings are
     # warnings (exit 0); a non-zero exit means the evaluation itself broke and
     # is a failure here exactly as it is in CI.
@@ -177,7 +183,8 @@ if (-not $SkipTests -and $failed.Count -eq 0) {
                 }
                 $testOutput = Get-Content $testLog -Raw
                 Remove-Item $testLog -Force -ErrorAction SilentlyContinue
-                if ($testOutput -match 'No test is available' -or $testOutput -notmatch '(?i)total:\s*[1-9][0-9]*') {
+                # verbosity=normal prints "Total tests: N"; minimal (pr.yaml) prints "Total: N" — accept both.
+                if ($testOutput -match 'No test is available' -or $testOutput -notmatch '(?i)total(?: tests)?:\s*[1-9][0-9]*') {
                     Write-Fail "  Zero tests ran for $fw — the test adapter found nothing to execute (missing/incompatible xunit.runner.visualstudio for this TFM?)"
                     $failed += "Tests (${fw}: zero ran)"
                     break
