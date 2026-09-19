@@ -139,7 +139,7 @@ jobs:
           
           # List of configuration files that should come from trusted main branch
           config_files=(
-            ".editorconfig"
+            "*.editorconfig"
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
@@ -177,6 +177,15 @@ jobs:
               # repos that don't ship one. The empty stream is fine; the while
               # loop simply doesn't iterate.
               done < <(git ls-tree -r --name-only main-branch | { grep -iE "${config_file//\*/.*}" || true; })
+              # A file the PR ADDS under a protected pattern (a new nested .editorconfig,
+              # .globalconfig, ...) is as effective as an edited one and has no main copy
+              # to overwrite it with: remove it from the checkout.
+              while read -r file; do
+                if [ -n "$file" ] && ! git cat-file -e "main-branch:$file" 2>/dev/null; then
+                  echo "  ✗ Removing PR-added $file (not in main branch)"
+                  rm -f "$file"
+                fi
+              done < <(git ls-files | { grep -iE "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
@@ -237,7 +246,7 @@ jobs:
             case "$file" in
               .editorconfig|Directory.Build.props|Directory.Build.targets|BannedSymbols.txt|coverlet.runsettings) protected+=("$file") ;;
               *)
-                if echo "$file" | grep -qiE '(\.(globalconfig|ruleset|DotSettings)|^\.github/workflows/.*\.ya?ml)$'; then protected+=("$file"); else other+=("$file"); fi ;;
+                if echo "$file" | grep -qiE '(\.(globalconfig|ruleset|DotSettings|editorconfig)|^\.github/workflows/.*\.ya?ml)$'; then protected+=("$file"); else other+=("$file"); fi ;;
             esac
           done
 
@@ -466,7 +475,7 @@ jobs:
           
           # List of configuration files that should come from trusted main branch
           config_files=(
-            ".editorconfig"
+            "*.editorconfig"
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
@@ -504,6 +513,15 @@ jobs:
               # repos that don't ship one. The empty stream is fine; the while
               # loop simply doesn't iterate.
               done < <(git ls-tree -r --name-only main-branch | { grep -iE "${config_file//\*/.*}" || true; })
+              # A file the PR ADDS under a protected pattern (a new nested .editorconfig,
+              # .globalconfig, ...) is as effective as an edited one and has no main copy
+              # to overwrite it with: remove it from the checkout.
+              while read -r file; do
+                if [ -n "$file" ] && ! git cat-file -e "main-branch:$file" 2>/dev/null; then
+                  echo "  ✗ Removing PR-added $file (not in main branch)"
+                  rm -f "$file"
+                fi
+              done < <(git ls-files | { grep -iE "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
@@ -650,7 +668,7 @@ jobs:
           
           # List of configuration files that should come from trusted main branch
           config_files=(
-            ".editorconfig"
+            "*.editorconfig"
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
@@ -688,6 +706,15 @@ jobs:
               # repos that don't ship one. The empty stream is fine; the while
               # loop simply doesn't iterate.
               done < <(git ls-tree -r --name-only main-branch | { grep -iE "${config_file//\*/.*}" || true; })
+              # A file the PR ADDS under a protected pattern (a new nested .editorconfig,
+              # .globalconfig, ...) is as effective as an edited one and has no main copy
+              # to overwrite it with: remove it from the checkout.
+              while read -r file; do
+                if [ -n "$file" ] && ! git cat-file -e "main-branch:$file" 2>/dev/null; then
+                  echo "  ✗ Removing PR-added $file (not in main branch)"
+                  rm -f "$file"
+                fi
+              done < <(git ls-files | { grep -iE "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
@@ -1138,7 +1165,6 @@ jobs:
           
           # List of configuration files that should come from trusted main branch
           $configFiles = @(
-            ".editorconfig",
             "Directory.Build.props",
             "Directory.Build.targets",
             "BannedSymbols.txt",
@@ -1165,7 +1191,9 @@ jobs:
           }
           
           # Handle glob patterns for .globalconfig, .ruleset, and workflow files
-          $globPatterns = @("*.globalconfig", "*.ruleset", "*.DotSettings", ".github/workflows/*.yml", ".github/workflows/*.yaml")
+          # *.editorconfig covers the root file and every nested one (a per-project
+          # .editorconfig overrides analyzer severities for everything beneath it).
+          $globPatterns = @("*.editorconfig", "*.globalconfig", "*.ruleset", "*.DotSettings", ".github/workflows/*.yml", ".github/workflows/*.yaml")
           foreach ($pattern in $globPatterns) {
             $files = git ls-tree -r --name-only main-branch | Select-String -Pattern $pattern.Replace("*", ".*")
             foreach ($file in $files) {
@@ -1178,6 +1206,16 @@ jobs:
                   Write-Host "::error::Failed to copy $file from main-branch (git show exited $LASTEXITCODE) - aborting to prevent silent fall-back to PR-supplied protected config."
                   exit 1
                 }
+              }
+            }
+            # A file the PR ADDS under a protected pattern has no main copy to overwrite
+            # it with: remove it from the checkout.
+            $prFiles = git ls-files | Select-String -Pattern $pattern.Replace("*", ".*")
+            foreach ($file in $prFiles) {
+              git cat-file -e "main-branch:$file" 2>&1 | Out-Null
+              if ($LASTEXITCODE -ne 0) {
+                Write-Host "  ✗ Removing PR-added $file (not in main branch)"
+                Remove-Item -Force -LiteralPath "$file"
               }
             }
           }
@@ -1553,7 +1591,7 @@ jobs:
           
           # List of configuration files that should come from trusted main branch
           config_files=(
-            ".editorconfig"
+            "*.editorconfig"
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
@@ -1591,6 +1629,15 @@ jobs:
               # repos that don't ship one. The empty stream is fine; the while
               # loop simply doesn't iterate.
               done < <(git ls-tree -r --name-only main-branch | { grep -iE "${config_file//\*/.*}" || true; })
+              # A file the PR ADDS under a protected pattern (a new nested .editorconfig,
+              # .globalconfig, ...) is as effective as an edited one and has no main copy
+              # to overwrite it with: remove it from the checkout.
+              while read -r file; do
+                if [ -n "$file" ] && ! git cat-file -e "main-branch:$file" 2>/dev/null; then
+                  echo "  ✗ Removing PR-added $file (not in main branch)"
+                  rm -f "$file"
+                fi
+              done < <(git ls-files | { grep -iE "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
@@ -1997,7 +2044,7 @@ jobs:
           
           # List of configuration files that should come from trusted main branch
           config_files=(
-            ".editorconfig"
+            "*.editorconfig"
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
@@ -2035,6 +2082,15 @@ jobs:
               # repos that don't ship one. The empty stream is fine; the while
               # loop simply doesn't iterate.
               done < <(git ls-tree -r --name-only main-branch | { grep -iE "${config_file//\*/.*}" || true; })
+              # A file the PR ADDS under a protected pattern (a new nested .editorconfig,
+              # .globalconfig, ...) is as effective as an edited one and has no main copy
+              # to overwrite it with: remove it from the checkout.
+              while read -r file; do
+                if [ -n "$file" ] && ! git cat-file -e "main-branch:$file" 2>/dev/null; then
+                  echo "  ✗ Removing PR-added $file (not in main branch)"
+                  rm -f "$file"
+                fi
+              done < <(git ls-files | { grep -iE "${config_file//\*/.*}" || true; })
             else
               # Check if file exists in main branch
               if git cat-file -e "main-branch:$config_file" 2>/dev/null; then
