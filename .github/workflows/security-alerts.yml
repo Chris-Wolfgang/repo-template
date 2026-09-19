@@ -4,6 +4,7 @@
 # issue (label `security`); the issue is closed when the alert closes; push-protection
 # bypasses get their own issue. Mondays (or on demand): a summary issue of alerts open
 # longer than 7 days. Logic lives in scripts/security-alerts.ps1 so it can be run locally.
+# (guard negative test: this comment line is the only workflow change)
 #
 # Tokens: GITHUB_TOKEN reads code-scanning alerts and does all issue writes. It CANNOT read
 # secret-scanning alerts (even with security-events: read), and Dependabot readability varies
