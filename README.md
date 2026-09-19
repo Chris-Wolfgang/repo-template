@@ -474,7 +474,7 @@ Configured by running the local PowerShell setup script (see "How It Works" belo
 - ✅ **Block force pushes** to main
 - ✅ **Prevent branch deletion**
 - ⬜ **Require linear history** - optional (`-RequireLinearHistory`), see [docs/STACKED-PRS.md](docs/STACKED-PRS.md)
-- Admins are not in the bypass list; use the per-PR admin bypass when a protected-file change needs to land
+- Nobody is in the bypass list. A PR that changes only protected files (workflows, `Directory.Build.props`, `.editorconfig`, …) passes the guard with a warning and merges on review; a PR that mixes them with other changes fails the guard and is split
 
 **Repository Type Options:**
 - **Single Developer:** No PR approvals required (you can merge your own PRs)
@@ -508,7 +508,7 @@ You only need to run this script once per repository.
 
 ### For Template Users
 
-The branch protection will apply to **your** repository after you run the local setup script. The configuration works for every repo created from this template, with **you** as the admin who can bypass rules.
+The branch protection will apply to **your** repository after you run the local setup script. The configuration works for every repo created from this template; nobody, including the admin, can bypass the rules - configuration-only PRs merge on review instead.
 
 ### Customization
 

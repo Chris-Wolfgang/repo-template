@@ -84,7 +84,7 @@ Scope rules:
 ### 10. Ruleset active with no person in the bypass list
 
 - **Verify:** The ruleset from item 9 has `enforcement: active` and `bypass_actors` contains no entries with `actor_type` of `Team`, `Integration`, or a specific user. `RepositoryRole` (for example, repository admin) and `OrganizationAdmin` entries are allowed.
-- **Fix:** Re-enable the ruleset; remove named users from the bypass list. Never disable a ruleset to merge; use the admin-bypass on the PR instead.
+- **Fix:** Re-enable the ruleset; remove named users from the bypass list. Never disable a ruleset to merge: a configuration-only PR passes the protected-file guard on review, and a mixed PR is split (`protected-file-pr-split`) rather than bypassed.
 - **Label:** `security`
 
 ### 11. Actions pinned by commit SHA

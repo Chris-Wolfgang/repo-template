@@ -192,7 +192,7 @@ pwsh ./scripts/upgrade.ps1          # dry run: safe / review / in-sync / removed
 pwsh ./scripts/upgrade.ps1 -Apply   # take the safe files, sidecar the rest, re-stamp
 ```
 
-Files never touched here come across as-is; files customised here get a `<file>.template` sidecar to merge by hand. Workflow and `Directory.Build.props` changes need the protected-file bypass on the PR.
+Files never touched here come across as-is; files customised here get a `<file>.template` sidecar to merge by hand. Workflow and `Directory.Build.props` changes must travel in a configuration-only PR (the guard passes it on review); mixed with code they fail the guard.
 
 ## 🤝 Contributing
 

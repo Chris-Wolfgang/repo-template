@@ -46,7 +46,7 @@ A malicious PR could modify these files to disable security checks.
 
 All wildcard entries (`*.globalconfig`, `*.ruleset`, `*.DotSettings`, `.github/workflows/*.yml`, `.github/workflows/*.yaml`) are matched case-insensitively — Windows (and ReSharper on it) resolve `foo.dotsettings` and `foo.DotSettings` to the same file, so both are protected. The fixed names (`.editorconfig`, `Directory.Build.props`, `Directory.Build.targets`, `BannedSymbols.txt`) are matched exactly.
 
-In addition to the overwrite step, the `Detect .NET Projects` job runs a "Detect protected configuration file changes" step that **fails the PR** when any of these files is added, modified, renamed or deleted relative to `main`, with a banner listing the files. That failure is the signal that a maintainer must review the diff by hand and merge with the admin bypass — CI has validated the PR against the *old* configuration, not the PR's. Dependabot is exempted from both the overwrite and the guard (its bumps to `Directory.Build.props` are legitimate, and its identity is GitHub-controlled).
+In addition to the overwrite step, the `Detect .NET Projects` job runs a "Detect protected configuration file changes" step that classifies the PR by what it changes relative to its merge base with `main`. A **configuration-only** PR (every changed file is a protected file) **passes** with a warning banner listing the files: CI could not exercise them (it ran `main`'s copies), but nothing else changed for the stale configuration to mis-validate, so it merges on review with the ruleset fully active. A PR that **mixes** protected files with any other change **fails** and cannot be bypassed: the other files were validated against the old configuration and the configuration change itself was untested. Split it - protected files in their own PR first, the rest rebased on top so it runs under the new configuration.
 
 **Implementation** (in every job that consumes project source — `detect-projects`, `inspectcode`, the three test stages and `security-scan`; *not* the `secrets-scan` job, which only fetches `.gitleaks.toml`, and *not* `changelog-check`, which fetches `scripts/changelog.ps1`):
 ```yaml
@@ -164,10 +164,10 @@ To update protected configuration files (`.editorconfig`, `BannedSymbols.txt`, e
    - Make changes to the configuration file(s) in your PR branch
    - The PR workflow will still fetch and use the current main branch version for testing
    - This means your PR will be tested against the **existing** configuration standards
-   - The `Detect .NET Projects` check will **fail** with a banner listing the protected files you changed. That is expected; it is the review signal, not a bug.
+   - If the PR changes **only** protected files, the `Detect .NET Projects` check passes with a warning banner listing them - that banner is the review signal. If it also changes anything else, the check fails: split the protected files into their own PR first.
 
 2. **Get your PR reviewed and merged to main**
-   - A maintainer reviews the configuration diff by hand and merges with the admin bypass (the guard check cannot pass by design)
+   - A maintainer reviews the configuration diff by hand and merges the configuration-only PR normally (no bypass exists; the ruleset stays active)
    - Once merged, your configuration changes become the new "trusted" version on main
    - Future PRs will automatically use your updated configuration
    - If a larger PR happens to include a protected-file change, split that change out into its own PR first so the rest can merge on green checks
