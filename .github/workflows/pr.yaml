@@ -143,6 +143,7 @@ jobs:
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
+            "coverlet.runsettings"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -218,7 +219,7 @@ jobs:
           protected=(); other=()
           for file in "${all_changed[@]}"; do
             case "$file" in
-              .editorconfig|Directory.Build.props|Directory.Build.targets|BannedSymbols.txt) protected+=("$file") ;;
+              .editorconfig|Directory.Build.props|Directory.Build.targets|BannedSymbols.txt|coverlet.runsettings) protected+=("$file") ;;
               *)
                 if echo "$file" | grep -qiE '(\.(globalconfig|ruleset|DotSettings)|^\.github/workflows/.*\.ya?ml)$'; then protected+=("$file"); else other+=("$file"); fi ;;
             esac
@@ -453,6 +454,7 @@ jobs:
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
+            "coverlet.runsettings"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -636,6 +638,7 @@ jobs:
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
+            "coverlet.runsettings"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -1122,7 +1125,8 @@ jobs:
             ".editorconfig",
             "Directory.Build.props",
             "Directory.Build.targets",
-            "BannedSymbols.txt"
+            "BannedSymbols.txt",
+            "coverlet.runsettings"
           )
           
           # Copy each configuration file from main branch if it exists
@@ -1537,6 +1541,7 @@ jobs:
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
+            "coverlet.runsettings"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -1980,6 +1985,7 @@ jobs:
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
+            "coverlet.runsettings"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
