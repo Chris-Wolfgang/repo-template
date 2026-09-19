@@ -35,16 +35,17 @@ A malicious PR could modify these files to disable security checks.
 **Solution**: After checking out the PR code, we fetch and overwrite configuration files from the trusted main branch.
 
 **Protected Configuration Files**:
-- `.editorconfig` - Code style and analyzer rules
+- `.editorconfig` (root and nested) - Code style and analyzer rules
 - `Directory.Build.props` - MSBuild properties
 - `Directory.Build.targets` - MSBuild targets
 - `BannedSymbols.txt` - Banned API usage rules
+- `coverlet.runsettings` - Coverage collection settings (exclusions, instrumentation)
 - `*.globalconfig` - Global analyzer configuration
 - `*.ruleset` - Code analysis rulesets
 - `*.DotSettings` - ReSharper / InspectCode inspection severities
 - `.github/workflows/*.yml` and `.github/workflows/*.yaml` - Workflow definitions
 
-All wildcard entries (`*.globalconfig`, `*.ruleset`, `*.DotSettings`, `.github/workflows/*.yml`, `.github/workflows/*.yaml`) are matched case-insensitively — Windows (and ReSharper on it) resolve `foo.dotsettings` and `foo.DotSettings` to the same file, so both are protected. The fixed names (`.editorconfig`, `Directory.Build.props`, `Directory.Build.targets`, `BannedSymbols.txt`) are matched exactly.
+All wildcard entries (`*.editorconfig`, `*.globalconfig`, `*.ruleset`, `*.DotSettings`, `.github/workflows/*.yml`, `.github/workflows/*.yaml`) are matched case-insensitively — Windows (and ReSharper on it) resolve `foo.dotsettings` and `foo.DotSettings` to the same file, so both are protected — and `*.editorconfig` covers the root file and every nested one (a per-project `.editorconfig` overrides analyzer severities for everything beneath it). The fixed names (`Directory.Build.props`, `Directory.Build.targets`, `BannedSymbols.txt`, `coverlet.runsettings`) are matched exactly. A protected file the PR *adds* has no `main` copy to overwrite it with, so it is removed from the checkout before the build.
 
 In addition to the overwrite step, the `Detect .NET Projects` job runs a "Detect protected configuration file changes" step that classifies the PR by what it changes relative to its merge base with `main`. A **configuration-only** PR (every changed file is a protected file) **passes** with a warning banner listing the files: CI could not exercise them (it ran `main`'s copies), but nothing else changed for the stale configuration to mis-validate, so it merges on review with the ruleset fully active. A PR that **mixes** protected files with any other change **fails** and cannot be bypassed: the other files were validated against the old configuration and the configuration change itself was untested. Split it - protected files in their own PR first, the rest rebased on top so it runs under the new configuration.
 
