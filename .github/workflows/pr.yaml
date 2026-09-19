@@ -208,56 +208,47 @@ jobs:
             exit 1
           fi
           
-          changed_files=()
-          
-          # Check exact file matches against main branch git objects
-          # 2>/dev/null suppresses output when a file doesn't exist in one ref (new/deleted file),
-          # which git diff handles correctly via its exit code
-          exact_files=(
-            ".editorconfig"
-            "Directory.Build.props"
-            "Directory.Build.targets"
-            "BannedSymbols.txt"
-          )
-          
-          for config_file in "${exact_files[@]}"; do
-            if ! git diff --quiet main-branch HEAD -- "$config_file" 2>/dev/null; then
-              changed_files+=("$config_file")
-            fi
+          # Files this PR changes, relative to the merge base with main (three-dot), so a
+          # PR that is merely behind main is not blamed for files main changed since it
+          # branched. --diff-filter=AMRCD: Added, Modified, Renamed, Copied, Deleted -
+          # a PR that *deletes* a workflow or .globalconfig is as security-relevant as an
+          # edit. -i: Windows (and ReSharper on it) resolve names case-insensitively, so
+          # foo.dotsettings is as live as foo.DotSettings.
+          mapfile -t all_changed < <(git diff --name-only --diff-filter=AMRCD main-branch...HEAD 2>/dev/null)
+          protected=(); other=()
+          for file in "${all_changed[@]}"; do
+            case "$file" in
+              .editorconfig|Directory.Build.props|Directory.Build.targets|BannedSymbols.txt) protected+=("$file") ;;
+              *)
+                if echo "$file" | grep -qiE '(\.(globalconfig|ruleset|DotSettings)|^\.github/workflows/.*\.ya?ml)$'; then protected+=("$file"); else other+=("$file"); fi ;;
+            esac
           done
-          
-          # Check .globalconfig, .ruleset, .DotSettings, and workflow files using
-          # the same git diff approach.
-          # --diff-filter=AMRCD: Added, Modified, Renamed, Copied, Deleted.
-          # Including D so a PR that *deletes* a protected file (workflow,
-          # .globalconfig, .ruleset, .DotSettings) also triggers the
-          # maintainer-review gate — a silent deletion is just as
-          # security-relevant as a silent edit.
-          # -i: Windows (and ReSharper on it) resolve file names case-
-          # insensitively, so `foo.dotsettings` is as live as `foo.DotSettings`
-          # and must be caught the same way.
-          while IFS= read -r file; do
-            changed_files+=("$file")
-          done < <(git diff --name-only --diff-filter=AMRCD main-branch HEAD 2>/dev/null | grep -iE '(\.(globalconfig|ruleset|DotSettings)|^\.github/workflows/.*\.ya?ml)$' || true)
-          
-          if [ ${#changed_files[@]} -gt 0 ]; then
-            echo ""
-            echo "⚠️  PROTECTED CONFIGURATION FILES CHANGED IN THIS PR:"
-            for file in "${changed_files[@]}"; do
-              echo "  - $file"
-            done
-            echo ""
-            echo "❌ CI uses the main branch version of these files to prevent security bypasses."
-            echo "   The PR's changes to these files were NOT tested by CI."
-            echo "   A maintainer must manually review and verify these changes before merging."
-            echo ""
-            echo "To proceed, a maintainer should:"
-            echo "  1. Review the configuration changes in this PR carefully"
-            echo "  2. Test the changes locally to confirm they work correctly"
-            echo "  3. Merge with awareness that CI did not validate these configuration changes"
-            exit 1
-          else
+
+          if [ ${#protected[@]} -eq 0 ]; then
             echo "✅ No protected configuration files changed - CI fully validates this PR"
+          elif [ ${#other[@]} -eq 0 ]; then
+            # Configuration-only PR. CI runs main's copies of these files, so nothing in
+            # this run exercised the change - but nothing else changed either, so there is
+            # no code the stale config could have mis-validated. It merges on review with
+            # the ruleset fully active (baseline item 10: never disable a ruleset to merge).
+            echo ""
+            echo "⚠️  CONFIGURATION-ONLY PULL REQUEST - protected files changed, nothing else:"
+            for file in "${protected[@]}"; do echo "  - $file"; done
+            echo ""
+            echo "::warning::Configuration-only PR: CI ran main's copies of ${#protected[@]} protected file(s), so this run did not exercise the change. Review the diff before merging; the next PR runs with the new configuration."
+          else
+            echo ""
+            echo "⚠️  PROTECTED CONFIGURATION FILES CHANGED ALONGSIDE OTHER CHANGES:"
+            for file in "${protected[@]}"; do echo "  - $file"; done
+            echo ""
+            echo "❌ CI uses the main branch version of these files to prevent security bypasses,"
+            echo "   so the other ${#other[@]} file(s) in this PR were validated against the OLD configuration"
+            echo "   and the configuration change itself was not tested."
+            echo ""
+            echo "Split the PR: put the protected files in their own PR (it passes this guard as"
+            echo "configuration-only and merges on review), then rebase the rest on top so it is"
+            echo "validated with the new configuration. Nothing here can be bypassed."
+            exit 1
           fi
       
       - name: Check for .NET project files
