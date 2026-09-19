@@ -143,6 +143,7 @@ jobs:
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
+            "coverlet.runsettings"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -199,6 +200,11 @@ jobs:
         # in their own PRs; it does not apply to a trusted GitHub-controlled bot whose
         # only action is package-version updates.
         if: github.event.pull_request.user.login != 'dependabot[bot]'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # persist-credentials:false on the checkout, so the deepening fetch below needs the
+          # job token for a private repository. Used on this one command only; never stored.
+          TRUSTED_MAIN_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: |
           echo "Checking for changes to protected configuration files in this PR..."
           
@@ -214,11 +220,22 @@ jobs:
           # a PR that *deletes* a workflow or .globalconfig is as security-relevant as an
           # edit. -i: Windows (and ReSharper on it) resolve names case-insensitively, so
           # foo.dotsettings is as live as foo.DotSettings.
-          mapfile -t all_changed < <(git diff --name-only --diff-filter=AMRCD main-branch...HEAD 2>/dev/null)
+          # The checkout is shallow (depth 1); the PR's own history is needed to find the
+          # merge base. Deepen until one exists, then diff against it. Fail closed: a guard
+          # that cannot compute the diff must not report "nothing changed".
+          for _ in 1 2 3 4 5 6; do
+            git merge-base main-branch HEAD >/dev/null 2>&1 && break
+            git fetch --quiet --deepen=50 "$TRUSTED_MAIN_URL" "refs/pull/$PR_NUMBER/head" 2>/dev/null || true
+          done
+          if ! base=$(git merge-base main-branch HEAD 2>/dev/null); then
+            echo "::error::Cannot find the merge base between main and the PR head - refusing to classify the change."
+            exit 1
+          fi
+          mapfile -t all_changed < <(git diff --name-only --diff-filter=AMRCD "$base" HEAD)
           protected=(); other=()
           for file in "${all_changed[@]}"; do
             case "$file" in
-              .editorconfig|Directory.Build.props|Directory.Build.targets|BannedSymbols.txt) protected+=("$file") ;;
+              .editorconfig|Directory.Build.props|Directory.Build.targets|BannedSymbols.txt|coverlet.runsettings) protected+=("$file") ;;
               *)
                 if echo "$file" | grep -qiE '(\.(globalconfig|ruleset|DotSettings)|^\.github/workflows/.*\.ya?ml)$'; then protected+=("$file"); else other+=("$file"); fi ;;
             esac
@@ -453,6 +470,7 @@ jobs:
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
+            "coverlet.runsettings"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -636,6 +654,7 @@ jobs:
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
+            "coverlet.runsettings"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -1122,7 +1141,8 @@ jobs:
             ".editorconfig",
             "Directory.Build.props",
             "Directory.Build.targets",
-            "BannedSymbols.txt"
+            "BannedSymbols.txt",
+            "coverlet.runsettings"
           )
           
           # Copy each configuration file from main branch if it exists
@@ -1537,6 +1557,7 @@ jobs:
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
+            "coverlet.runsettings"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -1980,6 +2001,7 @@ jobs:
             "Directory.Build.props"
             "Directory.Build.targets"
             "BannedSymbols.txt"
+            "coverlet.runsettings"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
