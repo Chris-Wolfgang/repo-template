@@ -474,7 +474,7 @@ Configured by running the local PowerShell setup script (see "How It Works" belo
 - ✅ **Block force pushes** to main
 - ✅ **Prevent branch deletion**
 - ⬜ **Require linear history** - optional (`-RequireLinearHistory`), see [docs/STACKED-PRS.md](docs/STACKED-PRS.md)
-- Admins are not in the bypass list; use the per-PR admin bypass when a protected-file change needs to land
+- Repository admins can "Bypass rules and merge" a pull request (recorded on the PR) — that is how a protected-file change lands without disabling the ruleset; no users, teams, or apps are in the bypass list
 
 **Repository Type Options:**
 - **Single Developer:** No PR approvals required (you can merge your own PRs)

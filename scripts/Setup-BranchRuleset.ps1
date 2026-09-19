@@ -190,8 +190,19 @@ $rulesetConfig = @{
             exclude = @()
         }
     }
-    # No bypass actors allowed - all users (including admins) must follow branch protection rules
-    bypass_actors = @()
+    # Repository admins may "Bypass rules and merge" a pull request (bypass_mode = pull_request:
+    # no bypass for direct pushes). This is how protected-file PRs - workflows,
+    # Directory.Build.props, .editorconfig, ... which pr.yaml's "Detect .NET Projects" guard
+    # fails on purpose - get merged WITHOUT disabling the ruleset (baseline item 10: never
+    # disable a ruleset to merge). A bypass is recorded on the PR. It waives every rule for
+    # that one merge, so the admin reviews the PR first. No users, teams, or apps.
+    bypass_actors = @(
+        @{
+            actor_id    = 5                 # RepositoryRole: admin
+            actor_type  = 'RepositoryRole'
+            bypass_mode = 'pull_request'
+        }
+    )
     rules = @(
         @{
             type = "pull_request"
@@ -319,7 +330,7 @@ try {
         Write-Host "   ✅ Code scanning: CodeQL alerts gate (errors / high+)" -ForegroundColor Gray
         Write-Host "   ✅ Copilot code review: auto-requested on every PR (incl. drafts, on push)" -ForegroundColor Gray
         Write-Host "   ✅ Code quality gate: blocks on analyzer / formatter errors" -ForegroundColor Gray
-        Write-Host "   ✅ No bypass allowed - all users must follow these rules" -ForegroundColor Gray
+        Write-Host "   ✅ Bypass: repository admins on pull requests only (recorded on the PR); no users, teams, or apps" -ForegroundColor Gray
         
         Write-Host "`n🔗 View ruleset at:" -ForegroundColor Cyan
         Write-Host "   https://github.com/$Repository/settings/rules" -ForegroundColor Blue
