@@ -105,7 +105,7 @@ Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn
 - **License audit** of the full transitive dependency closure against an OSI-permissive allow-list, a generated **THIRD-PARTY-NOTICES.md** packed into every package (`scripts/third-party-notices.ps1`, run at release), and a **CycloneDX SBOM** per package
 - **Nightly security-alert triage** - opens an issue per new Dependabot / code-scanning / secret-scanning alert and closes it when the alert closes
 - **SLSA build-provenance attestation** on every published package; **NuGet trusted publishing** (OIDC) - no stored API key
-- **Every action pinned by commit SHA**; Dependabot keeps the pins moving
+- **Every action pinned by commit SHA** and **every CI tool pinned in `.config/dotnet-tools.json`**; Dependabot keeps both moving
 - **BannedSymbols.txt** - Prevents usage of dangerous/obsolete APIs:
   - ❌ `Task.Wait()`, `Task.Result` → Use `await` instead
   - ❌ `Thread.Sleep()` → Use `await Task.Delay()`
@@ -328,6 +328,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 | `BannedSymbols.txt` | Banned API list |
 | `Directory.Build.props` | Shared MSBuild properties, analyzer packages, `GenerateDocumentationFile` for `src/` |
 | `coverlet.runsettings` | Coverage collection settings |
+| `.config/dotnet-tools.json` | Pinned versions of the CI tools (`dotnet tool restore` in every workflow; Dependabot bumps them; protected file) |
 | `.gitleaks.toml` | gitleaks allowlist (extends the default rule set) |
 | `.gitignore` | Comprehensive .NET gitignore |
 | `.gitattributes` | LF line endings for every text file |
@@ -341,7 +342,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 | `.github/CODEOWNERS` | Code review assignments |
 | `.github/dependabot.yml` | Dependency update configuration (NuGet, Actions, pip tooling) |
 | `.github/pull_request_template.md` | PR template with checklists |
-| `.github/license-audit/` | Allowed licenses, URL mappings and ignored packages for the license audit |
+| `.github/license-audit/` | Allowed licenses, URL mappings, overrides and ignored packages for the license audit (read from `main` on PRs; protected files) |
 | `.github/requirements/` | Hash-pinned `zizmor` / `semgrep` requirements |
 
 ---
