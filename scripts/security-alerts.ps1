@@ -10,7 +10,9 @@
     For every open code-scanning, secret-scanning, and Dependabot alert the script opens one issue
     (title "Alert: <tool> <rule> in <path>", label "security"). Each issue body carries a marker
     "<!-- security-alert: <kind>#<number> -->" that is used to deduplicate on later runs. When an alert
-    is no longer open the matching issue is closed with a comment. Secret-scanning alerts whose push
+    is no longer open the matching issue is closed with a comment; if GitHub later reopens that alert
+    (the finding came back) an issue this script closed is reopened, while one a maintainer closed by
+    hand stays closed. Secret-scanning alerts whose push
     protection was bypassed get a second, separate issue so the bypass itself is reviewed.
 
     -WeeklySummary opens (or comments on) one summary issue listing alerts open longer than -StaleDays.
@@ -218,7 +220,7 @@ function New-AlertIssue
 
 $(if ($Bypass) { "**Push protection was bypassed** for this secret. Review who bypassed it and why, rotate the secret if it is real, and dismiss the alert only after that.`n`n" })$($Alert.extra)
 
-_Opened automatically by the security-alerts workflow. It closes when the alert is closed._
+_Opened automatically by the security-alerts workflow. It closes when the alert is closed and reopens if the alert comes back._
 "@
     if ($DryRun) { Write-Host "DRY-RUN create: $title"; return $null }
     $url = & gh issue create -R $Repository --title $title --body $body --label $label 2>&1
@@ -237,6 +239,32 @@ function Close-AlertIssue
     $out = & gh issue close $Issue.number -R $Repository --comment "Closing: $Reason" 2>&1
     if ($LASTEXITCODE -ne 0) { Write-Warning "close of #$($Issue.number) failed: $out"; $script:failures++; return }
     Write-Host "closed #$($Issue.number): $Reason"
+}
+
+
+
+function Test-ClosedByWorkflow
+{
+    # True when the issue's most recent comment is this script's own closing comment. A maintainer
+    # who closed the issue by hand (or commented after the close) leaves it alone.
+    param([pscustomobject]$Issue)
+
+    $r = Invoke-Api "repos/$Repository/issues/$($Issue.number)/comments?per_page=100" -Paginate
+    if (-not $r.ok) { return $false }
+    $last = @($r.data) | Select-Object -Last 1
+    return ($null -ne $last) -and ([string]$last.body).StartsWith('Closing: alert ')
+}
+
+
+
+function Reopen-AlertIssue
+{
+    param([pscustomobject]$Issue, [string]$Reason)
+
+    if ($DryRun) { Write-Host "DRY-RUN reopen #$($Issue.number): $Reason"; return }
+    $out = & gh issue reopen $Issue.number -R $Repository --comment "Reopening: $Reason" 2>&1
+    if ($LASTEXITCODE -ne 0) { Write-Warning "reopen of #$($Issue.number) failed: $out"; $script:failures++; return }
+    Write-Host "reopened #$($Issue.number): $Reason"
 }
 
 
@@ -316,7 +344,17 @@ foreach ($a in $allOpen)
     }
     elseif ($tracked[$marker].state -eq 'CLOSED')
     {
-        Write-Host "alert $marker still open but issue #$($tracked[$marker].number) was closed manually — leaving it"
+        # The alert is open again. If this script closed the issue (the alert had been fixed or
+        # dismissed at the time) the finding has come back and the issue comes back with it; an
+        # issue a maintainer closed by hand stays closed.
+        if (Test-ClosedByWorkflow $tracked[$marker])
+        {
+            Reopen-AlertIssue $tracked[$marker] "alert $marker is open again"
+        }
+        else
+        {
+            Write-Host "alert $marker still open but issue #$($tracked[$marker].number) was closed manually — leaving it"
+        }
     }
     if ($a.bypass -and -not $tracked.ContainsKey("$marker-bypass")) { New-AlertIssue $a -Bypass | Out-Null }
 }
