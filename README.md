@@ -102,7 +102,7 @@ Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn
 - **Semgrep** (C# + security-audit + secrets rule packs)
 - **actionlint + zizmor** audit of the workflow files themselves; High-severity zizmor findings fail the PR
 - **OpenSSF Scorecard** weekly, with the badge in the README
-- **License audit** of the full transitive dependency closure against an OSI-permissive allow-list, and a **CycloneDX SBOM** per package
+- **License audit** of the full transitive dependency closure against an OSI-permissive allow-list, a generated **THIRD-PARTY-NOTICES.md** packed into every package (`scripts/third-party-notices.ps1`, run at release), and a **CycloneDX SBOM** per package
 - **Nightly security-alert triage** - opens an issue per new Dependabot / code-scanning / secret-scanning alert and closes it when the alert closes
 - **SLSA build-provenance attestation** on every published package; **NuGet trusted publishing** (OIDC) - no stored API key
 - **Every action pinned by commit SHA**; Dependabot keeps the pins moving
@@ -179,7 +179,7 @@ root/
 │   └── dependabot.yml      # Dependency updates
 ├── .githooks/pre-commit    # gitleaks secret scan (git config core.hooksPath .githooks)
 ├── changelog/unreleased/   # A fragment per PR that changes src/ (or the no-changelog label); assembled at release
-├── scripts/                # setup, build-pr, changelog, format, ruleset, Pages, restack, ...
+├── scripts/                # setup, build-pr, changelog, format, ruleset, Pages, restack, third-party-notices, ...
 ├── src/                    # Library / application projects
 ├── tests/                  # Test projects (*.Tests.Unit, *.Tests.Integration)
 ├── benchmarks/             # Performance benchmarks (optional)
