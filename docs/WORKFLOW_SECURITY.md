@@ -106,11 +106,11 @@ permissions:
 
 Jobs that need more (`security-events: write` to upload SARIF, `actions: read` for `upload-sarif`) declare it at the job level, so the elevation is scoped to that job only. This limits the impact if the `GITHUB_TOKEN` is somehow exposed or misused.
 
-### 5. Same-Repository Guard on Jobs That Build PR Code With Write Scope
+### 5. No Write Scope in Any Job That Builds PR Code
 
-**Mechanism**: `github.event.pull_request.head.repo.full_name == github.repository`
+**Mechanism**: job split — `inspectcode` (checks out and builds PR code, `contents: read` only, hands `inspect.sarif` off as an artifact) and `inspectcode-upload` (never checks out PR code; checks out the trusted base ref, downloads the artifact and is the only job holding `security-events: write`).
 
-Under `pull_request_target`, `github.repository` is *always* the base repository, so it cannot be used to exclude forks. The `inspectcode` job checks out and **builds** the PR's code while holding `security-events: write`; its `if:` therefore also requires the PR head to live in this repository. A fork PR skips the job rather than building untrusted code with an elevated token. The test stages build PR code too, but with `contents: read` only.
+Every job that runs the PR's code — `detect-projects`, `inspectcode`, the three test stages, `security-scan` — holds `contents: read` and nothing else, so a PR's MSBuild targets, tests or analyzers can reach neither the repository nor Code Scanning through the job token. Fork PRs therefore run `inspectcode` like the test stages; the former same-repository guard on that job existed only because it once held the write scope in-line. Scorecard's Dangerous-Workflow and CodeQL's untrusted-checkout still flag the `pull_request_target` + PR-head checkout shape — they cannot see the scope split — and are dismissed as *won't fix* per repo with that reason.
 
 ### 6. Pinned Actions and Audited Workflow Files
 
@@ -138,9 +138,9 @@ Every external action referenced by `uses:` in `.github/workflows/` is pinned to
 **Prevention**: These files are fetched from main branch after checkout; the PR fails the protected-file guard
 **Status**: ✅ Protected
 
-### Scenario 5: Fork Builds Untrusted Code With Write Scope
-**Attack**: A fork PR triggers `pull_request_target` and gets its code built by a job holding `security-events: write`
-**Prevention**: The `inspectcode` job requires the PR head to be in this repository (see §5)
+### Scenario 5: PR Code Reaches a Write Scope
+**Attack**: A PR (fork or same-repo) puts a payload in an MSBuild target, test or analyzer that forges or dismisses Code Scanning alerts with the job token
+**Prevention**: No job that builds PR code holds a write scope; the SARIF upload runs in a separate job that never checks out PR code (see §5)
 **Status**: ✅ Protected
 
 ### Scenario 6: Workflow Regression to an Unpinned or Injectable Step
