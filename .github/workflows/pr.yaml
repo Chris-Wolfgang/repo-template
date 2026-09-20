@@ -245,7 +245,9 @@ jobs:
         shell: bash
     needs: detect-projects
     if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
-    timeout-minutes: 20
+    # Whole-solution build + inspection routinely takes 12-17 min on windows-latest; 20 was
+    # being hit by slower runners and cancelling otherwise-green runs.
+    timeout-minutes: 30
     permissions:
       contents: read
 
