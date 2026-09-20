@@ -514,11 +514,19 @@ jobs:
             # This handles multi-line <TargetFrameworks> XML, conditional property groups,
             # and TFMs inherited from Directory.Build.props — all of which break grep-based parsing.
             # Falls back from <TargetFrameworks> (multiple) to <TargetFramework> (single).
-            tfm_raw=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFrameworks 2>/dev/null \
-              | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            # Evaluate first, filter second. A failed evaluation (broken csproj, missing SDK)
+            # must fail the step; an empty <TargetFrameworks> on a single-TFM project (grep -v
+            # exits 1 under pipefail) must fall through to <TargetFramework>. The `|| true`
+            # therefore covers only the text filter, never the msbuild call.
+            if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$proj::MSBuild evaluation of TargetFrameworks failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+            fi
+            tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
             if [ -z "$tfm_raw" ]; then
-              tfm_raw=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFramework 2>/dev/null \
-                | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+              if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFramework 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$proj::MSBuild evaluation of TargetFramework failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
             fi
             frameworks=$(printf '%s' "$tfm_raw" | tr ';' '\n' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp[0-9.]+|netstandard[0-9.]+)$' || true)
             
@@ -605,14 +613,19 @@ jobs:
             # Extract target frameworks via MSBuild property evaluation (handles multi-line XML
             # and Directory.Build.props inheritance — both break grep-based parsing).
             # Falls back from <TargetFrameworks> (multiple) to <TargetFramework> (single).
-            # `|| true` inside the substitution: this step runs under `bash -eo pipefail`,
-            # and on a single-<TargetFramework> project the first query prints nothing, so
-            # `grep -v` exits 1 and pipefail would kill the step before the fallback runs.
-            tfm_raw=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFrameworks 2>/dev/null \
-              | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            # Evaluate first, filter second. A failed evaluation (broken csproj, missing SDK)
+            # must fail the step; an empty <TargetFrameworks> on a single-TFM project (grep -v
+            # exits 1 under pipefail) must fall through to <TargetFramework>. The `|| true`
+            # therefore covers only the text filter, never the msbuild call.
+            if ! tfm_out=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$test_proj::MSBuild evaluation of TargetFrameworks failed for $test_proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+            fi
+            tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
             if [ -z "$tfm_raw" ]; then
-              tfm_raw=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFramework 2>/dev/null \
-                | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+              if ! tfm_out=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFramework 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$test_proj::MSBuild evaluation of TargetFramework failed for $test_proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
             fi
             frameworks=$(printf '%s' "$tfm_raw" | tr ';' '\n' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp3\.1)$' || true)
             
@@ -950,9 +963,12 @@ jobs:
             # <TargetFrameworks> (multiple) to <TargetFramework> (single).
             $tfmRaw = (dotnet msbuild $testProj.FullName -noLogo -getProperty:TargetFrameworks 2>$null |
               Where-Object { $_ -and $_.Trim() } | Select-Object -Last 1)
+            # A failed evaluation must fail the step, not read as "no frameworks" and skip the project.
+            if ($LASTEXITCODE -ne 0) { Write-Host "::error file=$($testProj.FullName)::MSBuild evaluation of TargetFrameworks failed"; exit 1 }
             if (-not $tfmRaw) {
               $tfmRaw = (dotnet msbuild $testProj.FullName -noLogo -getProperty:TargetFramework 2>$null |
                 Where-Object { $_ -and $_.Trim() } | Select-Object -Last 1)
+              if ($LASTEXITCODE -ne 0) { Write-Host "::error file=$($testProj.FullName)::MSBuild evaluation of TargetFramework failed"; exit 1 }
             }
             $tfmRaw = ("$tfmRaw" -replace '^TargetFrameworks?[=:]\s*', '') -replace '\s', ''
 
@@ -1287,11 +1303,19 @@ jobs:
             # Extract target frameworks via MSBuild property evaluation (handles multi-line XML
             # and Directory.Build.props inheritance). Filter to .NET 6+ for macOS ARM64 compatibility.
             # Falls back from <TargetFrameworks> (multiple) to <TargetFramework> (single).
-            tfm_raw=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFrameworks 2>/dev/null \
-              | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            # Evaluate first, filter second. A failed evaluation (broken csproj, missing SDK)
+            # must fail the step; an empty <TargetFrameworks> on a single-TFM project (grep -v
+            # exits 1 under pipefail) must fall through to <TargetFramework>. The `|| true`
+            # therefore covers only the text filter, never the msbuild call.
+            if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$proj::MSBuild evaluation of TargetFrameworks failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+            fi
+            tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
             if [ -z "$tfm_raw" ]; then
-              tfm_raw=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFramework 2>/dev/null \
-                | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+              if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFramework 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$proj::MSBuild evaluation of TargetFramework failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
             fi
             frameworks=$(printf '%s' "$tfm_raw" | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
@@ -1377,14 +1401,19 @@ jobs:
             # Extract target frameworks via MSBuild property evaluation (handles multi-line XML
             # and Directory.Build.props inheritance). Filter to .NET 6+ for macOS ARM64 compatibility.
             # Falls back from <TargetFrameworks> (multiple) to <TargetFramework> (single).
-            # `|| true` inside the substitution: this step runs under `bash -eo pipefail`,
-            # and on a single-<TargetFramework> project the first query prints nothing, so
-            # `grep -v` exits 1 and pipefail would kill the step before the fallback runs.
-            tfm_raw=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFrameworks 2>/dev/null \
-              | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            # Evaluate first, filter second. A failed evaluation (broken csproj, missing SDK)
+            # must fail the step; an empty <TargetFrameworks> on a single-TFM project (grep -v
+            # exits 1 under pipefail) must fall through to <TargetFramework>. The `|| true`
+            # therefore covers only the text filter, never the msbuild call.
+            if ! tfm_out=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$test_proj::MSBuild evaluation of TargetFrameworks failed for $test_proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+            fi
+            tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
             if [ -z "$tfm_raw" ]; then
-              tfm_raw=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFramework 2>/dev/null \
-                | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+              if ! tfm_out=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFramework 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$test_proj::MSBuild evaluation of TargetFramework failed for $test_proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
             fi
             frameworks=$(printf '%s' "$tfm_raw" | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
             
