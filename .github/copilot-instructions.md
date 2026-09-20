@@ -124,6 +124,7 @@ Branch protection rules are configured by running the local PowerShell script `s
 - `LICENSE` - Chosen at setup (MIT, Apache-2.0, MPL-2.0, or custom/TBD)
 - `REPO-INSTRUCTIONS.md` - Template setup instructions (delete after setup)
 - `.editorconfig`, `Directory.Build.props`, `BannedSymbols.txt`, `coverlet.runsettings` - see above
+- `.config/dotnet-tools.json` - pinned CI tools (CycloneDX, nuget-license, ReSharper InspectCode, ReportGenerator, DevSkim, docfx, sourcelink, Stryker); workflows run `dotnet tool restore`, Dependabot bumps it, and it is a protected file
 - `.gitignore` - .NET-specific gitignore; `.gitattributes` - LF for every text file
 
 ### GitHub Directory (`.github/`)
