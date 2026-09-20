@@ -144,6 +144,7 @@ jobs:
             "Directory.Build.targets"
             "BannedSymbols.txt"
             "coverlet.runsettings"
+            ".config/dotnet-tools.json"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -244,9 +245,11 @@ jobs:
           protected=(); other=()
           for file in "${all_changed[@]}"; do
             case "$file" in
-              .editorconfig|Directory.Build.props|Directory.Build.targets|BannedSymbols.txt|coverlet.runsettings) protected+=("$file") ;;
+              .editorconfig|Directory.Build.props|Directory.Build.targets|BannedSymbols.txt|coverlet.runsettings|.config/dotnet-tools.json) protected+=("$file") ;;
               *)
-                if echo "$file" | grep -qiE '(\.(globalconfig|ruleset|DotSettings|editorconfig)|^\.github/workflows/.*\.ya?ml)$'; then protected+=("$file"); else other+=("$file"); fi ;;
+                # license-audit policy: license-audit.yaml reads these from main, so a PR
+                # that edits them is configuration it cannot test - same rule as workflows.
+                if echo "$file" | grep -qiE '(\.(globalconfig|ruleset|DotSettings|editorconfig)|^\.github/workflows/.*\.ya?ml|^\.github/license-audit/.*\.json)$'; then protected+=("$file"); else other+=("$file"); fi ;;
             esac
           done
 
@@ -482,6 +485,7 @@ jobs:
             "Directory.Build.targets"
             "BannedSymbols.txt"
             "coverlet.runsettings"
+            ".config/dotnet-tools.json"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -720,6 +724,7 @@ jobs:
             "Directory.Build.targets"
             "BannedSymbols.txt"
             "coverlet.runsettings"
+            ".config/dotnet-tools.json"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -1215,7 +1220,8 @@ jobs:
             "Directory.Build.props",
             "Directory.Build.targets",
             "BannedSymbols.txt",
-            "coverlet.runsettings"
+            "coverlet.runsettings",
+            ".config/dotnet-tools.json"
           )
           
           # Copy each configuration file from main branch if it exists
@@ -1643,6 +1649,7 @@ jobs:
             "Directory.Build.targets"
             "BannedSymbols.txt"
             "coverlet.runsettings"
+            ".config/dotnet-tools.json"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -2096,6 +2103,7 @@ jobs:
             "Directory.Build.targets"
             "BannedSymbols.txt"
             "coverlet.runsettings"
+            ".config/dotnet-tools.json"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
