@@ -51,9 +51,10 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Install CycloneDX
+      - name: Restore CI tools (CycloneDX)
         if: steps.detect.outputs.found == 'true'
-        run: dotnet tool install --global CycloneDX
+        # Pinned in .config/dotnet-tools.json; never installed unversioned.
+        run: dotnet tool restore
 
       - name: Restore .NET workloads
         # Same gate as pr.yaml: only repos with workload-bearing TFMs (net10.0-android,

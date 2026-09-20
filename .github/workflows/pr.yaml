@@ -144,6 +144,7 @@ jobs:
             "Directory.Build.targets"
             "BannedSymbols.txt"
             "coverlet.runsettings"
+            ".config/dotnet-tools.json"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -244,9 +245,11 @@ jobs:
           protected=(); other=()
           for file in "${all_changed[@]}"; do
             case "$file" in
-              .editorconfig|Directory.Build.props|Directory.Build.targets|BannedSymbols.txt|coverlet.runsettings) protected+=("$file") ;;
+              .editorconfig|Directory.Build.props|Directory.Build.targets|BannedSymbols.txt|coverlet.runsettings|.config/dotnet-tools.json) protected+=("$file") ;;
               *)
-                if echo "$file" | grep -qiE '(\.(globalconfig|ruleset|DotSettings|editorconfig)|^\.github/workflows/.*\.ya?ml)$'; then protected+=("$file"); else other+=("$file"); fi ;;
+                # license-audit policy: license-audit.yaml reads these from main, so a PR
+                # that edits them is configuration it cannot test - same rule as workflows.
+                if echo "$file" | grep -qiE '(\.(globalconfig|ruleset|DotSettings|editorconfig)|^\.github/workflows/.*\.ya?ml|^\.github/license-audit/.*\.json)$'; then protected+=("$file"); else other+=("$file"); fi ;;
             esac
           done
 
@@ -482,6 +485,7 @@ jobs:
             "Directory.Build.targets"
             "BannedSymbols.txt"
             "coverlet.runsettings"
+            ".config/dotnet-tools.json"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -601,8 +605,10 @@ jobs:
           dotnet restore "$SLN"
           dotnet build "$SLN" -c Release --no-restore
 
-      - name: Install JetBrains.ReSharper.GlobalTools
-        run: dotnet tool install -g JetBrains.ReSharper.GlobalTools
+      - name: Restore CI tools (JetBrains.ReSharper.GlobalTools)
+        # The version comes from .config/dotnet-tools.json (pinned, Dependabot-bumped,
+        # copied from main like the other protected config) - never installed unversioned.
+        run: dotnet tool restore
 
       - name: Run InspectCode
         env:
@@ -612,7 +618,7 @@ jobs:
           # resolves regardless of whether that dir is already on PATH.
           export PATH="$HOME/.dotnet/tools:$PATH"
           echo "Inspecting: $SLN"
-          jb inspectcode "$SLN" \
+          dotnet jb inspectcode "$SLN" \
             --output=inspect.sarif \
             --format=sarif \
             --severity=WARNING \
@@ -720,6 +726,7 @@ jobs:
             "Directory.Build.targets"
             "BannedSymbols.txt"
             "coverlet.runsettings"
+            ".config/dotnet-tools.json"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -1026,14 +1033,15 @@ jobs:
             echo "ℹ️  No coverage files found - skipping coverage report generation"
           fi
 
-      - name: Install ReportGenerator
+      - name: Restore CI tools (ReportGenerator)
         if: steps.check-coverage.outputs.has-coverage == 'true'
-        run: dotnet tool install -g dotnet-reportgenerator-globaltool
+        # Pinned in .config/dotnet-tools.json (copied from main); never installed unversioned.
+        run: dotnet tool restore
 
       - name: Generate coverage report
         if: steps.check-coverage.outputs.has-coverage == 'true'
         run: |
-          reportgenerator \
+          dotnet reportgenerator \
             -reports:"TestResults/**/coverage.cobertura.xml" \
             -targetdir:"CoverageReport" \
             -reporttypes:"Html;TextSummary;MarkdownSummaryGithub;CsvSummary"
@@ -1215,7 +1223,8 @@ jobs:
             "Directory.Build.props",
             "Directory.Build.targets",
             "BannedSymbols.txt",
-            "coverlet.runsettings"
+            "coverlet.runsettings",
+            ".config/dotnet-tools.json"
           )
           
           # Copy each configuration file from main branch if it exists
@@ -1471,15 +1480,16 @@ jobs:
           }
         shell: pwsh
 
-      - name: Install ReportGenerator
+      - name: Restore CI tools (ReportGenerator)
         if: steps.check-coverage.outputs.has-coverage == 'true'
-        run: dotnet tool install -g dotnet-reportgenerator-globaltool
+        # Pinned in .config/dotnet-tools.json (copied from main); never installed unversioned.
+        run: dotnet tool restore
 
       - name: Generate coverage report
         if: steps.check-coverage.outputs.has-coverage == 'true'
         shell: pwsh
         run: |
-          reportgenerator `
+          dotnet reportgenerator `
             -reports:"TestResults/**/coverage.cobertura.xml" `
             -targetdir:"CoverageReport" `
             -reporttypes:"Html;TextSummary;MarkdownSummaryGithub;CsvSummary"
@@ -1643,6 +1653,7 @@ jobs:
             "Directory.Build.targets"
             "BannedSymbols.txt"
             "coverlet.runsettings"
+            ".config/dotnet-tools.json"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -1916,13 +1927,14 @@ jobs:
             echo ""
           done
 
-      - name: Install ReportGenerator
-        run: dotnet tool install -g dotnet-reportgenerator-globaltool
+      - name: Restore CI tools (ReportGenerator)
+        # Pinned in .config/dotnet-tools.json (copied from main); never installed unversioned.
+        run: dotnet tool restore
 
       - name: Generate coverage report
         run: |
           if find ./TestResults -name "coverage.cobertura.xml" -print -quit 2>/dev/null | grep -q .; then
-            reportgenerator \
+            dotnet reportgenerator \
               -reports:"TestResults/**/coverage.cobertura.xml" \
               -targetdir:"CoverageReport" \
               -reporttypes:"Html;TextSummary;MarkdownSummaryGithub;CsvSummary"
@@ -2096,6 +2108,7 @@ jobs:
             "Directory.Build.targets"
             "BannedSymbols.txt"
             "coverlet.runsettings"
+            ".config/dotnet-tools.json"
             "*.globalconfig"
             "*.ruleset"
             "*.DotSettings"
@@ -2155,12 +2168,13 @@ jobs:
           echo ""
           echo "✅ Configuration files secured - using versions from main branch"
 
-      - name: Install DevSkim CLI
-        run: dotnet tool install --global Microsoft.CST.DevSkim.CLI
+      - name: Restore CI tools (DevSkim CLI)
+        # Pinned in .config/dotnet-tools.json (copied from main); never installed unversioned.
+        run: dotnet tool restore
 
       - name: Run DevSkim security scan
         run: |
-          devskim analyze \
+          dotnet devskim analyze \
             --source-code . \
             --file-format text \
             --output-file devskim-results.txt \

@@ -41,9 +41,10 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Install DocFX
-        run: |
-          dotnet tool update docfx --global || dotnet tool install docfx --global
+      - name: Restore CI tools (DocFX)
+        # Pinned in .config/dotnet-tools.json; never installed unversioned. Each version
+        # worktree gets a copy of the manifest and its own restore below.
+        run: dotnet tool restore
         shell: pwsh
 
       - name: Build docs for each version
@@ -105,6 +106,10 @@ jobs:
               }
               Copy-Item 'docfx_project' "$workDir/docfx_project" -Recurse -Force
             }
+            # Same for the tool manifest: the docs are built with today's docfx,
+            # whatever the tag pinned (or did not pin) at the time.
+            New-Item -ItemType Directory -Force -Path "$workDir/.config" | Out-Null
+            Copy-Item '.config/dotnet-tools.json' "$workDir/.config/dotnet-tools.json" -Force -ErrorAction Stop
 
             # Copy build-support files that were added in later versions to help
             # older code compile cleanly.  These files contain global settings
@@ -117,6 +122,11 @@ jobs:
             }
             Push-Location $workDir
             try {
+              dotnet tool restore 2>&1 | Out-Host
+              if ($LASTEXITCODE -ne 0) {
+                Write-Warning "⚠️  dotnet tool restore failed for $version – skipping."
+                continue
+              }
               # Attempt dotnet restore + build; failures are non-fatal because
               # DocFX can still extract metadata from source files.
               $slnFile = Get-ChildItem -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in '.sln','.slnx' } |
@@ -129,10 +139,10 @@ jobs:
               }
 
               Write-Host "Running docfx metadata..."
-              docfx metadata docfx_project/docfx.json 2>&1 | Out-Host
+              dotnet docfx metadata docfx_project/docfx.json 2>&1 | Out-Host
 
               Write-Host "Running docfx build..."
-              docfx build docfx_project/docfx.json 2>&1 | Out-Host
+              dotnet docfx build docfx_project/docfx.json 2>&1 | Out-Host
 
               if (Test-Path 'docfx_project/_site') {
                 $dest = Join-Path $outDir 'versions' $version
@@ -223,14 +233,14 @@ jobs:
             }
 
             Write-Host "Running docfx metadata..."
-            docfx metadata docfx_project/docfx.json
+            dotnet docfx metadata docfx_project/docfx.json
             if ($LASTEXITCODE -ne 0) {
               Write-Error "❌ docfx metadata failed for latest (exit $LASTEXITCODE)."
               exit $LASTEXITCODE
             }
 
             Write-Host "Running docfx build..."
-            docfx build docfx_project/docfx.json
+            dotnet docfx build docfx_project/docfx.json
             if ($LASTEXITCODE -ne 0) {
               Write-Error "❌ docfx build failed for latest (exit $LASTEXITCODE)."
               exit $LASTEXITCODE

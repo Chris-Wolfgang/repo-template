@@ -92,7 +92,10 @@ jobs:
             'docfx_project/public',
             'docfx_project/versions.json',
             'docfx_project/logo.svg',
-            'docfx_project/docfx.json'
+            'docfx_project/docfx.json',
+            # The docs tool versions belong to the docs tooling, not the tag: a tag
+            # that predates the manifest would otherwise have nothing to restore.
+            '.config/dotnet-tools.json'
           )
 
           # Detect whether the current HEAD already matches origin/main.
@@ -145,17 +148,18 @@ jobs:
         run: dotnet build --configuration Release --no-restore
         shell: pwsh
 
-      - name: Install DocFX
-        run: dotnet tool update docfx --global || dotnet tool install docfx --global
+      - name: Restore CI tools (DocFX, ReportGenerator)
+        # Pinned in .config/dotnet-tools.json; never installed unversioned.
+        run: dotnet tool restore
         shell: pwsh
 
       - name: Build DocFX Metadata
-        run: docfx metadata
+        run: dotnet docfx metadata
         working-directory: docfx_project
         shell: pwsh
 
       - name: Build Docs
-        run: docfx build
+        run: dotnet docfx build
         working-directory: docfx_project
         shell: pwsh
 
@@ -188,7 +192,6 @@ jobs:
           # time and adds extra failure surface for older targets. Pin to
           # net10.0 — the modern target that's always present in this fleet.
           dotnet test --configuration Release --no-build --no-restore --framework net10.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings --results-directory ./coverage-raw 2>&1 | Out-Host
-          dotnet tool update -g dotnet-reportgenerator-globaltool 2>$null || dotnet tool install -g dotnet-reportgenerator-globaltool 2>$null
           $coverageFiles = @(Get-ChildItem -Path ./coverage-raw -Recurse -Filter "coverage.cobertura.xml" -ErrorAction SilentlyContinue)
           if ($coverageFiles.Count -eq 0) {
             Write-Host "::notice::No coverage files generated - skipping coverage report step"
@@ -219,7 +222,7 @@ jobs:
             Write-Host "::notice::Could not restore prior coverage history ($($_.Exception.Message)) - starting fresh."
           }
 
-          reportgenerator "-reports:$reports" "-targetdir:$outDir" "-reporttypes:Html;TextSummary" "-historydir:$historyDir"
+          dotnet reportgenerator "-reports:$reports" "-targetdir:$outDir" "-reporttypes:Html;TextSummary" "-historydir:$historyDir"
           Write-Host "Coverage report (with trend) written to $outDir"
 
           # Coverage BADGE (#283): a shields.io endpoint document next to the

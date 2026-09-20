@@ -82,9 +82,10 @@ jobs:
             dotnet build "$proj" -c Release -f net10.0 -p:ContinuousIntegrationBuild=true
           done < <(git ls-files 'src/**/*.csproj' 'src/*.csproj')
 
-      - name: Install sourcelink tool
+      - name: Restore CI tools (sourcelink)
         if: steps.detect.outputs.found == 'true'
-        run: dotnet tool install --global sourcelink
+        # Pinned in .config/dotnet-tools.json; never installed unversioned.
+        run: dotnet tool restore
 
       - name: Verify SourceLink resolves for every PDB
         if: steps.detect.outputs.found == 'true'
@@ -102,7 +103,7 @@ jobs:
           failed=0
           for pdb in "${pdbs[@]}"; do
             echo "== sourcelink test $pdb =="
-            if ! sourcelink test "$pdb"; then
+            if ! dotnet sourcelink test "$pdb"; then
               echo "::error::SourceLink verification failed for $pdb — a debugger would fall back to decompiled source."
               failed=1
             fi

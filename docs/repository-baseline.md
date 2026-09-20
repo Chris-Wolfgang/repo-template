@@ -78,7 +78,8 @@ Scope rules:
 - **Verify:** `gh api repos/{owner}/{repo}/rulesets` lists a ruleset whose conditions include the default branch (`~DEFAULT_BRANCH` or the branch name) and whose rules include:
   `pull_request`, `required_status_checks`, `non_fast_forward` (no force-push), `deletion` (no deletion).
   Zero required approvals is acceptable for a solo developer. `required_linear_history` is reported as evidence but is **advisory** while linear history is trialled per repository (`wms` first); it becomes required once that trial settles.
-- **Fix:** Run `scripts/Setup-BranchRuleset.ps1` from the template (add `-RequireLinearHistory` to opt into linear history, which also limits merges to squash/rebase; stacked PRs then use `scripts/restack.ps1` after each merge, see `docs/STACKED-PRS.md`), or fix the missing rule on the ruleset page of an existing repository.
+  A `code_scanning` rule (CodeQL alerts gate) is a **fail** in a repository with no C# source: `codeql.yaml` uploads no analysis without C#, so the rule can never be satisfied and blocks every pull request ("Waiting for Code Scanning results").
+- **Fix:** Run `scripts/Setup-BranchRuleset.ps1` from the template (it adds the `code_scanning` rule only when the branch has C#; add `-RequireLinearHistory` to opt into linear history, which also limits merges to squash/rebase; stacked PRs then use `scripts/restack.ps1` after each merge, see `docs/STACKED-PRS.md`), or fix the missing rule on the ruleset page of an existing repository.
 - **Label:** `security`
 
 ### 10. Ruleset active with no person in the bypass list

@@ -25,6 +25,13 @@
 .PARAMETER BranchName
     The branch to protect. Default is "main".
 
+.PARAMETER ForceCodeScanningRule
+    Add the CodeQL "code_scanning" rule even when the branch has no C# source. By default the rule is
+    added only when the branch contains *.cs / *.csproj files: codeql.yaml skips the analysis (uploads
+    no SARIF) for a repository without C#, and a code_scanning rule with no analysis on the branch
+    blocks every pull request with "Waiting for Code Scanning results". Re-run the script (or add the
+    rule in Settings > Rules) once the repository gets its first C# project.
+
 .PARAMETER RequireLinearHistory
     Also add the "required_linear_history" rule and restrict merges to squash and rebase (no merge
     commits). Satisfies baseline item 9. Stacked PRs then need scripts/restack.ps1 after each merge —
@@ -58,7 +65,10 @@ param(
     [string]$BranchName = "main",
 
     [Parameter()]
-    [switch]$RequireLinearHistory
+    [switch]$RequireLinearHistory,
+
+    [Parameter()]
+    [switch]$ForceCodeScanningRule
 )
 
 # Check if gh CLI is installed
@@ -105,6 +115,25 @@ if ($Repository -eq "{{GITHUB_OWNER}}/{{REPO_NAME}}" -or -not $Repository) {
 
 Write-Host "`n🛡️  Setting up branch protection ruleset for: $Repository" -ForegroundColor Cyan
 Write-Host "📌 Protected branch: $BranchName`n" -ForegroundColor Cyan
+
+# The CodeQL code_scanning rule needs at least one CodeQL analysis on the branch or it blocks
+# every PR. codeql.yaml only analyses when the checkout has C# (the same *.cs / *.csproj test),
+# so read the branch tree and add the rule only when that analysis can actually happen.
+$addCodeScanningRule = $ForceCodeScanningRule.IsPresent
+if (-not $addCodeScanningRule) {
+    Write-Host "🔍 Checking $BranchName for C# source (CodeQL code_scanning rule)..." -ForegroundColor Yellow
+    $treePaths = @(gh api "/repos/$Repository/git/trees/$BranchName?recursive=1" --jq '.tree[].path' 2>$null)
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "❌ Could not read the $BranchName tree of $Repository (does the branch exist?)."
+        exit 1
+    }
+    $addCodeScanningRule = [bool]($treePaths | Where-Object { $_ -match '\.(cs|csproj)$' } | Select-Object -First 1)
+    if ($addCodeScanningRule) {
+        Write-Host "✅ C# source found - the CodeQL code_scanning rule will be added" -ForegroundColor Green
+    } else {
+        Write-Host "ℹ️  No C# source on $BranchName - skipping the CodeQL code_scanning rule (codeql.yaml uploads no analysis without C#, and the rule would block every PR). Re-run with -ForceCodeScanningRule, or add the rule once the first C# project lands." -ForegroundColor Yellow
+    }
+}
 
 # Check if ruleset already exists
 Write-Host "🔍 Checking for existing rulesets..." -ForegroundColor Yellow
@@ -238,9 +267,11 @@ $rulesetConfig = @{
         # The CodeQL alerts-dashboard gate. Only blocks merges when the alerts
         # threshold is exceeded; the underlying CodeQL workflow already runs as
         # a required status check above, so this is the second-tier "results"
-        # gate. Activate it only AFTER the CodeQL workflow has completed at
-        # least one successful run — without prior analyses it blocks all PRs.
-        @{
+        # gate. Without at least one CodeQL analysis on the branch it blocks
+        # every PR ("Waiting for Code Scanning results"), and codeql.yaml only
+        # analyses when the repository has C# - hence the $addCodeScanningRule
+        # gate computed above (override with -ForceCodeScanningRule).
+        $(if ($addCodeScanningRule) { @{
             type = "code_scanning"
             parameters = @{
                 code_scanning_tools = @(
@@ -251,7 +282,7 @@ $rulesetConfig = @{
                     }
                 )
             }
-        },
+        } }),
         # Auto-request a Copilot review on every PR, including drafts and on
         # subsequent pushes. The rulesets API now supports this rule type
         # (earlier versions of this script left the toggle to the UI).
@@ -316,7 +347,11 @@ try {
         Write-Host "   ✅ Stale reviews dismissed when new commits are pushed" -ForegroundColor Gray
         Write-Host "   ✅ Force pushes blocked on $BranchName branch" -ForegroundColor Gray
         Write-Host "   ✅ Branch deletion prevented for $BranchName" -ForegroundColor Gray
-        Write-Host "   ✅ Code scanning: CodeQL alerts gate (errors / high+)" -ForegroundColor Gray
+        if ($addCodeScanningRule) {
+            Write-Host "   ✅ Code scanning: CodeQL alerts gate (errors / high+)" -ForegroundColor Gray
+        } else {
+            Write-Host "   ⏭️  Code scanning: CodeQL alerts gate NOT added (no C# source on $BranchName)" -ForegroundColor Yellow
+        }
         Write-Host "   ✅ Copilot code review: auto-requested on every PR (incl. drafts, on push)" -ForegroundColor Gray
         Write-Host "   ✅ Code quality gate: blocks on analyzer / formatter errors" -ForegroundColor Gray
         Write-Host "   ✅ No bypass allowed - all users must follow these rules" -ForegroundColor Gray

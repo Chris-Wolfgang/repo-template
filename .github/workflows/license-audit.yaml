@@ -19,6 +19,10 @@ name: License Audit
 #    (PrivateAssets=all, not shipped) under the non-OSI SONAR Source-Available
 #    License, so it imposes no obligation on consumers of the package.
 #
+# On pull requests the four policy files are taken from main (fail closed), so a
+# PR cannot allow a licence or ignore a package for its own audit; pr.yaml's
+# protected-file guard makes such a PR configuration-only (see WORKFLOW_SECURITY.md).
+#
 # Skips automatically when the repo has no src/ project (e.g. the template repo).
 
 on:
@@ -51,6 +55,35 @@ jobs:
         with:
           persist-credentials: false
 
+      # The policy files decide what passes, so a PR must not be able to bring its own:
+      # take them from main (fail closed), the way pr.yaml takes its trusted config.
+      # pr.yaml's protected-file guard lists .github/license-audit/*.json, so a PR that
+      # changes them is either configuration-only (merges on review, audited with the
+      # OLD policy) or fails the guard until the policy change is split out.
+      - name: Fetch license policy from main
+        if: github.event_name == 'pull_request'
+        env:
+          # persist-credentials:false above, so pass the job token on this one command;
+          # it is never written to git config.
+          TRUSTED_MAIN_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+        run: |
+          if ! git fetch --quiet --depth=1 "$TRUSTED_MAIN_URL" main:refs/remotes/origin/main; then
+            echo "::error::Failed to fetch origin/main - aborting before the license audit."
+            exit 1
+          fi
+          for f in allowed-licenses.json ignored-packages.json url-license-mappings.json package-overrides.json; do
+            path=".github/license-audit/$f"
+            if ! git cat-file -e "origin/main:$path" 2>/dev/null; then
+              echo "::error::$path is not present in origin/main - refusing to audit with the PR-controlled copy. Merge the policy file to main first."
+              exit 1
+            fi
+            if ! git checkout --quiet origin/main -- "$path"; then
+              echo "::error::Failed to checkout origin/main:$path - aborting to prevent a silent fall-back to the PR version."
+              exit 1
+            fi
+          done
+          echo "License policy files taken from origin/main."
+
       - name: Detect src projects
         id: detect
         run: |
@@ -67,9 +100,10 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Install nuget-license
+      - name: Restore CI tools (nuget-license)
         if: steps.detect.outputs.found == 'true'
-        run: dotnet tool install --global nuget-license
+        # Pinned in .config/dotnet-tools.json; never installed unversioned.
+        run: dotnet tool restore
 
       # Gate: fail if any src project's dependency license is not on the allow-list.
       - name: Restore .NET workloads
@@ -90,7 +124,7 @@ jobs:
           while IFS= read -r proj; do
             echo "== $proj =="
             dotnet restore "$proj"
-            nuget-license -i "$proj" -t \
+            dotnet nuget-license -i "$proj" -t \
               -a .github/license-audit/allowed-licenses.json \
               -ignore .github/license-audit/ignored-packages.json \
               -mapping .github/license-audit/url-license-mappings.json \

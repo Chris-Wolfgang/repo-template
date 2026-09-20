@@ -392,6 +392,11 @@ function Invoke-RepoAudit
         $missingRules = @($required | Where-Object { $_ -notin $present })
         $linear = if ('required_linear_history' -in $present) { 'linear history on' } else { 'linear history off (advisory)' }
         $rsNames = ($rulesets | ForEach-Object { "'$($_.name)' (#$($_.id))" }) -join ', '
+        # A code_scanning rule requires a CodeQL analysis on the default branch; codeql.yaml
+        # uploads none for a repository without C#, so the rule blocks every PR forever
+        # ("Waiting for Code Scanning results"). Setup-BranchRuleset.ps1 omits it in that case.
+        $deadCodeScanning = (-not $hasCSharp) -and ('code_scanning' -in $present)
+        if ($deadCodeScanning) { $missingRules += 'code_scanning present but no C# source (rule can never be satisfied)' }
         if ($missingRules.Count -eq 0) { $out.Add((New-Result $name 9 'pass' "$rsNames has all required rules; $linear")) }
         else { $out.Add((New-Result $name 9 'fail' "$rsNames missing rule(s): $($missingRules -join ', '); $linear")) }
 

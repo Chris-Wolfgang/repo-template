@@ -63,13 +63,10 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Install dotnet-stryker
+      - name: Restore CI tools (dotnet-stryker)
         shell: pwsh
-        run: |
-          dotnet tool update -g dotnet-stryker
-          if ($LASTEXITCODE -ne 0) {
-            dotnet tool install -g dotnet-stryker
-          }
+        # Pinned in .config/dotnet-tools.json; never installed unversioned.
+        run: dotnet tool restore
 
       - name: Run Stryker
         shell: pwsh
