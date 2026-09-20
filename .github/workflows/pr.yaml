@@ -1387,15 +1387,20 @@ jobs:
             exit 0
           fi
 
+          # while-read rather than mapfile: macOS runners ship bash 3.2, which has no
+          # mapfile (the step would die with exit 127 before running a single test).
           test_projects=()
           while IFS= read -r -d '' file; do
-          test_projects+=("$file")
+            test_projects+=("$file")
           done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -not -name "*.Tests.Integration.*" -print0)
 
           # Report any integration test projects deliberately excluded from the
           # coverage gate, so the skip is visible rather than silent (they are
           # expected to run in a separate workflow).
-          mapfile -d '' -t excluded_integration < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -name "*.Tests.Integration.*" -print0)
+          excluded_integration=()
+          while IFS= read -r -d '' file; do
+            excluded_integration+=("$file")
+          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -name "*.Tests.Integration.*" -print0)
           if [ ${#excluded_integration[@]} -gt 0 ]; then
             echo "::notice::Excluded ${#excluded_integration[@]} integration test project(s) from the coverage gate (expected to run in a separate workflow): ${excluded_integration[*]}"
           fi
