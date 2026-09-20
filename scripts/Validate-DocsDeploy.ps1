@@ -285,11 +285,13 @@ try {
 
     # 'public/' is a DocFX build artifact that should never appear at the
     # gh-pages root; its presence means a previous deploy did not clean up.
+    # A hard failure (the .sh this replaced only warned): a botched deploy
+    # must not validate as good.
     $stalePatterns = @('public')
     $foundStale = $false
     foreach ($p in $stalePatterns) {
         if (Test-Path (Join-Path $workDir $p)) {
-            Write-Warn "Potentially stale artifact found at root: '$p'"
+            Write-Fail "Stale DocFX artifact at the gh-pages root: '$p' - a previous deploy did not clean up"
             $foundStale = $true
         }
     }
