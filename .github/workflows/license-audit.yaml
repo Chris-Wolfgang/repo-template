@@ -131,3 +131,26 @@ jobs:
               -override .github/license-audit/package-overrides.json \
               -o Table
           done < <(git ls-files 'src/**/*.csproj' 'src/*.csproj')
+
+      # The attribution file each package will ship with (release.yaml generates the
+      # same thing before pack). Uploaded so a reviewer can see what a dependency
+      # change does to it; it is never committed.
+      - name: Generate third-party notices
+        if: steps.detect.outputs.found == 'true'
+        shell: pwsh
+        run: |
+          pwsh ./scripts/third-party-notices.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force -Path third-party-notices | Out-Null
+          foreach ($f in Get-ChildItem -Path src -Recurse -File -Filter THIRD-PARTY-NOTICES.md) {
+            $name = Split-Path -Leaf (Split-Path -Parent (Split-Path -Parent $f.FullName))
+            Copy-Item $f.FullName (Join-Path third-party-notices "$name.THIRD-PARTY-NOTICES.md")
+          }
+
+      - name: Upload third-party notices
+        if: steps.detect.outputs.found == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: third-party-notices
+          path: third-party-notices/
+          retention-days: 30

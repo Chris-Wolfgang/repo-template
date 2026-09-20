@@ -399,6 +399,13 @@ jobs:
           dotnet restore
           dotnet build --no-restore --configuration Release
 
+      # Renders each src project's transitive NuGet closure to obj/THIRD-PARTY-NOTICES.md;
+      # Directory.Build.props packs it at the package root. Runs from the tag, after
+      # restore (nuget-license reads project.assets.json) and before pack.
+      - name: Generate third-party notices
+        shell: pwsh
+        run: pwsh ./scripts/third-party-notices.ps1
+
       - name: Pack NuGet packages
         id: check-packages
         shell: pwsh
