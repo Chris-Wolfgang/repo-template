@@ -43,6 +43,14 @@
     Overwrite the files in the safe bucket with the template's current content and update
     .template-version. Review files still only get a <name>.template sidecar; an existing
     sidecar is never overwritten (finish or delete it first). Default is a dry run.
+.PARAMETER Merge
+    With -Apply: three-way merge each review file instead of only writing a sidecar - base is
+    the template's version at the stamped commit, ours is this repository's file, theirs is the
+    template's current file (`git merge-file`). A merge with no conflicts is written in place and
+    reported as "merged"; a conflicting one is written to the <name>.template sidecar WITH the
+    conflict markers, so the manual work left is exactly the conflicting hunks. Local changes
+    that mirror the template's (a fan-out that landed the same edit here) merge cleanly. Needs a
+    base (.template-version or -Since); without one review files get a plain sidecar as before.
 .PARAMETER IncludeDocs
     Also compare docs/*.md guides (off by default: repositories often edit them).
 
@@ -62,6 +70,9 @@ param
     [string]$Template,
     [string]$Since,
     [switch]$Apply,
+
+    [Parameter()]
+    [switch]$Merge,
     [switch]$IncludeDocs
 )
 
@@ -243,7 +254,7 @@ foreach ($path in $candidates)
     }
     else
     {
-        $review += [pscustomobject]@{ Path = $path; Content = $templateNow; Reason = $(if ($base) { 'changed in both the template and this repository' } else { 'differs from the template (no base to compare)' }) }
+        $review += [pscustomobject]@{ Path = $path; Content = $templateNow; Base = $templateThen; Reason = $(if ($base) { 'changed in both the template and this repository' } else { 'differs from the template (no base to compare)' }) }
     }
 }
 
@@ -290,6 +301,7 @@ foreach ($s in $safe)
     }
     Write-Host "  applied  $($s.Path)" -ForegroundColor Green
 }
+$mergedClean = 0; $mergedConflict = 0
 foreach ($r in $review)
 {
     $sidecar = "$($r.Path).template"
@@ -299,9 +311,42 @@ foreach ($r in $review)
         Write-Host "  kept     $sidecar (already exists - finish or delete it, then re-run)" -ForegroundColor Yellow
         continue
     }
+    if ($Merge -and $r.PSObject.Properties['Base'] -and $null -ne $r.Base)
+    {
+        # Three-way merge: ours = local, base = template at the stamp, theirs = template now.
+        # git merge-file exits with the number of conflicts (0 = clean), negative on error.
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("upgrade-merge-" + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $tmp | Out-Null
+        try
+        {
+            $ours = Join-Path $tmp 'ours'; $baseFile = Join-Path $tmp 'base'; $theirs = Join-Path $tmp 'theirs'
+            [System.IO.File]::WriteAllText($ours, ([System.IO.File]::ReadAllText($r.Path) -replace "`r`n", "`n"))
+            [System.IO.File]::WriteAllText($baseFile, $r.Base + "`n")
+            [System.IO.File]::WriteAllText($theirs, $r.Content + "`n")
+            $merged = & git merge-file -p -L "this repository" -L "template $($base.Substring(0, 7))" -L "template $($head.Substring(0, 7))" $ours $baseFile $theirs 2>&1
+            $conflicts = $LASTEXITCODE
+            if ($conflicts -lt 0) { throw "git merge-file failed for $($r.Path): $($merged -join ' ')" }
+            $text = ($merged -join "`n") + "`n"
+            if ($conflicts -eq 0)
+            {
+                Set-Content -Path $r.Path -Value $text -Encoding utf8NoBOM -NoNewline
+                Write-Host "  merged   $($r.Path) (three-way, no conflicts)" -ForegroundColor Green
+                $mergedClean++
+            }
+            else
+            {
+                Set-Content -Path $sidecar -Value $text -Encoding utf8NoBOM -NoNewline
+                Write-Host "  conflict $sidecar ($conflicts conflicting hunk(s) marked; resolve, then move over $($r.Path))" -ForegroundColor Yellow
+                $mergedConflict++
+            }
+        }
+        finally { Remove-Item -Path $tmp -Recurse -Force -ErrorAction SilentlyContinue }
+        continue
+    }
     Set-Content -Path $sidecar -Value ($r.Content + "`n") -Encoding utf8NoBOM -NoNewline
     Write-Host "  sidecar  $sidecar" -ForegroundColor Yellow
 }
+if ($Merge) { Write-Host "  three-way merge: $mergedClean clean, $mergedConflict with conflicts" -ForegroundColor $(if ($mergedConflict) { 'Yellow' } else { 'Green' }) }
 foreach ($d in $removed)
 {
     if ($d.Safe) { Remove-Item -Path $d.Path -Force; Write-Host "  removed  $($d.Path)" -ForegroundColor Green }
@@ -318,4 +363,5 @@ $newStamp = [ordered]@{
 $newStamp | ConvertTo-Json | Set-Content -Path $stampPath -Encoding utf8NoBOM
 Write-Host ''
 Write-Host "Stamped $stampPath at $($head.Substring(0, 7)). Review the diff, resolve any *.template sidecars, and open a PR." -ForegroundColor Cyan
-if ($review.Count -gt 0) { Write-Host 'Delete each .template sidecar once merged; do not commit them.' -ForegroundColor Yellow }
+if ($review.Count -gt 0 -and -not $Merge) { Write-Host 'Delete each .template sidecar once merged; do not commit them.' -ForegroundColor Yellow }
+if ($Merge -and $mergedConflict -gt 0) { Write-Host 'Resolve the <<<<<<< hunks in each .template sidecar, move it over the file, delete the sidecar; do not commit sidecars.' -ForegroundColor Yellow }
