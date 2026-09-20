@@ -1,0 +1,58 @@
+name: "🔗 Upstream gap (from a consuming product)"
+description: "A consuming product (e.g. Wolfgang.Wms) needs something this library lacks; fix it here, not with a workaround there"
+title: "[Upstream] <what the library should do>"
+labels: [enhancement, upstream-gap]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## A product hit a gap in this library
+
+        Products built on the Chris-Wolfgang libraries raise library gaps **here** instead of accumulating
+        workarounds. Quote the product story so the two stay linked: the product story lists this issue under
+        "Depends on", and this issue links back to the story.
+  - type: input
+    id: story
+    attributes:
+      label: Product story
+      description: The story ID and issue link in the consuming repository, e.g. `Chris-Wolfgang/wms#123 (E27.3)`.
+      placeholder: Chris-Wolfgang/wms#123 (E27.3)
+    validations:
+      required: true
+  - type: textarea
+    id: gap
+    attributes:
+      label: What the product needs
+      description: The behaviour or API the story requires and what the library does today instead. Include the call the product would like to write.
+      placeholder: |
+        The story needs …
+        Today the library …
+        The product would call …
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround in the product (if any)
+      description: What the product does meanwhile, so the workaround can be deleted when this ships. "None, the story is blocked" is a valid answer.
+    validations:
+      required: true
+  - type: dropdown
+    id: compatibility
+    attributes:
+      label: Expected compatibility impact on this library
+      options:
+        - Additive (new API, no existing behaviour changes)
+        - Behaviour change behind an option (default unchanged)
+        - Breaking (needs a major/minor per this library's policy)
+        - Unknown
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Versions in use, related issues, links to the product's design notes.
+    validations:
+      required: false
