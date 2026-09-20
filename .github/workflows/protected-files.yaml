@@ -7,7 +7,7 @@
 #   - protected files + anything else -> FAIL, and nothing can bypass it: split the PR
 # "Protected" is every file that shapes what CI checks: the workflows, analyzer config,
 # build props, coverage config, the gitleaks config, the CI tool manifest, the
-# license-audit policy and the CI scripts pr.yaml runs.
+# license-audit policy and the CI scripts pr.yaml and license-audit.yaml run.
 # Because pr.yaml runs on the PR's own copies of those files, a mixed PR would otherwise
 # be able to weaken a gate and pass it in the same change.
 name: Protected Files
@@ -50,7 +50,7 @@ jobs:
           protected=(); other=()
           for file in "${all_changed[@]}"; do
             case "$file" in
-              .editorconfig|Directory.Build.props|Directory.Build.targets|BannedSymbols.txt|coverlet.runsettings|.config/dotnet-tools.json|.gitleaks.toml|scripts/changelog.ps1|scripts/tfm-parity.ps1|scripts/build-pr.ps1) protected+=("$file") ;;
+              .editorconfig|Directory.Build.props|Directory.Build.targets|BannedSymbols.txt|coverlet.runsettings|.config/dotnet-tools.json|.gitleaks.toml|scripts/changelog.ps1|scripts/tfm-parity.ps1|scripts/build-pr.ps1|scripts/third-party-notices.ps1) protected+=("$file") ;;
               *)
                 # -i: Windows (and ReSharper on it) resolve names case-insensitively, so
                 # foo.dotsettings is as live as foo.DotSettings. The license-audit policy

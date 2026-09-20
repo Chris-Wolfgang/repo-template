@@ -515,9 +515,11 @@ jobs:
             # and TFMs inherited from Directory.Build.props — all of which break grep-based parsing.
             # Falls back from <TargetFrameworks> (multiple) to <TargetFramework> (single).
             # Evaluate first, filter second. A failed evaluation (broken csproj, missing SDK)
-            # must fail the step; an empty <TargetFrameworks> on a single-TFM project (grep -v
-            # exits 1 under pipefail) must fall through to <TargetFramework>. The `|| true`
-            # therefore covers only the text filter, never the msbuild call.
+            # must fail the step. A single-TFM project sets <TargetFramework>, not
+            # <TargetFrameworks>, so the first query legitimately prints nothing; grep -v then
+            # selects no lines and exits 1, which under this step's `bash -eo pipefail` would
+            # kill the step before the <TargetFramework> fallback runs. The `|| true` therefore
+            # covers only the text filter, never the msbuild call.
             if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
               echo "::error file=$proj::MSBuild evaluation of TargetFrameworks failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
             fi
@@ -614,9 +616,11 @@ jobs:
             # and Directory.Build.props inheritance — both break grep-based parsing).
             # Falls back from <TargetFrameworks> (multiple) to <TargetFramework> (single).
             # Evaluate first, filter second. A failed evaluation (broken csproj, missing SDK)
-            # must fail the step; an empty <TargetFrameworks> on a single-TFM project (grep -v
-            # exits 1 under pipefail) must fall through to <TargetFramework>. The `|| true`
-            # therefore covers only the text filter, never the msbuild call.
+            # must fail the step. A single-TFM project sets <TargetFramework>, not
+            # <TargetFrameworks>, so the first query legitimately prints nothing; grep -v then
+            # selects no lines and exits 1, which under this step's `bash -eo pipefail` would
+            # kill the step before the <TargetFramework> fallback runs. The `|| true` therefore
+            # covers only the text filter, never the msbuild call.
             if ! tfm_out=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
               echo "::error file=$test_proj::MSBuild evaluation of TargetFrameworks failed for $test_proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
             fi
@@ -1304,9 +1308,11 @@ jobs:
             # and Directory.Build.props inheritance). Filter to .NET 6+ for macOS ARM64 compatibility.
             # Falls back from <TargetFrameworks> (multiple) to <TargetFramework> (single).
             # Evaluate first, filter second. A failed evaluation (broken csproj, missing SDK)
-            # must fail the step; an empty <TargetFrameworks> on a single-TFM project (grep -v
-            # exits 1 under pipefail) must fall through to <TargetFramework>. The `|| true`
-            # therefore covers only the text filter, never the msbuild call.
+            # must fail the step. A single-TFM project sets <TargetFramework>, not
+            # <TargetFrameworks>, so the first query legitimately prints nothing; grep -v then
+            # selects no lines and exits 1, which under this step's `bash -eo pipefail` would
+            # kill the step before the <TargetFramework> fallback runs. The `|| true` therefore
+            # covers only the text filter, never the msbuild call.
             if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
               echo "::error file=$proj::MSBuild evaluation of TargetFrameworks failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
             fi
@@ -1402,9 +1408,11 @@ jobs:
             # and Directory.Build.props inheritance). Filter to .NET 6+ for macOS ARM64 compatibility.
             # Falls back from <TargetFrameworks> (multiple) to <TargetFramework> (single).
             # Evaluate first, filter second. A failed evaluation (broken csproj, missing SDK)
-            # must fail the step; an empty <TargetFrameworks> on a single-TFM project (grep -v
-            # exits 1 under pipefail) must fall through to <TargetFramework>. The `|| true`
-            # therefore covers only the text filter, never the msbuild call.
+            # must fail the step. A single-TFM project sets <TargetFramework>, not
+            # <TargetFrameworks>, so the first query legitimately prints nothing; grep -v then
+            # selects no lines and exits 1, which under this step's `bash -eo pipefail` would
+            # kill the step before the <TargetFramework> fallback runs. The `|| true` therefore
+            # covers only the text filter, never the msbuild call.
             if ! tfm_out=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
               echo "::error file=$test_proj::MSBuild evaluation of TargetFrameworks failed for $test_proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
             fi
