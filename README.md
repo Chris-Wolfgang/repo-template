@@ -141,7 +141,7 @@ Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn
 - **scorecard.yaml** - OpenSSF Scorecard (weekly)
 - **semgrep.yaml**, **license-audit.yaml**, **sbom.yaml**, **sourcelink.yaml** - SAST, license allow-list, SBOM, SourceLink verification
 - **security-alerts.yml** - nightly alert → issue triage
-- **stryker.yaml** - mutation testing (weekly); **benchmarks.yaml** - BenchmarkDotNet results to gh-pages; **build-all-versions.yaml**
+- **stryker.yaml** - mutation testing: PR gate on `src/` changes when a `stryker-config.json` sets `thresholds.break`, weekly trend chart on gh-pages `/dev/stryker`, one rolling survivors issue; **benchmarks.yaml** - BenchmarkDotNet results to gh-pages; **build-all-versions.yaml**
 - **Dependabot** for NuGet, GitHub Actions and the pinned pip tooling, grouped, labelled `dependencies`
 - **PR template** with comprehensive checklists; **issue templates** including the maintenance-task form
 
