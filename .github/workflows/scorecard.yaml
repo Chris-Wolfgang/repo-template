@@ -56,10 +56,11 @@ jobs:
       # TokenPermissionsID, gitHubAction pins, ...) still fires.
       #
       # Suppressed whole rules:
-      #   DangerousWorkflowID  — pr.yaml deliberately uses pull_request_target +
-      #                          refs/pull/N/head so the workflow and the
-      #                          protected config files come from main; see the
-      #                          SECURITY NOTE header in pr.yaml.
+      #   (DangerousWorkflowID is NOT suppressed: pr.yaml runs on pull_request
+      #                          and the only pull_request_target workflow,
+      #                          protected-files.yaml, never checks out PR code
+      #                          - so the finding is fixed, and a regression to
+      #                          the old shape must fire.)
       #   CodeReviewID         — solo-maintainer repository; requiring a second
       #                          approver would force admin-bypass on every PR.
       #   CIIBestPracticesID   — bestpractices.dev badge is an external
@@ -98,7 +99,7 @@ jobs:
       - name: Filter suppressed findings from SARIF
         shell: bash
         env:
-          SUPPRESSED_RULES: 'DangerousWorkflowID CodeReviewID CIIBestPracticesID'
+          SUPPRESSED_RULES: 'CodeReviewID CIIBestPracticesID'
           # PinnedDependenciesID message substrings suppressed everywhere, but
           # only when the finding's snippet is a restore command (see the
           # comment block above).
