@@ -149,6 +149,25 @@ if (-not $SkipTests -and $failed.Count -eq 0) {
                 continue
             }
 
+            # Only projects that really run tests: an AOT smoke executable or a
+            # fixture under tests/ has nothing for the test adapter to execute and
+            # would trip the zero-tests guard below. IsTestProject comes from
+            # Microsoft.NET.Test.Sdk's props, imported per TFM after restore, so
+            # check it per framework and fall back to the PackageReference itself
+            # (mirrors scripts/tfm-parity.ps1).
+            $isTestProject = $false
+            foreach ($fw in $frameworks) {
+                $isTest = (dotnet msbuild $testProj.FullName -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:IsTestProject 2>$null |
+                    Where-Object { $_ -and "$_".Trim() } | Select-Object -Last 1)
+                if (("$isTest" -replace '^IsTestProject[=:]\s*', '').Trim() -ieq 'true') { $isTestProject = $true; break }
+                $refs = (dotnet msbuild $testProj.FullName -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getItem:PackageReference 2>$null | Out-String)
+                if ($refs.Trim() -and ((ConvertFrom-Json $refs).Items.PackageReference | Where-Object { $_.Identity -ieq 'Microsoft.NET.Test.Sdk' })) { $isTestProject = $true; break }
+            }
+            if (-not $isTestProject) {
+                Write-Host "  Not a test project (no IsTestProject / Microsoft.NET.Test.Sdk) — skipping dotnet test" -ForegroundColor Yellow
+                continue
+            }
+
             Write-Host "  Frameworks: $($frameworks -join ', ')"
 
             foreach ($fw in $frameworks) {
