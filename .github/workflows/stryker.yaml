@@ -1,25 +1,43 @@
 # Stryker mutation testing
 #
-# Mutation testing is canonical for every repo created from this template.
-# The workflow runs Stryker.NET against every test project under tests/ on
-# a Windows runner so it can compile every TFM the repo targets - including
-# .NET Framework 4.6.2-4.8.1, which a Linux runner cannot build.
+# Mutation testing is canonical for every repo created from this template. The
+# stryker-config.json `thresholds.break` value is the documented floor: `dotnet stryker`
+# exits non-zero when the score drops below it, so a run is an enforced gate, not just
+# a report. Ratchet the floor UP over time; never down.
 #
 # Triggers:
-# - workflow_dispatch: manual ad-hoc runs (e.g. while iterating on tests)
-# - schedule (weekly Sunday 06:00 UTC): catch quality regressions between
-#   releases without burning CI time on every PR (mutation testing is slow)
+# - pull_request touching src/** or test code: gates a PR that would drop the score
+#   below the floor BEFORE merge. Mutation runs are slow, so docs/workflow-only PRs
+#   skip it, and a repo with no stryker-config.json (no floor to enforce) skips the
+#   PR gate entirely - add a config with `thresholds.break` to opt in.
+#   NEVER make this a required status check: a path-filtered workflow that does not
+#   run leaves the check "Expected" forever (repository baseline, required checks).
+# - schedule (weekly Sunday 06:00 UTC) + workflow_dispatch: full runs that also
+#   publish the score-history chart to gh-pages /dev/stryker and keep the single
+#   `kind:mutation-survives` tracking issue current.
 #
-# Stryker discovers each test project's mutation targets via the standard
-# project-reference graph. Two configuration modes are supported:
-# - Root stryker-config.json (umbrella): if present, runs Stryker once with
-#   the umbrella config and skips per-project runs (avoids duplicate work).
-# - Per-project stryker-config.json (or none): if no root config exists, runs
-#   Stryker once per test project; per-project configs override Stryker's
-#   defaults when present.
+# Configuration discovery - every config found is run, none is skipped:
+# - Root stryker-config.json (umbrella) AND every tests/**/stryker-config.json.
+#   A repo can have both (an umbrella for the main library plus per-suite configs).
+# - No config anywhere: on schedule/dispatch, Stryker runs once per test project
+#   under tests/ with its defaults (report only, no floor); on pull_request the run
+#   is skipped.
+#
+# Runner: windows-latest so Stryker can compile every TFM the repo targets, including
+# .NET Framework 4.6.2-4.8.1, which a Linux runner cannot build. When every config
+# pins a modern `target-framework` (net5.0+ / netcoreapp), nothing needs Windows and
+# the run moves to ubuntu-latest, which is faster and cheaper.
 name: Stryker (mutation testing)
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'tests/**/*.cs'
+      - '**/stryker-config.json'
+      - '.github/workflows/stryker.yaml'
   workflow_dispatch:
   schedule:
     - cron: '0 6 * * 0' # weekly Sunday 06:00 UTC
@@ -28,19 +46,84 @@ permissions:
   contents: read
 
 jobs:
+  detect:
+    name: Detect Stryker configuration
+    runs-on: ubuntu-latest
+    # Skip on the template repo itself - it has no test projects, so the workflow
+    # would just no-op every Sunday, wasting a runner allocation.
+    if: github.repository != 'Chris-Wolfgang/repo-template'
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.detect.outputs.run }}
+      runner: ${{ steps.detect.outputs.runner }}
+      mode: ${{ steps.detect.outputs.mode }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Find stryker-config.json files and pick the runner
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Explicit existence checks rather than relying on nullglob: the bare
+          # literal `stryker-config.json` has no glob characters, so nullglob would
+          # keep it as a word even when the file does not exist.
+          shopt -s globstar nullglob
+          configs=()
+          [ -f stryker-config.json ] && configs+=(stryker-config.json)
+          for cfg in tests/**/stryker-config.json; do
+            [ -f "$cfg" ] && configs+=("$cfg")
+          done
+
+          if (( ${#configs[@]} )); then
+            echo "Found ${#configs[@]} stryker-config.json file(s):"
+            printf '  %s\n' "${configs[@]}"
+            mode=configs; run=true
+            # Linux only when every config pins a TFM a Linux runner can build.
+            runner=ubuntu-latest
+            for cfg in "${configs[@]}"; do
+              tfm=$(jq -r '.["stryker-config"]["target-framework"] // ""' "$cfg")
+              if ! printf '%s' "$tfm" | grep -qE '^(net([5-9]|[1-9][0-9])\.[0-9]+|netcoreapp[0-9.]+)$'; then
+                echo "  $cfg: target-framework '${tfm:-<unset>}' needs Windows (Framework TFMs, or unpinned = every TFM)"
+                runner=windows-latest
+              fi
+            done
+            echo "Runner: $runner"
+          elif [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "::notice::No stryker-config.json found - no floor to enforce, skipping the PR gate. Add one at the repo root or under tests/<project>/ (with thresholds.break) to enable it."
+            mode=none; run=false; runner=ubuntu-latest
+          else
+            tests=(tests/**/*Test*.csproj)
+            if (( ${#tests[@]} )); then
+              echo "No stryker-config.json - Stryker will run once per test project (${#tests[@]}) with its defaults."
+              mode=projects; run=true
+            else
+              echo "::notice::No stryker-config.json and no test projects under tests/ - nothing to mutate."
+              mode=none; run=false
+            fi
+            # Defaults mutate every TFM the test projects target, so Windows.
+            runner=windows-latest
+          fi
+          {
+            echo "mode=$mode"
+            echo "run=$run"
+            echo "runner=$runner"
+          } >> "$GITHUB_OUTPUT"
+
   stryker:
     name: Run Stryker
-    # Windows runner so Stryker can compile every TFM the repo targets,
-    # including .NET Framework 4.6.2-4.8.1. Linux runners cannot build
-    # net4x, so they would silently mutate only the non-Framework TFMs
-    # and miss bugs that only reproduce on Framework.
-    runs-on: windows-latest
-    # Skip on the template repo itself - it has no test projects, so the
-    # workflow would just no-op every Sunday at 06:00 UTC, wasting a
-    # Windows runner allocation. Matches the same-pattern guard used by
-    # the .NET test-stage jobs in pr.yaml.
-    if: github.repository != 'Chris-Wolfgang/repo-template'
+    needs: detect
+    if: needs.detect.outputs.run == 'true'
+    runs-on: ${{ needs.detect.outputs.runner }}
     timeout-minutes: 120
+    permissions:
+      contents: write   # publish the score-history chart to gh-pages (non-PR runs only)
+      issues: write     # upsert the single survivors tracking issue (non-PR runs only)
     steps:
       - name: Check out repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -48,10 +131,10 @@ jobs:
           persist-credentials: false
 
       - name: Setup .NET
-        # Install every SDK in the canonical test matrix (.NET Core 3.1
-        # through .NET 10.0). Stryker has to be able to build whichever
-        # TFM each test project targets; pinning to a subset would
-        # silently fail repos that target older runtimes.
+        # Install every SDK in the canonical test matrix (.NET Core 3.1 through
+        # .NET 10.0). Stryker has to be able to build whichever TFM each test
+        # project targets; pinning to a subset would silently fail repos that
+        # target older runtimes.
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
         with:
           dotnet-version: |
@@ -64,66 +147,169 @@ jobs:
             10.0.x
 
       - name: Restore CI tools (dotnet-stryker)
-        shell: pwsh
-        # Pinned in .config/dotnet-tools.json; never installed unversioned.
+        # Pinned in .config/dotnet-tools.json; never installed unversioned. The
+        # mutation score and the gate must be reproducible, and a floating Stryker
+        # can change instrumentation or break on an analyzer/Roslyn bump.
+        shell: bash
         run: dotnet tool restore
 
       - name: Run Stryker
-        shell: pwsh
+        id: run
+        env:
+          MODE: ${{ needs.detect.outputs.mode }}
+        shell: bash
         run: |
-          # Configuration mode resolution:
-          #   1. If a root stryker-config.json exists, it is the umbrella -
-          #      run Stryker once with it and stop (per-project runs would
-          #      duplicate the same work the umbrella already covers).
-          #   2. Otherwise, run Stryker against every test project under
-          #      tests/. A per-project stryker-config.json next to a test
-          #      project overrides Stryker's defaults when present.
-
-          $failed = 0
-
-          if (Test-Path 'stryker-config.json') {
-            Write-Host "::group::Stryker with root umbrella stryker-config.json"
-            dotnet stryker --config-file stryker-config.json
-            if ($LASTEXITCODE -ne 0) { $failed++ }
-            Write-Host "::endgroup::"
-          }
-          else {
-            $tests = @(Get-ChildItem -Path tests -Recurse -Filter '*Test*.csproj' -ErrorAction SilentlyContinue)
-
-            if ($tests.Count -eq 0) {
-              Write-Host "::notice::No test projects found under tests/ - skipping Stryker run."
-              exit 0
-            }
-
-            Write-Host "Found $($tests.Count) test project(s):"
-            $tests | ForEach-Object { Write-Host "  $($_.FullName)" }
-            Write-Host ""
-
-            foreach ($proj in $tests) {
-              $dir = $proj.DirectoryName
-              Write-Host "::group::Stryker in $dir"
-              Push-Location $dir
-              try {
-                dotnet stryker
-                if ($LASTEXITCODE -ne 0) { $failed++ }
-              } finally {
-                Pop-Location
-              }
-              Write-Host "::endgroup::"
-            }
+          # pipefail so the gate is preserved: `dotnet stryker` exits non-zero when the
+          # score is below the config's `break` floor, and `| tee` must NOT mask that.
+          # Each run gets its own log; the next step parses one score per run.
+          set -uo pipefail
+          shopt -s globstar nullglob
+          mkdir -p "$GITHUB_WORKSPACE/stryker-logs"
+          failed=0; n=0
+          run_one() {  # $1 = label, $2 = directory, $3.. = extra args
+            local label="$1" dir="$2"; shift 2
+            n=$((n + 1))
+            local log="$GITHUB_WORKSPACE/stryker-logs/$n.log"
+            echo "$label" > "$GITHUB_WORKSPACE/stryker-logs/$n.label"
+            echo "::group::Stryker: $label"
+            if ! (cd "$dir" && dotnet stryker "$@" 2>&1 | tee "$log"); then
+              echo "::error::Stryker run '$label' failed (score below the configured break floor, or the run itself failed)"
+              failed=$((failed + 1))
+            fi
+            echo "::endgroup::"
           }
 
-          if ($failed -gt 0) {
-            Write-Host "::error::$failed Stryker run(s) failed"
+          if [ "$MODE" = "configs" ]; then
+            # Root umbrella AND every per-suite config: running only one leaves the
+            # other's suites unscanned in repos that have both.
+            if [ -f stryker-config.json ]; then
+              run_one "root stryker-config.json" . --config-file stryker-config.json
+            fi
+            for cfg in tests/**/stryker-config.json; do
+              run_one "$(dirname "$cfg")" "$(dirname "$cfg")"
+            done
+          else
+            for proj in tests/**/*Test*.csproj; do
+              run_one "$(dirname "$proj") (defaults)" "$(dirname "$proj")"
+            done
+          fi
+
+          echo "runs=$n" >> "$GITHUB_OUTPUT"
+          if [ "$n" -eq 0 ]; then
+            echo "::error::Detect said there was something to run, but nothing was found. Bailing."
             exit 1
-          }
+          fi
+          if [ "$failed" -gt 0 ]; then
+            echo "::error::$failed of $n Stryker run(s) failed"
+            exit 1
+          fi
+
+      - name: Extract mutation scores
+        id: score
+        # always(): publish/track even when the gate FAILED - a low score is exactly
+        # when the trend and the survivor list matter most.
+        if: always() && steps.run.outputs.runs != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Stryker prints e.g. "The final mutation score is 74.40 %". One chart
+          # series per run, named after the config, so an umbrella and a per-suite
+          # config each keep their own trend line.
+          entries=()
+          lowest=""
+          for log in "$GITHUB_WORKSPACE"/stryker-logs/*.log; do
+            label=$(cat "${log%.log}.label")
+            score=$(grep -oE 'final mutation score is [0-9]+(\.[0-9]+)?' "$log" | grep -oE '[0-9]+(\.[0-9]+)?' | tail -1 || true)
+            if [ -z "$score" ]; then
+              echo "::warning::Could not parse a mutation score for '$label'."
+              score=0
+            fi
+            echo "$label: ${score} %"
+            name="Mutation score"
+            [ "$label" != "root stryker-config.json" ] && name="Mutation score ($label)"
+            entries+=("$(jq -cn --arg n "$name" --argjson v "$score" '{name:$n,unit:"%",value:$v}')")
+            if [ -z "$lowest" ] || [ "$(printf '%s\n%s\n' "$score" "$lowest" | sort -g | head -1)" = "$score" ]; then lowest="$score"; fi
+          done
+          printf '%s\n' "${entries[@]}" | jq -s . > mutation-score.json
+          echo "score=$lowest" >> "$GITHUB_OUTPUT"
+
+      - name: Publish mutation-score history to gh-pages
+        # Trend chart under gh-pages /dev/stryker (same action and pin as the BDN
+        # benchmark charts). Non-PR only: one data point per scheduled/manual run.
+        if: always() && steps.run.outputs.runs != '' && github.event_name != 'pull_request'
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc  # v1.22.2
+        with:
+          name: Mutation score
+          tool: 'customBiggerIsBetter'
+          output-file-path: mutation-score.json
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/stryker
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          summary-always: true
+          # The `break` floor is the enforced gate; the chart is trend visibility
+          # and must not double-fail the run.
+          fail-on-alert: false
+
+      - name: Track surviving mutants
+        # Writes the survivor worklist to the run summary and keeps ONE rolling
+        # `kind:mutation-survives` issue up to date (deliberately not one issue per
+        # survivor - there are dozens). Best-effort: never fails the run.
+        if: always() && steps.run.outputs.runs != '' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STRYKER_SCORE: ${{ steps.score.outputs.score }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          shopt -s globstar nullglob
+          reports=(**/StrykerOutput/**/reports/mutation-report.json)
+          if (( ${#reports[@]} == 0 )); then
+            echo "::warning::No mutation-report.json found; skipping survivor tracking."
+            exit 0
+          fi
+          # Every report of this run; a repo with several configs produces one
+          # report per config.
+          survivors=$(for report in "${reports[@]}"; do
+            jq -r '.files | to_entries[] | .key as $f | .value.mutants[]?
+                   | select(.status=="Survived")
+                   | "- `\($f):\(.location.start.line)` - \(.mutatorName)"' "$report"
+          done | sort -u)
+          count=$(printf '%s\n' "$survivors" | grep -c '^- ' || true)
+          floors=$(for cfg in stryker-config.json tests/**/stryker-config.json; do
+            [ -f "$cfg" ] && jq -r --arg c "$cfg" '"\($c): \(.["stryker-config"].thresholds.break // "none")"' "$cfg"
+          done | paste -sd ';' - || true)
+          score="$STRYKER_SCORE"
+
+          {
+            echo "## Surviving mutants: ${count}"
+            echo ""
+            echo "Lowest mutation score this run: **${score} %** (break floor: ${floors:-none}). Kill these to raise it:"
+            echo ""
+            printf '%s\n' "$survivors"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          gh label create "kind:mutation-survives" --repo "$GITHUB_REPOSITORY" \
+            --color BFD4F2 --description "A mutant survived - a test gap to close" 2>/dev/null || true
+          title="Mutation survivors (${count}) - kill these to raise the score"
+          body=$(printf '_Auto-updated by the Stryker workflow (run %s). Lowest mutation score **%s %%** (break floor: %s)._\n\n%s\n' \
+                   "$GITHUB_RUN_ID" "$score" "${floors:-none}" "$survivors")
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "kind:mutation-survives" \
+                       --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body" || true
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body" \
+              --label "kind:mutation-survives" || true
+          fi
 
       - name: Upload Stryker report
-        if: always()
+        if: always() && steps.run.outputs.runs != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: stryker-report-${{ github.run_id }}
           path: |
             **/StrykerOutput/**
+            stryker-logs/
           if-no-files-found: ignore
           retention-days: 30
