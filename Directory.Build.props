@@ -91,7 +91,7 @@
          Library projects under src/ should opt in; test / example /
          benchmark projects should not. Per-repo enablement is tracked as a
          follow-up maintenance issue. -->
-    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4" Condition="Exists('PublicAPI.Shipped.txt') or Exists('PublicAPI.Unshipped.txt')">
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" Condition="Exists('PublicAPI.Shipped.txt') or Exists('PublicAPI.Unshipped.txt')">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
