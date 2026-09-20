@@ -991,6 +991,27 @@ jobs:
               continue
             fi
             
+            # Only projects that really run tests: an AOT smoke executable or a fixture
+            # under tests/ has nothing for the adapter to execute and would trip the
+            # zero-tests guard below. IsTestProject comes from Microsoft.NET.Test.Sdk's
+            # props (imported per TFM after restore); fall back to the PackageReference
+            # itself. Mirrors scripts/build-pr.ps1 and scripts/tfm-parity.ps1.
+            is_test_project=false
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
+              if dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:IsTestProject 2>/dev/null | grep -qi '^true$'; then
+                is_test_project=true; break
+              fi
+              if dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getItem:PackageReference 2>/dev/null | grep -qi '"Identity": *"Microsoft.NET.Test.Sdk"'; then
+                is_test_project=true; break
+              fi
+            done <<< "$frameworks"
+            if [ "$is_test_project" = false ]; then
+              echo "⊘ Skipping: not a test project (no IsTestProject / Microsoft.NET.Test.Sdk)"
+              echo ""
+              continue
+            fi
+
             echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
             echo ""
             
@@ -1421,6 +1442,22 @@ jobs:
               continue
             }
             
+            # Only projects that really run tests (see the Linux stage): IsTestProject
+            # per TFM, falling back to the Microsoft.NET.Test.Sdk PackageReference.
+            $isTestProject = $false
+            foreach ($fw in $frameworks) {
+              $isTest = (dotnet msbuild $testProj.FullName -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:IsTestProject 2>$null |
+                Where-Object { $_ -and "$_".Trim() } | Select-Object -Last 1)
+              if (("$isTest" -replace '^IsTestProject[=:]\s*', '').Trim() -ieq 'true') { $isTestProject = $true; break }
+              $refs = (dotnet msbuild $testProj.FullName -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getItem:PackageReference 2>$null | Out-String)
+              if ($refs.Trim() -and ((ConvertFrom-Json $refs).Items.PackageReference | Where-Object { $_.Identity -ieq 'Microsoft.NET.Test.Sdk' })) { $isTestProject = $true; break }
+            }
+            if (-not $isTestProject) {
+              Write-Host "⊘ Skipping: not a test project (no IsTestProject / Microsoft.NET.Test.Sdk)" -ForegroundColor Yellow
+              Write-Host ""
+              continue
+            }
+
             Write-Host "Target frameworks: $($frameworks -join ', ')" -ForegroundColor White
             Write-Host ""
             
@@ -1899,6 +1936,27 @@ jobs:
               continue
             fi
             
+            # Only projects that really run tests: an AOT smoke executable or a fixture
+            # under tests/ has nothing for the adapter to execute and would trip the
+            # zero-tests guard below. IsTestProject comes from Microsoft.NET.Test.Sdk's
+            # props (imported per TFM after restore); fall back to the PackageReference
+            # itself. Mirrors scripts/build-pr.ps1 and scripts/tfm-parity.ps1.
+            is_test_project=false
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
+              if dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:IsTestProject 2>/dev/null | grep -qi '^true$'; then
+                is_test_project=true; break
+              fi
+              if dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getItem:PackageReference 2>/dev/null | grep -qi '"Identity": *"Microsoft.NET.Test.Sdk"'; then
+                is_test_project=true; break
+              fi
+            done <<< "$frameworks"
+            if [ "$is_test_project" = false ]; then
+              echo "⊘ Skipping: not a test project (no IsTestProject / Microsoft.NET.Test.Sdk)"
+              echo ""
+              continue
+            fi
+
             echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
             echo ""
             
