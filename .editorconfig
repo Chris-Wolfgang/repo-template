@@ -363,6 +363,15 @@ dotnet_diagnostic.CA2007.severity = warning  # .NET Analyzer: Use ConfigureAwait
 dotnet_diagnostic.MA0004.severity = suggestion  # Meziantou: Use ConfigureAwait
 dotnet_diagnostic.S3216.severity = suggestion   # SonarAnalyzer: ConfigureAwait
 
+# Public API surface is tracked in PublicAPI.Shipped.txt / PublicAPI.Unshipped.txt. The blanket
+# `dotnet_analyzer_diagnostic.severity = suggestion` above silences RS0016 (undeclared public
+# symbol) and RS0037 (public symbol missing nullability annotations) so additions shipped
+# unrecorded for months; RS0017 (declared but missing) already fires. Warning here is an
+# error in Release (TreatWarningsAsErrors), so a new public member fails the build until it is
+# recorded in PublicAPI.Unshipped.txt.
+dotnet_diagnostic.RS0016.severity = warning  # PublicApiAnalyzers: symbol not declared in the public API files
+dotnet_diagnostic.RS0037.severity = warning  # PublicApiAnalyzers: public API entry missing nullability annotation
+
 # Test projects - relaxed naming, no doc requirements
 [tests/**/*.cs]
 # Allow Test_Method_Names_With_Underscores
