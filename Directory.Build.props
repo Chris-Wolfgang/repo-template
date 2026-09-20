@@ -122,6 +122,14 @@
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
+  <ItemGroup Condition="$(_RelativeProjectDir.StartsWith('src/')) and Exists('$(MSBuildProjectDirectory)/obj/THIRD-PARTY-NOTICES.md')">
+    <!-- Third-party attribution: scripts/third-party-notices.ps1 renders the
+         package's transitive NuGet closure to obj/THIRD-PARTY-NOTICES.md
+         (release.yaml runs it between restore and pack) and it ships at the
+         package root. Generated, never committed - nothing to keep in sync. -->
+    <None Include="$(MSBuildProjectDirectory)/obj/THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- SourceLink: embed source provenance into PDBs so debuggers can step
          into NuGet package code from GitHub. Dependabot does not bump this
