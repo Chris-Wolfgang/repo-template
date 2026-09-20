@@ -46,7 +46,7 @@ on:
 - `.config/dotnet-tools.json` — the pinned versions of every CI tool (`dotnet tool restore`); a PR must not be able to redirect which tool code CI executes
 - `.github/license-audit/*.json` — license-audit policy (allow-list, ignored packages, URL mappings, overrides), read by `license-audit.yaml`
 - `.gitleaks.toml` — secrets-scan rules and allowlist
-- `scripts/changelog.ps1`, `scripts/tfm-parity.ps1`, `scripts/build-pr.ps1` — the CI scripts `pr.yaml` runs from the PR's tree
+- `scripts/changelog.ps1`, `scripts/tfm-parity.ps1`, `scripts/build-pr.ps1`, `scripts/third-party-notices.ps1` — the CI scripts `pr.yaml` and `license-audit.yaml` run from the PR's tree
 
 Wildcards are matched case-insensitively (Windows and ReSharper resolve `foo.dotsettings` and `foo.DotSettings` to the same file). Renames count for both the old and the new name; deletions count.
 
