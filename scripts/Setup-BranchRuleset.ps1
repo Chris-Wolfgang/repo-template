@@ -244,6 +244,7 @@ $rulesetConfig = @{
                 # and doesn't run for a PR, GitHub will treat the required check as missing and
                 # block the merge. All required status checks must run on every PR.
                 required_status_checks = @(
+                    @{ context = "Protected Files Guard" },
                     @{ context = "Detect .NET Projects" },
                     @{ context = "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate" },
                     @{ context = "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" },
@@ -335,6 +336,7 @@ try {
             Write-Host "   ✅ No approvals required (single-developer mode)" -ForegroundColor Gray
         }
         Write-Host "   ✅ Required status checks (must pass before merging):" -ForegroundColor Gray
+        Write-Host "      - Protected Files Guard" -ForegroundColor DarkGray
         Write-Host "      - Detect .NET Projects" -ForegroundColor DarkGray
         Write-Host "      - Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate" -ForegroundColor DarkGray
         Write-Host "      - Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" -ForegroundColor DarkGray

@@ -45,10 +45,13 @@ You can contribute in several ways:
 7. **PR Checks:**
    Opening a pull request runs these checks (`.github/workflows/pr.yaml` unless noted):
    - **Secrets Scan (gitleaks)** — the same scan as the pre-commit hook.
-   - **Detect .NET Projects** — also the *protected-file guard*: a PR that changes `.editorconfig`,
-     `Directory.Build.props/.targets`, `BannedSymbols.txt`, `*.globalconfig`, `*.ruleset`, `*.DotSettings`
-     or anything under `.github/workflows/` fails here on purpose and is held for maintainer review
-     (see [docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md)).
+   - **Protected Files Guard** (`protected-files.yaml`) — a PR that changes `.editorconfig`,
+     `Directory.Build.props/.targets`, `BannedSymbols.txt`, `coverlet.runsettings`, `.gitleaks.toml`,
+     `*.globalconfig`, `*.ruleset`, `*.DotSettings`, the CI scripts (`scripts/changelog.ps1`,
+     `tfm-parity.ps1`, `build-pr.ps1`) or anything under `.github/workflows/` **together with other
+     changes** fails here and cannot be bypassed: put those files in a PR of their own, which passes
+     with a notice and is reviewed on its own (see [docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md)).
+   - **Detect .NET Projects** — decides whether the build and test stages run at all.
    - **Changelog Fragment Check** — a PR that touches `src/` must add a fragment (see below).
    - **ReSharper InspectCode** — error-severity findings fail; warnings go to the Security tab.
    - **Stage 1 (Linux), Stage 2 (Windows), Stage 3 (macOS)** — build and test every target framework
@@ -289,7 +292,7 @@ View the complete configuration in [.editorconfig](.editorconfig).
 
 If this repository requires linear history, stacked pull requests are restacked with `scripts/restack.ps1` after each merge — see [docs/STACKED-PRS.md](docs/STACKED-PRS.md).
 
-Changes to protected configuration files (`.editorconfig`, `Directory.Build.props`, workflows, ...) are tested against the `main` versions, not yours, and the PR is held for maintainer review — keep them in their own PR, separate from code that depends on them. See [docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md#making-changes-to-protected-configuration-files).
+Changes to protected configuration files (`.editorconfig`, `Directory.Build.props`, workflows, ...) must be a PR of their own, separate from code that depends on them — mixed PRs fail the protected-files guard and cannot be bypassed; a configuration-only PR runs CI with the new configuration and is reviewed by a maintainer on its own. See [docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md#making-changes-to-protected-configuration-files).
 
 - Ensure your pull request passes all tests and analyzer checks.
 - Respond to review feedback in a timely manner.
