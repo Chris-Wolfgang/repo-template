@@ -392,11 +392,16 @@ function Invoke-RepoAudit
         $missingRules = @($required | Where-Object { $_ -notin $present })
         $linear = if ('required_linear_history' -in $present) { 'linear history on' } else { 'linear history off (advisory)' }
         $rsNames = ($rulesets | ForEach-Object { "'$($_.name)' (#$($_.id))" }) -join ', '
-        # A code_scanning rule requires a CodeQL analysis on the default branch; codeql.yaml
-        # uploads none for a repository without C#, so the rule blocks every PR forever
-        # ("Waiting for Code Scanning results"). Setup-BranchRuleset.ps1 omits it in that case.
-        $deadCodeScanning = (-not $hasCSharp) -and ('code_scanning' -in $present)
-        if ($deadCodeScanning) { $missingRules += 'code_scanning present but no C# source (rule can never be satisfied)' }
+        # A code_scanning rule requires a CodeQL analysis on the default branch or it blocks
+        # every PR forever ("Waiting for Code Scanning results"). codeql.yaml's 'actions' leg
+        # analyses every repository, so an analysis is missing only until the workflow has
+        # run on the branch once (or if it has not been taken). Setup-BranchRuleset.ps1
+        # omits the rule until the analysis exists.
+        if ('code_scanning' -in $present)
+        {
+            $analyses = Invoke-GhApi "repos/$full/code-scanning/analyses?ref=refs/heads/$default&tool_name=CodeQL&per_page=1" -AllowNotFound
+            if ($null -eq $analyses -or @($analyses).Count -eq 0) { $missingRules += 'code_scanning present but no CodeQL analysis on the default branch (rule blocks every PR)' }
+        }
         if ($missingRules.Count -eq 0) { $out.Add((New-Result $name 9 'pass' "$rsNames has all required rules; $linear")) }
         else { $out.Add((New-Result $name 9 'fail' "$rsNames missing rule(s): $($missingRules -join ', '); $linear")) }
 

@@ -26,11 +26,12 @@
     The branch to protect. Default is "main".
 
 .PARAMETER ForceCodeScanningRule
-    Add the CodeQL "code_scanning" rule even when the branch has no C# source. By default the rule is
-    added only when the branch contains *.cs / *.csproj files: codeql.yaml skips the analysis (uploads
-    no SARIF) for a repository without C#, and a code_scanning rule with no analysis on the branch
-    blocks every pull request with "Waiting for Code Scanning results". Re-run the script (or add the
-    rule in Settings > Rules) once the repository gets its first C# project.
+    Add the CodeQL "code_scanning" rule even when the branch has no CodeQL analysis yet. By default the
+    rule is added only when at least one CodeQL analysis exists for the branch: a code_scanning rule
+    with no analysis behind it blocks every pull request with "Waiting for Code Scanning results".
+    codeql.yaml analyses the workflow files ('actions' language) on every repository, so the first
+    push to the branch after the repository is created produces that analysis; on a brand-new
+    repository run this script after that first CodeQL run (or re-run it with just this rule to add).
 
 .PARAMETER RequireLinearHistory
     Also add the "required_linear_history" rule and restrict merges to squash and rebase (no merge
@@ -117,21 +118,22 @@ Write-Host "`n🛡️  Setting up branch protection ruleset for: $Repository" -F
 Write-Host "📌 Protected branch: $BranchName`n" -ForegroundColor Cyan
 
 # The CodeQL code_scanning rule needs at least one CodeQL analysis on the branch or it blocks
-# every PR. codeql.yaml only analyses when the checkout has C# (the same *.cs / *.csproj test),
-# so read the branch tree and add the rule only when that analysis can actually happen.
+# every PR. codeql.yaml's 'actions' leg analyses every repository (C# or not), so the analysis
+# exists once the workflow has run on the branch - check for it rather than guessing from the tree.
 $addCodeScanningRule = $ForceCodeScanningRule.IsPresent
 if (-not $addCodeScanningRule) {
-    Write-Host "🔍 Checking $BranchName for C# source (CodeQL code_scanning rule)..." -ForegroundColor Yellow
-    $treePaths = @(gh api "/repos/$Repository/git/trees/$BranchName?recursive=1" --jq '.tree[].path' 2>$null)
+    Write-Host "🔍 Checking $BranchName for a CodeQL analysis (code_scanning rule)..." -ForegroundColor Yellow
+    $analyses = gh api "/repos/$Repository/code-scanning/analyses?ref=refs/heads/$BranchName&tool_name=CodeQL&per_page=1" --jq 'length' 2>$null
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "❌ Could not read the $BranchName tree of $Repository (does the branch exist?)."
-        exit 1
+        # 404 = code scanning not enabled / no analyses yet; anything else is worth seeing.
+        Write-Host "ℹ️  Could not list CodeQL analyses for $BranchName (code scanning not enabled yet?)" -ForegroundColor Yellow
+        $analyses = 0
     }
-    $addCodeScanningRule = [bool]($treePaths | Where-Object { $_ -match '\.(cs|csproj)$' } | Select-Object -First 1)
+    $addCodeScanningRule = ([int]"$analyses" -gt 0)
     if ($addCodeScanningRule) {
-        Write-Host "✅ C# source found - the CodeQL code_scanning rule will be added" -ForegroundColor Green
+        Write-Host "✅ CodeQL analysis found on $BranchName - the code_scanning rule will be added" -ForegroundColor Green
     } else {
-        Write-Host "ℹ️  No C# source on $BranchName - skipping the CodeQL code_scanning rule (codeql.yaml uploads no analysis without C#, and the rule would block every PR). Re-run with -ForceCodeScanningRule, or add the rule once the first C# project lands." -ForegroundColor Yellow
+        Write-Host "ℹ️  No CodeQL analysis on $BranchName yet - skipping the code_scanning rule (it would block every PR with 'Waiting for Code Scanning results'). Let codeql.yaml run once on $BranchName, then add the rule in Settings > Rules, or re-run with -ForceCodeScanningRule." -ForegroundColor Yellow
     }
 }
 
@@ -269,9 +271,8 @@ $rulesetConfig = @{
         # threshold is exceeded; the underlying CodeQL workflow already runs as
         # a required status check above, so this is the second-tier "results"
         # gate. Without at least one CodeQL analysis on the branch it blocks
-        # every PR ("Waiting for Code Scanning results"), and codeql.yaml only
-        # analyses when the repository has C# - hence the $addCodeScanningRule
-        # gate computed above (override with -ForceCodeScanningRule).
+        # every PR ("Waiting for Code Scanning results") - hence the
+        # $addCodeScanningRule check above (override with -ForceCodeScanningRule).
         $(if ($addCodeScanningRule) { @{
             type = "code_scanning"
             parameters = @{
@@ -352,7 +353,7 @@ try {
         if ($addCodeScanningRule) {
             Write-Host "   ✅ Code scanning: CodeQL alerts gate (errors / high+)" -ForegroundColor Gray
         } else {
-            Write-Host "   ⏭️  Code scanning: CodeQL alerts gate NOT added (no C# source on $BranchName)" -ForegroundColor Yellow
+            Write-Host "   ⏭️  Code scanning: CodeQL alerts gate NOT added (no CodeQL analysis on $BranchName yet)" -ForegroundColor Yellow
         }
         Write-Host "   ✅ Copilot code review: auto-requested on every PR (incl. drafts, on push)" -ForegroundColor Gray
         Write-Host "   ✅ Code quality gate: blocks on analyzer / formatter errors" -ForegroundColor Gray
