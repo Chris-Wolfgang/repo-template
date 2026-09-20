@@ -48,6 +48,7 @@ Ensure the following settings are enabled:
   - **Single developer repos:** 0 approvals (default)
   - **Multi-developer repos:** 1+ approvals (recommended)
 - ✅ **Require status checks to pass before merging**, with these contexts:
+  - "Protected Files Guard"
   - "Detect .NET Projects"
   - "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate"
   - "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)"
