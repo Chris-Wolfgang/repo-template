@@ -22,6 +22,13 @@
     restore produce the same file. nuget-license comes from .config/dotnet-tools.json;
     the script runs `dotnet tool restore` first. Projects must be restored.
 
+    A project whose closure nuget-license rejects (a licence outside the allow-list, or a
+    repository whose licence policy lives in another tool) gets a ::warning and no notices
+    file rather than failing the run: the licence GATE is license-audit.yaml's job, this
+    script only renders attribution, and a missing attribution file must not block a
+    release. -Strict turns those warnings into a non-zero exit (what license-audit.yaml
+    uses on pull requests, so the drift is visible there).
+
 .PARAMETER Project
     One project file to generate for. Default: every *.csproj under src/.
 
@@ -33,6 +40,9 @@
     Directory holding allowed-licenses.json, ignored-packages.json,
     url-license-mappings.json and package-overrides.json. Default: .github/license-audit.
 
+.PARAMETER Strict
+    Exit 1 when nuget-license fails for any project (default: warn and skip that project).
+
 .EXAMPLE
     pwsh ./scripts/third-party-notices.ps1
 
@@ -43,7 +53,8 @@
 param(
     [string]$Project,
     [string]$OutputPath,
-    [string]$PolicyDirectory = '.github/license-audit'
+    [string]$PolicyDirectory = '.github/license-audit',
+    [switch]$Strict
 )
 
 $ErrorActionPreference = 'Stop'
@@ -113,7 +124,8 @@ foreach ($proj in $projects) {
         -override (Join-Path $PolicyDirectory 'package-overrides.json') `
         -o JsonPretty 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "::error file=$($proj.FullName)::nuget-license failed for $name (exit $LASTEXITCODE) - run the license audit first."
+        $level = if ($Strict) { 'error' } else { 'warning' }
+        Write-Host "::${level} file=$($proj.FullName)::nuget-license failed for $name (exit $LASTEXITCODE) - no THIRD-PARTY-NOTICES.md for this project; see the License audit workflow for the licence gate."
         Write-Host ($json -join "`n")
         $failed++
         continue
@@ -166,5 +178,8 @@ foreach ($proj in $projects) {
     Write-Host "   $($rows.Count) package(s) -> $target"
 }
 
-if ($failed) { Write-Host "$failed project(s) failed."; exit 1 }
+if ($failed) {
+    Write-Host "$failed project(s) without notices."
+    if ($Strict) { exit 1 }
+}
 exit 0
