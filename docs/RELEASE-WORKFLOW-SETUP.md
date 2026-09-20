@@ -84,6 +84,7 @@ Ensure the following settings are enabled:
    - Enforces the coverage gates (90 % `src/`, 100 % `tests/`) and uploads the report
 
 2. **pack-and-validate** (2-5 minutes, Windows)
+   - Generates `THIRD-PARTY-NOTICES.md` per src project (`scripts/third-party-notices.ps1`: the package's transitive NuGet closure, build-time-only packages omitted) into `obj/`, which `Directory.Build.props` packs into the package root
    - Packs NuGet packages, smoke-tests installing each one into a scratch project
    - Generates a CycloneDX SBOM (`*.bom.json`) per package
    - Uploads the packages as an artifact; sets `has-packages` for the later jobs
@@ -198,7 +199,8 @@ Before publishing a production GitHub Release (for example `v1.0.0`):
                             ▼ (only if tests pass)
 ┌──────────────────────────────────────────────────────────────┐
 │  pack-and-validate (Windows)                                 │
-│  • Pack NuGet packages • Smoke-test installation             │
+│  • THIRD-PARTY-NOTICES.md • Pack NuGet packages              │
+│  • Smoke-test installation                                   │
 │  • CycloneDX SBOM • Upload package artifact                  │
 └──────────────────────────────────────────────────────────────┘
               │                                  │
