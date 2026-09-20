@@ -53,13 +53,24 @@ jobs:
         run: pip install --require-hashes -r .github/requirements/semgrep.txt
 
       - name: Run Semgrep
+        # --error makes findings exit 1; they are reported through the SARIF upload, so
+        # 0 and 1 both continue. Anything else (bad config, crash, network) fails the job
+        # instead of silently uploading nothing.
         run: |
+          set +e
           semgrep scan \
             --config p/csharp \
             --config p/security-audit \
             --config p/secrets \
             --sarif --output semgrep.sarif \
-            --error || true
+            --error
+          rc=$?
+          set -e
+          case "$rc" in
+            0) echo "semgrep: no findings" ;;
+            1) echo "semgrep: findings reported (see the Security tab after upload)" ;;
+            *) echo "::error::semgrep failed with exit code $rc (not a findings result)"; exit "$rc" ;;
+          esac
 
       - name: Upload Semgrep SARIF
         # A fork's pull_request token cannot write Code Scanning (security-events: write is

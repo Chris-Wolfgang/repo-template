@@ -100,9 +100,10 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Install nuget-license
+      - name: Restore CI tools (nuget-license)
         if: steps.detect.outputs.found == 'true'
-        run: dotnet tool install --global nuget-license
+        # Pinned in .config/dotnet-tools.json; never installed unversioned.
+        run: dotnet tool restore
 
       # Gate: fail if any src project's dependency license is not on the allow-list.
       - name: Restore .NET workloads
@@ -123,7 +124,7 @@ jobs:
           while IFS= read -r proj; do
             echo "== $proj =="
             dotnet restore "$proj"
-            nuget-license -i "$proj" -t \
+            dotnet nuget-license -i "$proj" -t \
               -a .github/license-audit/allowed-licenses.json \
               -ignore .github/license-audit/ignored-packages.json \
               -mapping .github/license-audit/url-license-mappings.json \

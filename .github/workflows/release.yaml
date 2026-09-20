@@ -285,9 +285,11 @@ jobs:
             exit 1
           }
           
-          dotnet tool install -g dotnet-reportgenerator-globaltool
+          # Pinned in .config/dotnet-tools.json at the tag; never installed unversioned.
+          dotnet tool restore
+          if ($LASTEXITCODE -ne 0) { Write-Error "dotnet tool restore failed"; exit 1 }
           
-          reportgenerator `
+          dotnet reportgenerator `
             -reports:"TestResults/**/coverage.cobertura.xml" `
             -targetdir:"CoverageReport" `
             -reporttypes:"TextSummary;Html"
@@ -558,7 +560,9 @@ jobs:
         if: steps.check-packages.outputs.has-packages == 'true'
         shell: pwsh
         run: |
-          dotnet tool install --global CycloneDX
+          # Pinned in .config/dotnet-tools.json at the tag; never installed unversioned.
+          dotnet tool restore
+          if ($LASTEXITCODE -ne 0) { Write-Error "dotnet tool restore failed"; exit 1 }
 
           $sbomDir = Join-Path $PWD 'nuget-packages'
           $srcProjects = Get-ChildItem -Path 'src' -Filter '*.csproj' -Recurse -ErrorAction SilentlyContinue
@@ -661,19 +665,20 @@ jobs:
         if: steps.check.outputs.found == 'true'
         run: dotnet build --no-restore --configuration Release
 
-      - name: Install DocFX
+      - name: Restore CI tools (DocFX)
         if: steps.check.outputs.found == 'true'
         shell: pwsh
-        run: dotnet tool update docfx --global || dotnet tool install docfx --global
+        # Pinned in .config/dotnet-tools.json at the tag; never installed unversioned.
+        run: dotnet tool restore
 
       - name: Build DocFX metadata
         if: steps.check.outputs.found == 'true'
-        run: docfx metadata
+        run: dotnet docfx metadata
         working-directory: docfx_project
 
       - name: Build documentation (no deploy)
         if: steps.check.outputs.found == 'true'
-        run: docfx build
+        run: dotnet docfx build
         working-directory: docfx_project
 
       - name: Verify documentation output
