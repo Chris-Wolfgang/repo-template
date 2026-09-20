@@ -83,8 +83,7 @@ jobs:
           if (( ${#configs[@]} )); then
             echo "Found ${#configs[@]} stryker-config.json file(s):"
             printf '  %s\n' "${configs[@]}"
-            echo "mode=configs" >> "$GITHUB_OUTPUT"
-            echo "run=true" >> "$GITHUB_OUTPUT"
+            mode=configs; run=true
             # Linux only when every config pins a TFM a Linux runner can build.
             runner=ubuntu-latest
             for cfg in "${configs[@]}"; do
@@ -94,27 +93,27 @@ jobs:
                 runner=windows-latest
               fi
             done
-            echo "runner=$runner" >> "$GITHUB_OUTPUT"
             echo "Runner: $runner"
           elif [ "$EVENT_NAME" = "pull_request" ]; then
             echo "::notice::No stryker-config.json found - no floor to enforce, skipping the PR gate. Add one at the repo root or under tests/<project>/ (with thresholds.break) to enable it."
-            echo "mode=none" >> "$GITHUB_OUTPUT"
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "runner=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            mode=none; run=false; runner=ubuntu-latest
           else
             tests=(tests/**/*Test*.csproj)
             if (( ${#tests[@]} )); then
               echo "No stryker-config.json - Stryker will run once per test project (${#tests[@]}) with its defaults."
-              echo "mode=projects" >> "$GITHUB_OUTPUT"
-              echo "run=true" >> "$GITHUB_OUTPUT"
+              mode=projects; run=true
             else
               echo "::notice::No stryker-config.json and no test projects under tests/ - nothing to mutate."
-              echo "mode=none" >> "$GITHUB_OUTPUT"
-              echo "run=false" >> "$GITHUB_OUTPUT"
+              mode=none; run=false
             fi
             # Defaults mutate every TFM the test projects target, so Windows.
-            echo "runner=windows-latest" >> "$GITHUB_OUTPUT"
+            runner=windows-latest
           fi
+          {
+            echo "mode=$mode"
+            echo "run=$run"
+            echo "runner=$runner"
+          } >> "$GITHUB_OUTPUT"
 
   stryker:
     name: Run Stryker
