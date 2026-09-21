@@ -97,7 +97,8 @@ jobs:
               fi
             done
             if [ "$runner" = ubuntu-latest ]; then
-              fw=$(git ls-files '*.csproj' '*.vbproj' '*.fsproj' | xargs -r grep -lE '<TargetFrameworks?>[^<]*\bnet4[0-9]' 2>/dev/null | head -5)
+              # grep exits 1 (and xargs 123) when nothing matches - that is the Linux case, not an error
+              fw=$(git ls-files '*.csproj' '*.vbproj' '*.fsproj' | xargs -r grep -lE '<TargetFrameworks?>[^<]*\bnet4[0-9]' 2>/dev/null | head -5 || true)
               if [ -n "$fw" ]; then
                 echo "  .NET Framework TFM(s) in the solution need Windows for the initial build:"
                 while IFS= read -r f; do echo "    $f"; done <<< "$fw"
@@ -163,6 +164,14 @@ jobs:
         # can change instrumentation or break on an analyzer/Roslyn bump.
         shell: bash
         run: dotnet tool restore
+
+      - name: Restore packages for every target framework
+        # Stryker analyses the mutated project for EVERY TargetFramework and rebuilds the
+        # solution; on a cold runner the per-TFM analysis fails without a full restore
+        # ("Analysis of project ... failed for frameworks netstandard2.0") and every
+        # mutant is then a compile error - a 0 % score that is really a build problem.
+        shell: bash
+        run: dotnet restore
 
       - name: Run Stryker
         id: run
