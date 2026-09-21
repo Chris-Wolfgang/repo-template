@@ -47,7 +47,12 @@ on:
       - main
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # The event name is part of the group on purpose: while a repository migrates to this
+  # file, its main branch still triggers the previous pull_request_target workflow of the
+  # same name on every PR, and that run carries the REQUIRED check names. In one group the
+  # pull_request run (starting seconds later) cancels it and the PR is blocked on
+  # "cancelled" required checks; in separate groups both complete.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
