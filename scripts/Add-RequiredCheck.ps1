@@ -230,9 +230,10 @@ foreach ($item in $toChange) {
     $rule = $item.rule
 
     foreach ($ctx in $item.missing) {
-        # Same shape GitHub returned for the existing entries: context + integration_id. A null
-        # integration_id means "any app may report it", which is what a workflow job needs.
-        $rule.parameters.required_status_checks += [pscustomobject]@{ context = $ctx; integration_id = $null }
+        # Same shape GitHub returns for the existing entries: context only. Do NOT send
+        # integration_id = $null - the API schema rejects an explicit null (HTTP 422
+        # "Invalid property /rules/N"); omitting it means any app may report the check.
+        $rule.parameters.required_status_checks += [pscustomobject]@{ context = $ctx }
     }
 
     # PUT takes the same fields the GET returned minus the read-only ones. Rule objects are sent
