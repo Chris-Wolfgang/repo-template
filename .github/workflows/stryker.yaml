@@ -84,7 +84,10 @@ jobs:
             echo "Found ${#configs[@]} stryker-config.json file(s):"
             printf '  %s\n' "${configs[@]}"
             mode=configs; run=true
-            # Linux only when every config pins a TFM a Linux runner can build.
+            # Linux only when every config pins a TFM a Linux runner can build AND no
+            # project in the repository targets .NET Framework: Stryker's initial build is
+            # the whole solution, so a net48 example or benchmark project fails the run on
+            # Linux (MSB3644) even when the mutated project is net10.0-only.
             runner=ubuntu-latest
             for cfg in "${configs[@]}"; do
               tfm=$(jq -r '.["stryker-config"]["target-framework"] // ""' "$cfg")
@@ -93,6 +96,15 @@ jobs:
                 runner=windows-latest
               fi
             done
+            if [ "$runner" = ubuntu-latest ]; then
+              # grep exits 1 (and xargs 123) when nothing matches - that is the Linux case, not an error
+              fw=$(git ls-files '*.csproj' '*.vbproj' '*.fsproj' | xargs -r grep -lE '<TargetFrameworks?>[^<]*\bnet4[0-9]' 2>/dev/null | head -5 || true)
+              if [ -n "$fw" ]; then
+                echo "  .NET Framework TFM(s) in the solution need Windows for the initial build:"
+                while IFS= read -r f; do echo "    $f"; done <<< "$fw"
+                runner=windows-latest
+              fi
+            fi
             echo "Runner: $runner"
           elif [ "$EVENT_NAME" = "pull_request" ]; then
             echo "::notice::No stryker-config.json found - no floor to enforce, skipping the PR gate. Add one at the repo root or under tests/<project>/ (with thresholds.break) to enable it."
