@@ -296,7 +296,6 @@ because they are useful in steady-state:
 | Script | When to use |
 |---|---|
 | `scripts/Fix-BranchRuleset.ps1` | Replace the branch ruleset when the canonical definition changes upstream (a required check renamed or added) and the rule gets stuck waiting. Deletes "Protect main branch", disables any other active ruleset, then recreates it with `Setup-BranchRuleset.ps1` (pass `-RequireLinearHistory` to keep linear history). It does not patch rules in place. |
-| `scripts/Add-RequiredCheck.ps1` | Add a required status check to the existing "Protect main branch" ruleset **in place** (default: `Protected Files Guard`), leaving bypass actors, linear history and the other checks untouched. Takes several `-Repository` values for a fleet pass; `-Force` skips the prompt. |
 | `scripts/Setup-Labels.ps1` | Re-run when new canonical labels are added (e.g. a new `maintenance - X` kind). Idempotent. |
 | `scripts/Validate-DocsDeploy.ps1` | Post-deploy validation of the `gh-pages` branch. See the **Setup GitHub Pages** section above. |
 | `scripts/build-pr.ps1` | Local dry-run of the PR workflow's Windows stage (build, every-TFM tests, coverage gates, DevSkim, gitleaks) on this machine; the Linux and macOS stages only run in CI. |
