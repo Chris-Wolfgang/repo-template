@@ -35,8 +35,15 @@ One fragment per PR is the norm. A PR that makes two independently notable chang
 Add the `no-changelog` label to the PR. Use it for changes under `src/` that have no user-visible effect
 and are not worth an `internal` entry (typo in a comment, formatting). Dependabot PRs are exempt automatically.
 
-The CI check reads labels at the time the PR event fires. After adding the label, re-run the
-*Changelog Fragment Check* job or push a commit.
+The CI check reads labels at the time the PR event fires. **A re-run reuses the original event payload**,
+so a label added after the check failed does not reach it - push a commit (or rebase) to fire a fresh event.
+
+Some files under `src/` never need a fragment and the check ignores them, so no label is required:
+a nested `.editorconfig`, a `*.globalconfig` / `*.ruleset` / `*.DotSettings`, and the
+`PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt` baselines. They cannot change what the library
+does for a consumer, and a PR that touches only them usually *cannot* carry a fragment anyway: the
+protected-file guard fails a PR that mixes a protected file (a nested `.editorconfig` is one) with
+anything else.
 
 ## The check
 

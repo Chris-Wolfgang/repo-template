@@ -161,14 +161,23 @@ function Invoke-Check
 
     $changed = @(& git diff --name-only "$BaseRef...HEAD")
     if ($LASTEXITCODE -ne 0) { throw "git diff against $BaseRef failed" }
-    $srcChanged = @($changed | Where-Object { $_ -match '^src/' })
+    # Files under src/ that cannot change what the library does for a consumer, so they cannot
+    # need a release note: analyzer configuration (a nested .editorconfig / .globalconfig /
+    # .ruleset / .DotSettings) and the PublicAPI baselines, whose content is the mechanical
+    # record of a surface change that its own PR already describes. Excluding them matters
+    # because such a PR usually CANNOT carry a fragment: the protected-file guard fails a PR
+    # that mixes a protected file (a nested .editorconfig is one) with anything else, so the
+    # only way through was the 'no-changelog' label on a PR that never needed a note.
+    $configOnlyUnderSrc = '(^|/)\.editorconfig$|\.(globalconfig|ruleset|DotSettings)$|(^|/)PublicAPI\.(Shipped|Unshipped)\.txt$'
+    $srcChanged = @($changed | Where-Object { $_ -match '^src/' -and $_ -notmatch $configOnlyUnderSrc })
     # Only files ADDED by this PR count as its fragment; editing or deleting an existing fragment does not.
     $added = @(& git diff --name-only --diff-filter=A "$BaseRef...HEAD")
     if ($LASTEXITCODE -ne 0) { throw "git diff --diff-filter=A against $BaseRef failed" }
     $addedFragments = @($added | Where-Object { $_ -match "^$([regex]::Escape($FragmentDir))/" -and $_ -notmatch '/README\.md$' })
     $waived = ($Labels -split ',' | ForEach-Object { $_.Trim() }) -contains 'no-changelog'
 
-    Write-Host "src/ files changed: $($srcChanged.Count); fragments added: $($addedFragments.Count); no-changelog label: $waived"
+    $srcConfigChanged = @($changed | Where-Object { $_ -match '^src/' -and $_ -match $configOnlyUnderSrc })
+    Write-Host "src/ files changed: $($srcChanged.Count) (plus $($srcConfigChanged.Count) analyzer-config/PublicAPI file(s), which never need a fragment); fragments added: $($addedFragments.Count); no-changelog label: $waived"
 
     $failed = $bad.Count -gt 0
     if ($srcChanged.Count -gt 0 -and $addedFragments.Count -eq 0 -and -not $waived)
