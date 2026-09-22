@@ -176,11 +176,19 @@ function Invoke-Check
     $addedFragments = @($added | Where-Object { $_ -match "^$([regex]::Escape($FragmentDir))/" -and $_ -notmatch '/README\.md$' })
     $waived = ($Labels -split ',' | ForEach-Object { $_.Trim() }) -contains 'no-changelog'
 
+    # A release PR is the one PR that legitimately changes src/ (the <Version> bump) while
+    # REMOVING fragments: `assemble` folds them into CHANGELOG.md and deletes them. Requiring
+    # a fragment there would mean every release needs the no-changelog label. Recognise the
+    # shape instead: CHANGELOG.md modified AND at least one fragment deleted.
+    $deletedFragments = @(& git diff --name-only --diff-filter=D "$BaseRef...HEAD" |
+        Where-Object { $_ -match "^$([regex]::Escape($FragmentDir))/" -and $_ -notmatch '/README\.md$' })
+    $assembled = ($changed -contains 'CHANGELOG.md') -and $deletedFragments.Count -gt 0
+
     $srcConfigChanged = @($changed | Where-Object { $_ -match '^src/' -and $_ -match $configOnlyUnderSrc })
-    Write-Host "src/ files changed: $($srcChanged.Count) (plus $($srcConfigChanged.Count) analyzer-config/PublicAPI file(s), which never need a fragment); fragments added: $($addedFragments.Count); no-changelog label: $waived"
+    Write-Host "src/ files changed: $($srcChanged.Count) (plus $($srcConfigChanged.Count) analyzer-config/PublicAPI file(s), which never need a fragment); fragments added: $($addedFragments.Count); no-changelog label: $waived; release assemble: $assembled"
 
     $failed = $bad.Count -gt 0
-    if ($srcChanged.Count -gt 0 -and $addedFragments.Count -eq 0 -and -not $waived)
+    if ($srcChanged.Count -gt 0 -and $addedFragments.Count -eq 0 -and -not $waived -and -not $assembled)
     {
         Write-Host "::error::This PR changes src/ but adds no changelog fragment. Add $FragmentDir/<change-name>.md (see $FragmentDir/README.md) or apply the 'no-changelog' label."
         $failed = $true

@@ -38,6 +38,10 @@ and are not worth an `internal` entry (typo in a comment, formatting). Dependabo
 The CI check reads labels at the time the PR event fires. **A re-run reuses the original event payload**,
 so a label added after the check failed does not reach it - push a commit (or rebase) to fire a fresh event.
 
+The **release PR** needs no fragment and no label: `assemble` folds the fragments into
+`CHANGELOG.md` and deletes them, and the check recognises that shape (CHANGELOG.md modified
+plus at least one fragment deleted) even though the same PR bumps `<Version>` under `src/`.
+
 Some files under `src/` never need a fragment and the check ignores them, so no label is required:
 a nested `.editorconfig`, a `*.globalconfig` / `*.ruleset` / `*.DotSettings`, and the
 `PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt` baselines. They cannot change what the library
