@@ -102,7 +102,7 @@ $managedFiles = @('.editorconfig', '.globalconfig', 'BannedSymbols.txt', 'coverl
 if ($IncludeDocs) { $managedPrefixes += 'docs/' }
 # Template-only files that never belong in a generated repository, plus the one-time setup
 # scripts that delete themselves after a successful run (their absence is expected).
-$templateOnly = @('scripts/setup.ps1', 'scripts/audit-repos.ps1', 'scripts/upgrade.ps1', 'scripts/templates/', 'docs/repository-baseline.md',
+$templateOnly = @('scripts/setup.ps1', 'scripts/upgrade.ps1', 'scripts/templates/', 'docs/repository-baseline.md',
                   'scripts/Setup-GitHubPages.ps1', 'scripts/Setup-Maintenance.ps1')
 # Setup-BranchRuleset.ps1 self-deletes after its first run, but Fix-BranchRuleset.ps1 calls it
 # again later, so a repository that still has it needs the current version: managed while
