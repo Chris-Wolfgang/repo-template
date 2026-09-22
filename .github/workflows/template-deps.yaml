@@ -102,7 +102,7 @@ jobs:
             --color 0366d6 --description "Template dependency versions have fallen behind" 2>/dev/null || true
 
           title="Directory.Build.props is behind NuGet ($(wc -l < behind.md) package(s))"
-          body=$(printf '_Auto-updated by the Template Dependencies workflow (run %s)._\n\nDependabot cannot see this file: its NuGet updater needs a project file to anchor on and this repository has none. Check a repository that already runs the newer version before taking it here - a major analyzer release means new diagnostics fleet-wide under `TreatWarningsAsErrors`.\n\n| Package | Template | Latest stable |\n|---|---|---|\n%s\n' \
+          body=$(printf '_Auto-updated by the Template Dependencies workflow (run %s)._\n\nDependabot cannot see this file: its NuGet updater needs a project file to anchor on and this repository has none. Check a repository that already runs the newer version before taking it here - a major analyzer release means new diagnostics fleet-wide, and warnings are errors in Release.\n\n| Package | Template | Latest stable |\n|---|---|---|\n%s\n' \
                    "$GITHUB_RUN_ID" "$(cat behind.md)")
           existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "kind:template-deps" \
                        --state open --json number --jq '.[0].number' 2>/dev/null || true)
