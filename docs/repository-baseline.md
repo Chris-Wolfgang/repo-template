@@ -2,8 +2,10 @@
 
 Every repository owned by `Chris-Wolfgang` is measured against the items below. Gaps become one issue per
 failing item in the repository where the item fails (title `Baseline: <item name>`, label `baseline` plus
-`security` or `process`). The audit is automated by [`scripts/audit-repos.ps1`](../scripts/audit-repos.ps1);
-this document is the human-readable definition of what that script checks and how to fix each gap.
+`security` or `process`). The audit is automated by `audit-repos.ps1`, which lives with the maintainer's fleet tooling rather
+than in this repository: it sweeps every repository in the account and makes its own clones, so a copy
+inside a generated repository would never be run from there. This document is the human-readable
+definition of what that script checks and how to fix each gap, and is what the issues it opens link to.
 
 Status vocabulary used by the audit:
 
@@ -189,11 +191,13 @@ These are not per-repository and are not checked by the script. Verify on the ac
 
 ## Running the audit
 
+Run from the fleet-tooling checkout, not from a repository:
+
 ```powershell
-pwsh ./scripts/audit-repos.ps1 -Owner Chris-Wolfgang            # audit only, writes audit-results.json + audit-summary.md
-pwsh ./scripts/audit-repos.ps1 -Owner Chris-Wolfgang -OpenIssues # also open one issue per failing item
-pwsh ./scripts/audit-repos.ps1 -Owner Chris-Wolfgang -Repo ETL-Csv,ETL-Json  # subset
-pwsh ./scripts/audit-repos.ps1 -Owner Chris-Wolfgang -Exclude Hawsey,D20-Dice   # everything but these
+pwsh ./audit-repos.ps1 -Owner Chris-Wolfgang            # audit only, writes audit-results.json + audit-summary.md
+pwsh ./audit-repos.ps1 -Owner Chris-Wolfgang -OpenIssues # also open one issue per failing item
+pwsh ./audit-repos.ps1 -Owner Chris-Wolfgang -Repo ETL-Csv,ETL-Json  # subset
+pwsh ./audit-repos.ps1 -Owner Chris-Wolfgang -Exclude Hawsey,D20-Dice   # everything but these
 ```
 
 Requires `gh` authenticated as the owner (rulesets and `automated-security-fixes` need admin read). Every run re-checks
