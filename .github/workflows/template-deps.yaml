@@ -1,0 +1,129 @@
+name: Template Dependencies
+
+# Watches the PackageReference versions in Directory.Build.props against NuGet and keeps one
+# tracking issue current.
+#
+# WHY THIS EXISTS: Dependabot cannot do it here. Its NuGet updater needs a project file to anchor
+# on - a .csproj/.vbproj/.fsproj or a solution - and this repository has none: src/, tests/,
+# benchmarks/ and examples/ hold only .gitkeep. The nuget ecosystem entry in dependabot.yml
+# therefore never produces an update, and the analyzer versions in Directory.Build.props - the
+# only PackageReference block in the repository - drifted a year behind the repositories generated
+# from it (repo-template#633). Adding /src and /tests to dependabot.yml does NOT fix that; those
+# directories are empty here. Generated repositories have real projects, so Dependabot works for
+# them and this workflow is skipped there.
+#
+# It opens an issue rather than a pull request on purpose: a bump to a shared analyzer version is
+# a judgement call (a major analyzer release means new diagnostics fleet-wide under
+# TreatWarningsAsErrors), and the fleet is the place to prove a version before the template takes
+# it - a repository already running it is the evidence.
+
+on:
+  schedule:
+    # Mondays 07:00 UTC, after the weekly Dependabot runs the generated repositories get.
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-deps
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Analyzer versions vs NuGet
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only the template: every other repository has projects, so Dependabot covers it there.
+    if: github.repository == 'Chris-Wolfgang/repo-template'
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compare Directory.Build.props against NuGet
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > behind.md
+          import re, json, urllib.request, io, os
+
+          props = io.open("Directory.Build.props", encoding="utf-8-sig").read()
+          refs = re.findall(r'<PackageReference\s+Include="([^"]+)"\s+Version="([^"]+)"', props)
+
+          def key(v):
+              # NuGet versions here are all numeric dotted (10.34.0.3385); a prerelease suffix
+              # sorts before the release, which is why prereleases are filtered out entirely.
+              return [int(x) if x.isdigit() else x for x in re.split(r'[.\-+]', v)]
+
+          behind = []
+          for pkg, cur in sorted(refs):
+              url = f"https://api.nuget.org/v3-flatcontainer/{pkg.lower()}/index.json"
+              try:
+                  with urllib.request.urlopen(url, timeout=30) as r:
+                      versions = json.load(r)["versions"]
+              except Exception as e:                       # network or unknown package
+                  print(f"| `{pkg}` | {cur} | lookup failed: {e} |")
+                  continue
+              stable = sorted([v for v in versions if "-" not in v], key=key)
+              if stable and key(stable[-1]) > key(cur):
+                  behind.append((pkg, cur, stable[-1]))
+
+          for pkg, cur, latest in behind:
+              print(f"| `{pkg}` | {cur} | **{latest}** |")
+          with io.open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"behind={len(behind)}\n")
+          PY
+          echo "Packages behind: $(wc -l < behind.md)"
+
+      - name: Update the tracking issue
+        if: steps.check.outputs.behind != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## Analyzer versions behind NuGet"
+            echo ""
+            echo "| Package | Template | Latest stable |"
+            echo "|---|---|---|"
+            cat behind.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          gh label create "kind:template-deps" --repo "$GITHUB_REPOSITORY" \
+            --color 0366d6 --description "Template dependency versions have fallen behind" 2>/dev/null || true
+
+          title="Directory.Build.props is behind NuGet ($(wc -l < behind.md) package(s))"
+          body=$(printf '_Auto-updated by the Template Dependencies workflow (run %s)._\n\nDependabot cannot see this file: its NuGet updater needs a project file to anchor on and this repository has none. Check a repository that already runs the newer version before taking it here - a major analyzer release means new diagnostics fleet-wide under `TreatWarningsAsErrors`.\n\n| Package | Template | Latest stable |\n|---|---|---|\n%s\n' \
+                   "$GITHUB_RUN_ID" "$(cat behind.md)")
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "kind:template-deps" \
+                       --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body" || true
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body" \
+              --label "kind:template-deps" || true
+          fi
+
+      - name: Close the tracking issue when nothing is behind
+        if: steps.check.outputs.behind == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Every PackageReference in Directory.Build.props is at the latest stable version." >> "$GITHUB_STEP_SUMMARY"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "kind:template-deps" \
+                       --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" --repo "$GITHUB_REPOSITORY" \
+              --comment "Every \`PackageReference\` in \`Directory.Build.props\` is at the latest stable version. Reopened automatically if that changes." || true
+          fi
