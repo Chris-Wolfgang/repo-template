@@ -42,6 +42,12 @@ on:
   schedule:
     - cron: '0 6 * * 0' # weekly Sunday 06:00 UTC
 
+concurrency:
+  group: stryker-${{ github.ref }}
+  # Only PR runs are superseded by a newer push. Scheduled and dispatched runs on main publish
+  # a mutation-score data point to gh-pages and update the survivor issue, so they run to completion.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
