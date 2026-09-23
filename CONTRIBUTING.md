@@ -46,11 +46,14 @@ You can contribute in several ways:
    Opening a pull request runs these checks (`.github/workflows/pr.yaml` unless noted):
    - **Secrets Scan (gitleaks)** — the same scan as the pre-commit hook.
    - **Protected Files Guard** (`protected-files.yaml`) — a PR that changes `.editorconfig`,
-     `Directory.Build.props/.targets`, `BannedSymbols.txt`, `coverlet.runsettings`, `.gitleaks.toml`,
-     `*.globalconfig`, `*.ruleset`, `*.DotSettings`, the CI scripts (`scripts/changelog.ps1`,
-     `tfm-parity.ps1`, `build-pr.ps1`) or anything under `.github/workflows/` **together with other
-     changes** fails here and cannot be bypassed: put those files in a PR of their own, which passes
-     with a notice and is reviewed on its own (see [docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md)).
+     `Directory.Build.props`, `Directory.Build.targets`, `BannedSymbols.txt`, `coverlet.runsettings`,
+     `.gitleaks.toml`,
+     `.config/dotnet-tools.json`, `*.globalconfig`, `*.ruleset`, `*.DotSettings`, the CI scripts
+     (`scripts/changelog.ps1`, `tfm-parity.ps1`, `build-pr.ps1`, `third-party-notices.ps1`), or anything
+     under `.github/workflows/`, `.github/license-audit/` or `.github/requirements/` **together with
+     other changes** fails here and cannot be bypassed: put those files in a PR of their own, which
+     passes with a notice and is reviewed on its own (see
+     [docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md) for the authoritative list).
    - **Detect .NET Projects** — decides whether the build and test stages run at all.
    - **Changelog Fragment Check** — a PR that touches `src/` must add a fragment (see below).
    - **ReSharper InspectCode** — error-severity findings fail; warnings go to the Security tab.
