@@ -46,7 +46,20 @@ jobs:
           # Every file the PR adds, modifies, renames, copies or deletes — the API's view of
           # the PR diff against its merge base, so a PR that is merely behind main is not
           # blamed for files main changed since it branched.
-          mapfile -t all_changed < <(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[] | .filename, (.previous_filename // empty)')
+          # Captured and checked explicitly, NOT read straight into mapfile from a process
+          # substitution: `set -e` does not see a failure inside <( ), so a failed or partly
+          # paginated `gh api` would leave all_changed empty and this guard would cheerfully
+          # report "no protected files changed". A guard that cannot list the diff must fail
+          # closed, not open.
+          if ! changed_raw=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[] | .filename, (.previous_filename // empty)'); then
+            echo "::error::Could not list this PR's changed files - refusing to classify the change."
+            exit 1
+          fi
+          mapfile -t all_changed < <(printf '%s' "$changed_raw")
+          if [ ${#all_changed[@]} -eq 0 ]; then
+            echo "::error::The PR's changed-file list came back empty, which cannot be true for a pull request - refusing to classify."
+            exit 1
+          fi
           protected=(); other=()
           for file in "${all_changed[@]}"; do
             case "$file" in
@@ -56,7 +69,7 @@ jobs:
                 # foo.dotsettings is as live as foo.DotSettings. The license-audit policy
                 # files are read from main by license-audit.yaml, so a change to them is
                 # configuration the PR cannot test - same rule as the workflows.
-                if echo "$file" | grep -qiE '(\.(globalconfig|ruleset|DotSettings|editorconfig)|^\.github/workflows/.*\.ya?ml|^\.github/license-audit/.*\.json)$'; then protected+=("$file"); else other+=("$file"); fi ;;
+                if echo "$file" | grep -qiE '(\.(globalconfig|ruleset|DotSettings|editorconfig)|^\.github/workflows/.*\.ya?ml|^\.github/license-audit/.*\.json|^\.github/requirements/.*)$'; then protected+=("$file"); else other+=("$file"); fi ;;
             esac
           done
 
