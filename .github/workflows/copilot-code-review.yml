@@ -1,0 +1,38 @@
+# Declares the runner Copilot code review uses for its agentic pass.
+#
+# Without this file, Copilot's review can fail to start and falls back to a "Lite" pass -
+# it still comments, but it has not actually explored the repository, and the PR carries a
+# warning saying so. That happened across this fleet on 2026-09-23 while ~29 pull requests
+# were running CI at once, which is exactly when a review is worth having.
+#
+# GitHub reads only the `runs-on` of the `copilot-setup-steps` job here; the trigger and the
+# step below exist because a workflow file must be a valid workflow. It is `workflow_dispatch`
+# only on purpose: nothing should run this on every push or pull request, and as written it
+# consumes no runner minutes unless somebody starts it by hand.
+#
+# `ubuntu-latest` is the standard GitHub-hosted runner - the same class Copilot would pick by
+# default, stated explicitly. If reviews keep timing out under load, the upgrade is a larger
+# runner (for example `ubuntu-4-core`) or an ARC scale-set name. Larger runners are BILLED,
+# including on public repositories, so that is a deliberate choice rather than a default.
+#
+# Docs: https://docs.github.com/en/copilot/how-tos/copilot-on-github/set-up-copilot/configure-runners
+
+name: Copilot Code Review Runner
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  copilot-setup-steps:
+    name: "Copilot code review runner"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Explain what this job is for
+        run: |
+          echo "This job exists so that .github/workflows/copilot-code-review.yml is a valid"
+          echo "workflow file. Copilot code review reads the runs-on of this job to choose a"
+          echo "runner; it does not need these steps to do anything."
