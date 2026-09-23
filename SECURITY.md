@@ -37,7 +37,10 @@ the deadline passes, not after.
 
 ## Disclosure Process
 
-1. **Report** — you open a private advisory (above). Only you and the maintainer can see it.
+1. **Report** — you open a private advisory (above). It is not public, but it is not a
+   two-person conversation either: GitHub grants access to the maintainer, to anyone holding
+   admin or security-manager permission on the repository, and to any collaborator explicitly
+   added to the advisory. It stays invisible to everyone else until it is published.
 2. **Triage** — the maintainer confirms the issue and assigns a severity, discussed with you in the
    advisory thread.
 3. **Fix** — the fix is developed in a temporary private fork attached to the advisory, so nothing
