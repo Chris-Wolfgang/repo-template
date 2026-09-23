@@ -184,10 +184,14 @@ function Invoke-Check
     $deleted = @(& git diff --name-only --diff-filter=D "$BaseRef...HEAD")
     if ($LASTEXITCODE -ne 0) { throw "git diff --diff-filter=D against $BaseRef failed" }
     $deletedFragments = @($deleted | Where-Object { $_ -match "^$([regex]::Escape($FragmentDir))/" -and $_ -notmatch '/README\.md$' })
-    $assembled = ($changed -contains 'CHANGELOG.md') -and $deletedFragments.Count -gt 0
+    # -ChangelogPath may point somewhere other than the repo root, and git reports paths
+    # repo-relative with forward slashes, so normalise before comparing.
+    $changelogRel = $ChangelogPath.Replace('\', '/')
+    if ($changelogRel.StartsWith('./')) { $changelogRel = $changelogRel.Substring(2) }
+    $assembled = ($changed -contains $changelogRel) -and $deletedFragments.Count -gt 0
 
     $srcConfigChanged = @($changed | Where-Object { $_ -match '^src/' -and $_ -match $configOnlyUnderSrc })
-    Write-Host "src/ files changed: $($srcChanged.Count) (plus $($srcConfigChanged.Count) analyzer-config/PublicAPI file(s), which never need a fragment); fragments added: $($addedFragments.Count); fragments assembled: $($deletedFragments.Count); no-changelog label: $waived"
+    Write-Host "src/ files changed: $($srcChanged.Count) (plus $($srcConfigChanged.Count) analyzer-config/PublicAPI file(s), which never need a fragment); fragments added: $($addedFragments.Count); fragments deleted: $($deletedFragments.Count) (assembles $changelogRel : $assembled); no-changelog label: $waived"
 
     $failed = $bad.Count -gt 0
     if ($srcChanged.Count -gt 0 -and $addedFragments.Count -eq 0 -and -not $waived -and -not $assembled)
