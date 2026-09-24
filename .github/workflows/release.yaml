@@ -763,6 +763,12 @@ jobs:
           TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
+          # attest-build-provenance builds this path with Node path.join, so on a Windows
+          # runner it arrives with backslashes (D:\a\_temp\...). Git Bash resolves that form
+          # for both test and cp - verified, it is not broken today - but the separators are
+          # normalised anyway so the step does not depend on MSYS path translation staying
+          # permissive. The substitution is a no-op on a POSIX path.
+          BUNDLE_PATH="${BUNDLE_PATH//\\//}"
           if [ ! -f "$BUNDLE_PATH" ]; then
             echo "::error::attest-build-provenance reported no bundle at '$BUNDLE_PATH'"
             exit 1
