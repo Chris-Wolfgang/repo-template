@@ -35,11 +35,12 @@ One fragment per PR is the norm. A PR that makes two independently notable chang
 Add the `no-changelog` label to the PR. Use it for changes under `src/` that have no user-visible effect
 and are not worth an `internal` entry (typo in a comment, formatting). Dependabot PRs are exempt automatically.
 
-The CI check reads labels at the time the PR event fires. **A re-run reuses the original event payload**,
-so a label added after the check failed does not reach it - push a commit (or rebase) to fire a fresh event.
+The CI check reads labels at the time the PR event fires, and **re-running the check replays that
+original event payload** rather than reading current state. A label added after the check failed
+therefore never reaches it. Push a commit (or rebase) to fire a fresh event.
 
 **A release PR is exempt automatically.** `assemble` deletes every fragment and writes them into the
-changelog, and the same PR necessarily touches `src/` (the csproj `<Version>`) - so it changes `src/`
+changelog, and the same PR necessarily touches `src/` (the csproj `<Version>`) — so it changes `src/`
 and adds no fragment, which is exactly the shape the check rejects. When a PR deletes one or more
 fragments *and* changes the changelog file, the check treats it as the assembly and passes. Do **not**
 reach for `no-changelog` on a release: that label is for changes that never needed a note, not for the
@@ -47,11 +48,15 @@ one PR that carries all of them. The changelog compared against is `-ChangelogPa
 `CHANGELOG.md`), so a repository that keeps its changelog elsewhere is exempt on the same terms.
 
 Some files under `src/` never need a fragment and the check ignores them, so no label is required:
-a nested `.editorconfig`, a `*.globalconfig` / `*.ruleset` / `*.DotSettings`, and the
-`PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt` baselines. They cannot change what the library
-does for a consumer, and a PR that touches only them usually *cannot* carry a fragment anyway: the
-protected-file guard fails a PR that mixes a protected file (a nested `.editorconfig` is one) with
-anything else.
+nested `.editorconfig` files, `*.globalconfig` / `*.ruleset` / `*.DotSettings` files, and the
+`PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt` baselines. None of them can change what the
+library does for a consumer.
+
+The analyzer-config files among those are also **protected**, so a PR touching one usually *cannot*
+carry a fragment even if you wanted it to: the protected-file guard fails any PR that mixes a
+protected file with anything else. The `PublicAPI.*.txt` baselines are **not** protected, so a
+baseline-only PR — or a baseline change riding along with code — can carry a fragment. It simply
+does not need one.
 
 ## The check
 
