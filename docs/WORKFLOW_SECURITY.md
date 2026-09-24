@@ -45,6 +45,7 @@ on:
 - `coverlet.runsettings` — coverage collection (exclusions, instrumentation)
 - `.config/dotnet-tools.json` — the pinned versions of every CI tool (`dotnet tool restore`); a PR must not be able to redirect which tool code CI executes
 - `.github/license-audit/*.json` — license-audit policy (allow-list, ignored packages, URL mappings, overrides), read by `license-audit.yaml`
+- `.github/requirements/*` — the hash-pinned Python dependencies CI installs and then EXECUTES (`pip install --require-hashes -r .github/requirements/zizmor.txt`, and the same for semgrep); the hashes live in the same file, so they are no defence against a PR editing it
 - `.gitleaks.toml` — secrets-scan rules and allowlist
 - `scripts/changelog.ps1`, `scripts/tfm-parity.ps1`, `scripts/build-pr.ps1`, `scripts/third-party-notices.ps1` — the CI scripts `pr.yaml` and `license-audit.yaml` run from the PR's tree
 
@@ -145,7 +146,8 @@ When reviewing changes to the workflow security model:
 ### Adding New Protected Files
 
 1. Add the file to `protected-files.yaml` — the fixed-name `case` list for an exact name, or the `grep -iE` pattern for a wildcard.
-2. Update this document and the list in [CONTRIBUTING.md](../CONTRIBUTING.md).
+2. Update the list in this document. It is the only copy: [CONTRIBUTING.md](../CONTRIBUTING.md)
+   characterises the categories and links here rather than repeating the names.
 
 ## References
 

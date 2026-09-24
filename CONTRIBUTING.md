@@ -45,12 +45,15 @@ You can contribute in several ways:
 7. **PR Checks:**
    Opening a pull request runs these checks (`.github/workflows/pr.yaml` unless noted):
    - **Secrets Scan (gitleaks)** — the same scan as the pre-commit hook.
-   - **Protected Files Guard** (`protected-files.yaml`) — a PR that changes `.editorconfig`,
-     `Directory.Build.props/.targets`, `BannedSymbols.txt`, `coverlet.runsettings`, `.gitleaks.toml`,
-     `*.globalconfig`, `*.ruleset`, `*.DotSettings`, the CI scripts (`scripts/changelog.ps1`,
-     `tfm-parity.ps1`, `build-pr.ps1`) or anything under `.github/workflows/` **together with other
-     changes** fails here and cannot be bypassed: put those files in a PR of their own, which passes
-     with a notice and is reviewed on its own (see [docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md)).
+   - **Protected Files Guard** (`protected-files.yaml`) — a PR that changes a **protected
+     configuration file together with anything else** fails here and cannot be bypassed: put those
+     files in a PR of their own, which passes with a notice and is reviewed on its own. Protected
+     means the files that decide what CI checks — the workflows, analyzer and build configuration,
+     coverage and secrets config, the CI tool manifest and dependency pins, the license-audit
+     policy, and the CI scripts `pr.yaml` runs.
+     [**docs/WORKFLOW_SECURITY.md → Protected Files Guard**](docs/WORKFLOW_SECURITY.md#2-protected-files-guard)
+     has the exact names and globs. Deliberately not repeated here: two lists is how the last one
+     drifted.
    - **Detect .NET Projects** — decides whether the build and test stages run at all.
    - **Changelog Fragment Check** — a PR that touches `src/` must add a fragment (see below).
    - **ReSharper InspectCode** — error-severity findings fail; warnings go to the Security tab.
