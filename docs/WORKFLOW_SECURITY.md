@@ -146,7 +146,8 @@ When reviewing changes to the workflow security model:
 ### Adding New Protected Files
 
 1. Add the file to `protected-files.yaml` — the fixed-name `case` list for an exact name, or the `grep -iE` pattern for a wildcard.
-2. Update this document and the list in [CONTRIBUTING.md](../CONTRIBUTING.md).
+2. Update the list in this document. It is the only copy: [CONTRIBUTING.md](../CONTRIBUTING.md)
+   characterises the categories and links here rather than repeating the names.
 
 ## References
 
