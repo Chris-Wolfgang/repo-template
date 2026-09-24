@@ -60,10 +60,33 @@ jobs:
             echo "::error::The PR's changed-file list came back empty, which cannot be true for a pull request - refusing to classify."
             exit 1
           fi
+          # The pull-request files endpoint is capped at 3000 files no matter how many pages are
+          # requested, so --paginate alone cannot prove the list is complete. A PR above the cap
+          # could hide a protected file outside the returned set and be classified on the rest.
+          # Compare against the PR's own changed_files count and refuse if anything is missing.
+          # all_changed also carries previous_filename for renames, so it may legitimately exceed
+          # that count - only a SHORTFALL means truncation.
+          if ! expected=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.changed_files'); then
+            echo "::error::Could not read the PR's changed_files count - refusing to classify."
+            exit 1
+          fi
+          if [ "${#all_changed[@]}" -lt "$expected" ]; then
+            echo "::error::Listed ${#all_changed[@]} changed files but the PR reports $expected - the listing is truncated (the endpoint caps at 3000). Refusing to classify."
+            exit 1
+          fi
           protected=(); other=()
           for file in "${all_changed[@]}"; do
-            case "$file" in
-              .editorconfig|Directory.Build.props|Directory.Build.targets|BannedSymbols.txt|coverlet.runsettings|.config/dotnet-tools.json|.gitleaks.toml|scripts/changelog.ps1|scripts/tfm-parity.ps1|scripts/build-pr.ps1|scripts/third-party-notices.ps1) protected+=("$file") ;;
+            # Matched on a lowercased copy: the exact-name branch below used to be
+            # case-SENSITIVE while the regex branch was not, so a rename to
+            # `directory.build.props` was classified as an ordinary file. Windows and macOS
+            # resolve those paths case-insensitively, so the renamed file is still the one
+            # MSBuild imports.
+            lower=$(printf '%s' "$file" | tr '[:upper:]' '[:lower:]')
+            case "$lower" in              .editorconfig|directory.build.props|directory.build.targets|bannedsymbols.txt|coverlet.runsettings|.config/dotnet-tools.json|.gitleaks.toml|scripts/changelog.ps1|scripts/tfm-parity.ps1|scripts/build-pr.ps1|scripts/third-party-notices.ps1) protected+=("$file") ;;
+              # MSBuild imports Directory.Build.props/.targets by DIRECTORY, so a nested copy
+              # (src/Directory.Build.props and friends) shapes the build exactly as the root one
+              # does. Matching only the root names let a mixed PR change one of those unnoticed.
+              */directory.build.props|*/directory.build.targets) protected+=("$file") ;;
               *)
                 # -i: Windows (and ReSharper on it) resolve names case-insensitively, so
                 # foo.dotsettings is as live as foo.DotSettings. The license-audit policy
