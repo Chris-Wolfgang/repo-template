@@ -388,10 +388,15 @@ jobs:
     needs: inspectcode
     # A pull_request run from a fork (or by Dependabot) carries a read-only token that cannot write
     # Code Scanning; those PRs still get the InspectCode gate above, just no SARIF upload.
+
+    # The Dependabot test reads the PR AUTHOR, not github.actor: re-running or reopening a
+    # Dependabot PR makes the actor a maintainer while the token stays Dependabot's read-only
+    # one, so an actor test would let this write-scoped job run and then fail. Every other
+    # Dependabot guard in this file already tests the author.
     if: >-
       always() && (needs.inspectcode.result == 'success' || needs.inspectcode.result == 'failure')
       && (github.event_name == 'push'
-          || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'))
+          || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]'))
     timeout-minutes: 10
     permissions:
       contents: read
