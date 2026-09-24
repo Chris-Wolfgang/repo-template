@@ -741,9 +741,48 @@ jobs:
       # Package *signing* (an author signature `nuget verify` checks) is separate
       # and needs a code-signing certificate.
       - name: Attest build provenance for packages
+        id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
           subject-path: './packages/*.nupkg'
+
+      # The attestation above is recorded in GitHub's attestation store, which is what
+      # `gh attestation verify` reads. Tooling that audits the RELEASE PAGE - OpenSSF
+      # Scorecard's Signed-Releases check among it - never queries that store; it looks
+      # for an asset whose name ends in .intoto.jsonl. The bundle the action writes IS
+      # that document, so it is copied under a deterministic name and handed to
+      # update-release-artifacts, which owns contents: write.
+      #
+      # Nothing cryptographic changes here. The same evidence simply becomes visible
+      # without the gh CLI. This job keeps contents: read on purpose: it holds the OIDC
+      # identity that publishes to NuGet, and attaching assets is not its job.
+      - name: Stage the provenance bundle for the release
+        shell: bash
+        env:
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          # attest-build-provenance builds this path with Node path.join, so on a Windows
+          # runner it arrives with backslashes (D:\a\_temp\...). Git Bash resolves that form
+          # for both test and cp - verified, it is not broken today - but the separators are
+          # normalised anyway so the step does not depend on MSYS path translation staying
+          # permissive. The substitution is a no-op on a POSIX path.
+          BUNDLE_PATH="${BUNDLE_PATH//\\//}"
+          if [ ! -f "$BUNDLE_PATH" ]; then
+            echo "::error::attest-build-provenance reported no bundle at '$BUNDLE_PATH'"
+            exit 1
+          fi
+          mkdir -p ./provenance
+          cp "$BUNDLE_PATH" "./provenance/${GITHUB_REPOSITORY##*/}-${TAG_NAME}.intoto.jsonl"
+          ls -l ./provenance
+
+      - name: Upload the provenance bundle for the release job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: provenance-bundle
+          path: ./provenance/*.intoto.jsonl
+          if-no-files-found: error
 
       - name: NuGet login (OIDC trusted publishing)
         id: nuget-login
@@ -823,6 +862,12 @@ jobs:
       - name: Zip coverage report
         run: zip -r release-coverage.zip ./release-coverage
 
+      - name: Download provenance bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: provenance-bundle
+          path: ./provenance
+
       # `gh` is pre-installed on the runner, so no third-party action is needed
       # to upload release assets (zizmor superfluous-actions).
       - name: Attach artifacts to release
@@ -832,7 +877,7 @@ jobs:
           TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
           shopt -s nullglob
-          files=(./nuget-packages/*.nupkg ./nuget-packages/*.snupkg ./nuget-packages/*.bom.json)
+          files=(./nuget-packages/*.nupkg ./nuget-packages/*.snupkg ./nuget-packages/*.bom.json ./provenance/*.intoto.jsonl)
           # nullglob only drops unmatched *patterns*; a literal name stays and would make
           # `gh release upload` fail, so add the coverage zip only when it exists.
           if [ -f release-coverage.zip ]; then files+=(release-coverage.zip); fi
