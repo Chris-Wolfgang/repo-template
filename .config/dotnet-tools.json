@@ -10,7 +10,7 @@
       "rollForward": true
     },
     "nuget-license": {
-      "version": "4.0.17",
+      "version": "4.0.18",
       "commands": [
         "nuget-license"
       ],
@@ -38,7 +38,7 @@
       "rollForward": true
     },
     "docfx": {
-      "version": "2.80.1",
+      "version": "2.81.0",
       "commands": [
         "docfx"
       ],
