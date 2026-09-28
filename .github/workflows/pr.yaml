@@ -606,15 +606,19 @@ jobs:
             exit 0
           fi
 
-          mapfile -d '' -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -not -name "*.Tests.Integration.*" -print0)
+          # Every test project runs here, *.Tests.Integration.* included: this is the
+          # job that gates coverage, and every test assembly is held to
+          # CODECOV_TEST_MINIMUM. Linux runners have Docker, so Testcontainers-based
+          # integration suites run as they do locally. (Integration projects used to be
+          # excluded "for a separate workflow", which left them unmeasured everywhere.)
+          mapfile -d '' -t test_projects < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
 
-          # Report any integration test projects deliberately excluded from the
-          # coverage gate, so the skip is visible rather than silent (they are
-          # expected to run in a separate workflow).
-          mapfile -d '' -t excluded_integration < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -name "*.Tests.Integration.*" -print0)
-          if [ ${#excluded_integration[@]} -gt 0 ]; then
-            echo "::notice::Excluded ${#excluded_integration[@]} integration test project(s) from the coverage gate (expected to run in a separate workflow): ${excluded_integration[*]}"
-          fi
+          # Assemblies that actually ran tests in this job. The coverage steps below
+          # require a coverage row for each one, so a test project whose coverage is
+          # never collected (e.g. no coverlet.collector) fails the gate instead of
+          # silently dropping out of it.
+          ran_assemblies_file="$RUNNER_TEMP/stage1-ran-test-assemblies.txt"
+          : > "$ran_assemblies_file"
 
           if [ ${#test_projects[@]} -eq 0 ]; then
             if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
@@ -713,6 +717,14 @@ jobs:
               fi
               rm -f "$test_log"
             done <<< "$frameworks"
+            # Same assembly-name rule as the coverage gate below. This step runs under
+            # pipefail, and grep exits 1 when the csproj sets no <AssemblyName>; the
+            # `|| true` covers only that no-match case (the basename fallback follows).
+            asm=$(grep -oE '<AssemblyName>[^<]+' "$test_proj" 2>/dev/null | head -1 | cut -d'>' -f2 || true)
+            if [ -z "$asm" ]; then
+              asm=$(basename "$test_proj"); asm="${asm%.*}"
+            fi
+            echo "$asm" >> "$ran_assemblies_file"
             echo ""
           done
 
@@ -722,6 +734,10 @@ jobs:
           if find TestResults -type f -name "coverage.cobertura.xml" 2>/dev/null | grep -q .; then
             echo "has-coverage=true" >> "$GITHUB_OUTPUT"
             echo "✅ Coverage files found"
+          elif [ -s "$RUNNER_TEMP/stage1-ran-test-assemblies.txt" ]; then
+            echo "❌ Tests ran but produced no coverage files - the coverage gate cannot be evaluated. Test assemblies that ran:"
+            cat "$RUNNER_TEMP/stage1-ran-test-assemblies.txt"
+            exit 1
           else
             echo "has-coverage=false" >> "$GITHUB_OUTPUT"
             echo "ℹ️  No coverage files found - skipping coverage report generation"
@@ -837,6 +853,20 @@ jobs:
           if [ "$matched_count" -eq 0 ]; then
             echo "❌ Coverage parser matched 0 modules in Summary.txt - regex or report format is out of sync. Refusing to silently pass the gate."
             exit 1
+          fi
+
+          # Every test assembly that ran must appear in the report. A missing row means
+          # its coverage was never collected, and an unmeasured assembly must not pass.
+          ran_assemblies_file="$RUNNER_TEMP/stage1-ran-test-assemblies.txt"
+          if [ -f "$ran_assemblies_file" ]; then
+            while IFS= read -r asm; do
+              [ -z "$asm" ] && continue
+              if ! awk -v asm="$asm" '/^[^ ]/ && $1 == asm { found = 1 } END { exit !found }' CoverageReport/Summary.txt; then
+                echo "Checking test module: '$asm' - Coverage: none collected"
+                echo "  ❌ FAIL: tests ran but no coverage was recorded (is coverlet.collector referenced?)"
+                failed_projects="$failed_projects $asm (no coverage data)"
+              fi
+            done < <(sort -u "$ran_assemblies_file")
           fi
 
           if [ -n "$failed_projects" ]; then
