@@ -1,0 +1,10 @@
+# Overrides applied when compiling semgrep.txt (uv pip compile --override).
+#
+# pyjwt: semgrep pins pyjwt[crypto]~=2.13.0 (1.177.0 and 1.178.0 alike), and every
+# 2.13.x is affected by GHSA-w6j9-cwv2-h6wq and ten more advisories fixed in 2.14.0, and
+# 2.14.0 itself by GHSA-42vr-xj54-vc7v, fixed in 2.15.0. 2.15.0 changes only PyJWKClient
+# and JWKSetCache behaviour, and semgrep imports jwt only
+# in its MCP server, never in `semgrep scan`, which is all semgrep.yaml runs.
+# semgrep.yaml installs with --no-deps so pip does not re-apply semgrep's pin. Delete
+# this line once a semgrep release allows pyjwt 2.15.
+pyjwt[crypto]~=2.15.0
