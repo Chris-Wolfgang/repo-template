@@ -1829,11 +1829,21 @@ jobs:
             cat devskim-results.txt
             echo ""
             
-            if grep -qi "error\|critical\|high" devskim-results.txt; then
-              echo "❌ Security issues detected - review required"
+            # Every finding fails the gate - Critical, Important, Moderate, BestPractice and
+            # ManualReview alike - the same policy TreatWarningsAsErrors applies to the
+            # compiler. A finding line is "<file>:<line>:<col>:<line>:<col> [Severity] DSnnnnnn ..."
+            # in the text format; matching that shape instead of a severity word keeps the
+            # gate independent of DevSkim's vocabulary (the old error|critical|high grep
+            # matched only Critical). A false positive is excluded as narrowly as it can be -
+            # by rule id, by glob, or inline on the line - never by lowering the bar.
+            findings=$(grep -cE '^.+:[0-9]+:[0-9]+:[0-9]+:[0-9]+ \[[A-Za-z]+\] DS[0-9]+' devskim-results.txt || true)
+            if [ "$findings" -gt 0 ]; then
+              echo "By severity:"
+              grep -oE '\[[A-Za-z]+\]' devskim-results.txt | sort | uniq -c
+              echo "❌ $findings DevSkim finding(s) - every finding fails this gate; fix it or exclude the rule id with a reason"
               exit 1
             else
-              echo "✅ No critical security issues found"
+              echo "✅ No DevSkim findings"
             fi
           else
             echo "✅ No security issues found"
