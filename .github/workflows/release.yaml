@@ -109,8 +109,52 @@ jobs:
       - name: Run multi-framework tests with coverage
         shell: pwsh
         run: |
-          $testProjects = Get-ChildItem -Path './tests' -Recurse -Filter '*Test*.csproj'
-          
+          # Every project under tests/, not only those whose FILE NAME contains "Test". A suite
+          # named otherwise (Fuzz.csproj, Properties.csproj) is silently excluded by a name
+          # filter, and the zero-projects guard below only fires when NOTHING matches.
+          $candidates = Get-ChildItem -Path './tests' -Recurse -Filter '*.csproj'
+
+          # Which of those actually run tests. The csproj is the source of truth whenever it
+          # states IsTestProject; otherwise ask MSBuild, which imports Microsoft.NET.Test.Sdk's
+          # props per TFM.
+          #
+          # A probe that cannot answer must FAIL, never quietly mean "no". In
+          # DateTime-Extensions#569 every suite was skipped because the probe failed fast in
+          # CI, its stderr went to $null, and the empty output read as "not a test project" -
+          # only the zero-tests guard stopped an untested package from being published.
+          $testProjects = @()
+          foreach ($candidate in $candidates) {
+            $declared = $null
+            try {
+              $xml = [xml](Get-Content -LiteralPath $candidate.FullName -Raw)
+              $node = $xml.SelectSingleNode("//*[local-name()='IsTestProject']")
+              if ($node) { $declared = "$($node.InnerText)".Trim() }
+            } catch {
+              Write-Error "❌ Failed to parse project file $($candidate.Name): $($_.Exception.Message)"
+              exit 1
+            }
+
+            if ($declared) {
+              if ($declared -ieq 'true') {
+                $testProjects += $candidate
+              } else {
+                Write-Host "⊘ Skipping $($candidate.Name): IsTestProject is $declared" -ForegroundColor Yellow
+              }
+              continue
+            }
+
+            $value = dotnet msbuild $candidate.FullName -nologo -p:Configuration=Release -getProperty:IsTestProject 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "❌ Could not determine whether $($candidate.Name) is a test project - the MSBuild probe failed: $value. Declare <IsTestProject> in the csproj; a failed probe must not silently skip a suite."
+              exit 1
+            }
+            if ("$value".Trim() -ieq 'true') {
+              $testProjects += $candidate
+            } else {
+              Write-Host "⊘ Skipping $($candidate.Name): not a test project" -ForegroundColor Yellow
+            }
+          }
+
           if ($testProjects.Count -eq 0) {
             Write-Error "❌ No test projects found - release requires tests to validate quality"
             exit 1
