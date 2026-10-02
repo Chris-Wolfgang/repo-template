@@ -1026,7 +1026,25 @@ jobs:
             Write-Host "ℹ️  No test projects found under ./tests and no ./src projects — skipping test stage (template-pack / in-dev shape)."
             exit 0
           }
-          
+
+          # *.Tests.Integration.* projects do not run on this stage, as on Stage 3 (macOS).
+          # Windows runners cannot run the Linux containers those suites need, so every
+          # integration test would be Skipped and the assembly would report near-0% coverage
+          # against CODECOV_TEST_MINIMUM. Stage 1 (Linux, Docker available) runs them and
+          # gates their coverage. Excluded here, they are never added to this stage's
+          # ran-assemblies ledger, so the row check below does not expect them either.
+          $excludedIntegration = @($testProjects | Where-Object { $_.Name -like '*.Tests.Integration.*' })
+          $testProjects = @($testProjects | Where-Object { $_.Name -notlike '*.Tests.Integration.*' })
+          if ($excludedIntegration.Count -gt 0) {
+            Write-Host "::notice::Excluded $($excludedIntegration.Count) integration test project(s) from Stage 2 (they run and are coverage-gated in Stage 1 on Linux): $(($excludedIntegration | ForEach-Object { $_.FullName }) -join ' ')"
+          }
+          if ($testProjects.Count -eq 0) {
+            # Every test project is an integration project: Stage 1 already ran and gated
+            # them all, so there is nothing for this stage to run.
+            Write-Host "ℹ️  Only integration test projects under ./tests — they ran in Stage 1; nothing to run on Windows."
+            exit 0
+          }
+
           Write-Host "==========================================" -ForegroundColor Cyan
           Write-Host "Found test projects:" -ForegroundColor Cyan
           Write-Host "==========================================" -ForegroundColor Cyan
