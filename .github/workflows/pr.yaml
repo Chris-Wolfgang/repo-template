@@ -1069,6 +1069,26 @@ jobs:
 
             # Split by semicolon for multi-targeting projects
             $allFrameworks = @($tfmRaw -split ';' | Where-Object { $_ })
+
+            # *.Tests.Integration.* projects do not run on this stage, as on Stage 3 (macOS).
+            # Windows runners cannot run the Linux containers those suites need, so every
+            # integration test would be Skipped and the assembly would report near-0% coverage
+            # against CODECOV_TEST_MINIMUM. Stage 1 (Linux, Docker available) runs them and
+            # gates their coverage. Skipped here, they never enter this stage's ran-assemblies
+            # ledger, so the row check below does not expect them either.
+            # The skip comes AFTER TFM discovery so a TFM Stage 1 cannot run (its allowlist is
+            # net5.0-net10.0 + netcoreapp3.1; e.g. net48 or net8.0-windows) is still reported
+            # as running nowhere, instead of vanishing with the project.
+            if ($testProj.Name -like '*.Tests.Integration.*') {
+              $notOnStage1 = @($allFrameworks | Where-Object { $_ -notmatch '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp3\.1)$' })
+              if ($notOnStage1.Count -gt 0) {
+                Write-Host "::warning file=$($testProj.FullName)::TFM(s) not covered by any CI stage: $($notOnStage1 -join ', ') — integration projects run only on Stage 1 (Linux), which does not run these TFMs."
+              }
+              Write-Host "::notice file=$($testProj.FullName)::Integration test project skipped on Stage 2 (Windows cannot run Linux containers); it runs and is coverage-gated in Stage 1."
+              Write-Host ""
+              continue
+            }
+
             $frameworks = @($allFrameworks | Where-Object { $_ -match '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0|462|47|471|472|48|481|coreapp3\.1)$' })
 
             # This stage is the full-TFM backstop (every TFM the other stages
