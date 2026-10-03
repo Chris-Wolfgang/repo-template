@@ -18,8 +18,13 @@
     branch it is the previous branch's tip as it was BEFORE this run.
 
     Only feature branches are force-pushed, each with an explicit lease, so a concurrent push is
-    refused rather than overwritten. The base branch is never touched. After each push the PR's base
-    on GitHub is verified and corrected (main for the first branch, the previous branch for the rest).
+    refused rather than overwritten. The base branch is never touched. Each PR's base on GitHub is
+    verified and corrected (main for the first branch, the previous branch for the rest) BEFORE its
+    branch is pushed, so the push's `synchronize` event reaches branch-filtered workflows such as
+    pr.yaml (`on: pull_request: branches: [main]`). Retargeting AFTER the push loses the gate: the
+    push is filtered out under the stale base, and the later base change fires `edited`, which is not
+    one of the default pull_request trigger types (opened, synchronize, reopened). The PR then sits
+    MERGEABLE/BLOCKED with no checks at all, and only a close/reopen brings them back.
 
     Run it from a clone of the repository. Stops at the first rebase conflict with instructions.
 .PARAMETER Stack
@@ -182,14 +187,24 @@ function Set-PrBase
     param([string]$Branch, [string]$ExpectedBase)
 
     $res = Invoke-GhJson @('pr', 'list', '--head', $Branch, '--state', 'open', '--json', 'number,baseRefName')
-    if (-not $res.Ok) { Write-Warning "could not read PR for ${Branch}: $($res.Error)"; return }
+    if (-not $res.Ok) { Write-Warning "could not read PR for ${Branch}: $($res.Error)"; return $false }
     $pr = $res.Data | Select-Object -First 1
-    if (-not $pr) { Write-Host "  no open PR for $Branch"; return }
-    if ($pr.baseRefName -eq $ExpectedBase) { Write-Host "  PR #$($pr.number) base is $ExpectedBase"; return }
-    if ($DryRun) { Write-Host "  DRY-RUN would retarget PR #$($pr.number) from $($pr.baseRefName) to $ExpectedBase"; return }
+    if (-not $pr) { Write-Host "  no open PR for $Branch"; return $false }
+    if ($pr.baseRefName -eq $ExpectedBase) { Write-Host "  PR #$($pr.number) base is $ExpectedBase"; return $false }
+    if ($DryRun) { Write-Host "  DRY-RUN would retarget PR #$($pr.number) from $($pr.baseRefName) to $ExpectedBase"; return $false }
     $editOut = & gh pr edit $pr.number --base $ExpectedBase 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "could not retarget PR #$($pr.number) to ${ExpectedBase}: $editOut" }
+    if ($LASTEXITCODE -ne 0)
+    {
+        $hint = ''
+        if ("$editOut" -match 'part of a stack')
+        {
+            $hint = "`n  This PR is in a GitHub stack, which locks the base. No API can detach it:" +
+                    "`n  dissolve the stack in the web UI, then re-run this script."
+        }
+        throw "could not retarget PR #$($pr.number) to ${ExpectedBase}: $editOut$hint"
+    }
     Write-Host "  PR #$($pr.number) retargeted $($pr.baseRefName) -> $ExpectedBase"
+    return $true
 }
 
 # ---------------------------------------------------------------------------
@@ -238,19 +253,31 @@ try
         {
             Write-Host ($out | Out-String)
             Write-Host "::error::rebase of $b stopped on a conflict."
-            Write-Host "Resolve it, run 'git rebase --continue' until it finishes, push with"
+            Write-Host "Resolve it, run 'git rebase --continue' until it finishes, then retarget the"
+            Write-Host "PR BEFORE pushing so the push re-triggers its checks under the right base:"
+            Write-Host "  gh pr edit <number> --base $prBase"
             Write-Host "  git push --force-with-lease=${b}:$($oldTip[$b]) $Remote $b"
             Write-Host "then re-run this script with the remaining branches: -Stack $((@($Stack) | Select-Object -Skip ([array]::IndexOf($Stack, $b) + 1)) -join ',') -MergedTip $($oldTip[$b])"
             exit 1
         }
         $newTip = Get-Sha $b
-        if ($newTip -eq $oldTip[$b]) { Write-Host "  already up to date" }
+        # Correct the base FIRST: the push below is what re-triggers branch-filtered workflows, and
+        # its `synchronize` event carries whatever base the PR has at that moment. See the notes in
+        # .DESCRIPTION - retargeting afterwards leaves the PR with no checks and no way to re-fire.
+        $retargeted = Set-PrBase $b $prBase
+        if ($newTip -eq $oldTip[$b])
+        {
+            Write-Host "  already up to date"
+            if ($retargeted)
+            {
+                Write-Warning "$b did not move, so nothing will re-trigger its checks under the new base; close and reopen the PR if it reports none"
+            }
+        }
         else
         {
             Invoke-Git @('push', "--force-with-lease=${b}:$($oldTip[$b])", $Remote, $b) | Out-Null
             Write-Host "  pushed $($oldTip[$b].Substring(0, 10)) -> $($newTip.Substring(0, 10))"
         }
-        Set-PrBase $b $prBase
         $cut = $oldTip[$b]; $onto = $b; $prBase = $b
     }
 }
