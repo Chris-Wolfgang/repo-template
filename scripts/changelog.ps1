@@ -9,7 +9,9 @@
     the remaining non-empty lines are a one-sentence user-facing description. See changelog/unreleased/README.md.
 
     check     Fail (exit 1) when files under src/ changed relative to -BaseRef and no fragment was added,
-              unless -Labels contains "no-changelog". Always validates every fragment's format.
+              unless -Labels contains "no-changelog". A release-assembly PR is also exempt: one that
+              changes CHANGELOG.md, deletes fragments, and leaves no fragment in -FragmentDir (what
+              "assemble" produces). Always validates every fragment's format.
     assemble  Insert a "## [<version>] - <date>" section under "## [Unreleased]" in CHANGELOG.md from the
               fragments, grouped by type, then delete the fragments. -Version defaults to the derived bump.
     bump      Print the derived next version (from the newest "## [x.y.z]" heading and the fragment types):
@@ -188,7 +190,10 @@ function Invoke-Check
     # repo-relative with forward slashes, so normalise before comparing.
     $changelogRel = $ChangelogPath.Replace('\', '/')
     if ($changelogRel.StartsWith('./')) { $changelogRel = $changelogRel.Substring(2) }
-    $assembled = ($changed -contains $changelogRel) -and $deletedFragments.Count -gt 0
+    # All three conditions, so a non-release PR cannot escape the gate by deleting one stale
+    # fragment and touching CHANGELOG.md: assembly leaves the fragment directory empty.
+    # $fragments is read from the checked-out tree (the PR merge result in CI).
+    $assembled = ($changed -contains $changelogRel) -and $deletedFragments.Count -gt 0 -and $fragments.Count -eq 0
 
     $srcConfigChanged = @($changed | Where-Object { $_ -match '^src/' -and $_ -match $configOnlyUnderSrc })
     Write-Host "src/ files changed: $($srcChanged.Count) (plus $($srcConfigChanged.Count) analyzer-config/PublicAPI file(s), which never need a fragment); fragments added: $($addedFragments.Count); fragments deleted: $($deletedFragments.Count) (assembles $changelogRel : $assembled); no-changelog label: $waived"
