@@ -17,7 +17,7 @@
       "rollForward": true
     },
     "jetbrains.resharper.globaltools": {
-      "version": "2026.2.2",
+      "version": "2026.2.3.1",
       "commands": [
         "jb"
       ],
@@ -31,7 +31,7 @@
       "rollForward": true
     },
     "microsoft.cst.devskim.cli": {
-      "version": "1.0.90",
+      "version": "1.0.100",
       "commands": [
         "devskim"
       ],
