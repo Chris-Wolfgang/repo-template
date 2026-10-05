@@ -165,6 +165,27 @@ jobs:
             Write-Host "Testing project: $($testProj.Name)" -ForegroundColor Cyan
             Write-Host "==========================================" -ForegroundColor Cyan
             
+            # Same rule as pr.yaml Stages 2 and 3: a project that sets
+            # <RequiresLinuxContainers>true</RequiresLinuxContainers> needs Linux containers,
+            # which this windows-latest runner cannot start, so it is skipped here; pr.yaml
+            # Stage 1 (Linux) runs and coverage-gates it on every PR. A failed evaluation fails
+            # the job, and so does any value other than true, false or empty.
+            $rlcRaw = (dotnet msbuild $testProj.FullName -nologo -getProperty:RequiresLinuxContainers 2>$null |
+              Where-Object { $_ -and "$_".Trim() } | Select-Object -Last 1)
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "❌ MSBuild evaluation of RequiresLinuxContainers failed for $($testProj.Name)"
+              exit 1
+            }
+            $requiresLinuxContainers = ("$rlcRaw" -replace '^RequiresLinuxContainers[=:]\s*', '').Trim()
+            if ($requiresLinuxContainers -and ($requiresLinuxContainers -notin @('true', 'false'))) {
+              Write-Error "❌ RequiresLinuxContainers in $($testProj.Name) must be true or false, not '$requiresLinuxContainers'"
+              exit 1
+            }
+            if ($requiresLinuxContainers -eq 'true') {
+              Write-Host "⊘ Skipping $($testProj.Name): RequiresLinuxContainers=true (Linux containers; covered by pr.yaml Stage 1)" -ForegroundColor Yellow
+              continue
+            }
+
             # Parse the project file to extract target frameworks
             try {
               [xml]$projectXml = Get-Content $testProj.FullName
