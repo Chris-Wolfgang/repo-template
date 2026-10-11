@@ -277,7 +277,8 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 - **Formats:** HTML, Markdown, CSV
 
 ### Test Strategy
-- Every project under `tests/` is a test project; `*.Tests.Integration.*` projects run on the Windows stage only
+- Every project under `tests/` is a test project, and every one runs on Stage 1 (Linux)
+- A test project that needs Linux containers (Testcontainers, Docker) declares `<RequiresLinuxContainers>true</RequiresLinuxContainers>` in its csproj. Stage 2 (Windows), Stage 3 (macOS) and release validation skip it, and Stage 1 runs and coverage-gates it. The marker decides, not the project name: an integration project that needs no container runs on every stage, including its .NET Framework TFMs on Windows
 - Every `<TargetFrameworks>` entry is tested; a TFM on which zero tests ran fails the stage
 - Coverage collection with `XPlat Code Coverage` (`coverlet.runsettings`)
 
