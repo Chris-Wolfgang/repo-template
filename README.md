@@ -277,7 +277,8 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 - **Formats:** HTML, Markdown, CSV
 
 ### Test Strategy
-- Every project under `tests/` is a test project; `*.Tests.Integration.*` projects run on the Windows stage only
+- Every project under `tests/` is a test project, `*.Tests.Integration.*` included; Stage 1 (Linux, with Docker) runs them all and holds every test assembly to `CODECOV_TEST_MINIMUM`
+- A test assembly that ran but recorded no coverage fails the gate
 - Every `<TargetFrameworks>` entry is tested; a TFM on which zero tests ran fails the stage
 - Coverage collection with `XPlat Code Coverage` (`coverlet.runsettings`)
 

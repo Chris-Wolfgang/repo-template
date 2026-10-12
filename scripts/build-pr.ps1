@@ -1,7 +1,8 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Runs the same checks as the Windows section of pr.yaml locally.
+    Runs most of the Windows section of pr.yaml locally. Necessary before pushing,
+    but not sufficient - see .DESCRIPTION for what only CI runs.
 
 .DESCRIPTION
     Replicates the PR workflow's Windows stage locally so you can verify
@@ -11,6 +12,10 @@
       3. Generate coverage report and enforce threshold
       4. Run DevSkim security scan
       5. Run gitleaks secrets scan
+
+    It deliberately does NOT cover everything pr.yaml does. InspectCode, the
+    changelog-fragment check, the solution-consistency check and the coverage-row
+    ledger are CI-only, so a clean run here does not guarantee a green PR.
 
 .PARAMETER SkipTests
     Skip test execution (build only).
@@ -243,7 +248,11 @@ if (-not $SkipTests -and -not $SkipCoverage -and $failed.Count -eq 0) {
     $coverageFiles = Get-ChildItem -Path TestResults -Recurse -Filter coverage.cobertura.xml -ErrorAction SilentlyContinue
 
     if (-not $coverageFiles) {
-        Write-Host "No coverage files found — skipping"
+        # pr.yaml fails here rather than skipping: no coverage files means the collector
+        # produced nothing, so the gate cannot run - and a gate that cannot run must fail,
+        # or a local "all checks passed" hides a broken collector.
+        Write-Fail "No coverage files found - the collector produced nothing, so the coverage gate cannot run"
+        $failed += "Coverage"
     }
     else {
         # ReportGenerator is pinned in .config/dotnet-tools.json, exactly as pr.yaml
@@ -341,7 +350,7 @@ if (-not $SkipSecurity) {
             --file-format text `
             --output-file devskim-results.txt `
             --ignore-rule-ids DS176209 `
-            --ignore-globs "**/api/**,**/CoverageReport/**,**/TestResults/**"
+            --ignore-globs "**/api/**,**/CoverageReport/**,**/TestResults/**,**/.github/license-audit/**"
         # Mirror pr.yaml, where a non-zero exit fails the DevSkim step.
         $devskimExit = $LASTEXITCODE
         $devskimRan = ($devskimExit -eq 0)
