@@ -1,7 +1,8 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Runs the same checks as the Windows section of pr.yaml locally.
+    Runs most of the Windows section of pr.yaml locally. Necessary before pushing,
+    but not sufficient - see .DESCRIPTION for what only CI runs.
 
 .DESCRIPTION
     Replicates the PR workflow's Windows stage locally so you can verify
@@ -11,6 +12,10 @@
       3. Generate coverage report and enforce threshold
       4. Run DevSkim security scan
       5. Run gitleaks secrets scan
+
+    It deliberately does NOT cover everything pr.yaml does. InspectCode, the
+    changelog-fragment check, the solution-consistency check and the coverage-row
+    ledger are CI-only, so a clean run here does not guarantee a green PR.
 
 .PARAMETER SkipTests
     Skip test execution (build only).
@@ -59,6 +64,21 @@ function Write-Pass($message) {
 
 function Write-Fail($message) {
     Write-Host $message -ForegroundColor Red
+}
+
+
+# Restores the tools pinned in .config/dotnet-tools.json once per run. Local tools
+# resolve through the repo's manifest, so nothing needs ~/.dotnet/tools on PATH.
+$script:localToolsRestored = $false
+function Restore-LocalTools {
+    if ($script:localToolsRestored) { return $true }
+    dotnet tool restore | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        Write-Fail "dotnet tool restore failed (see .config/dotnet-tools.json)"
+        return $false
+    }
+    $script:localToolsRestored = $true
+    return $true
 }
 
 # ============================================================================
@@ -228,33 +248,21 @@ if (-not $SkipTests -and -not $SkipCoverage -and $failed.Count -eq 0) {
     $coverageFiles = Get-ChildItem -Path TestResults -Recurse -Filter coverage.cobertura.xml -ErrorAction SilentlyContinue
 
     if (-not $coverageFiles) {
-        Write-Host "No coverage files found — skipping"
+        # pr.yaml fails here rather than skipping: no coverage files means the collector
+        # produced nothing, so the gate cannot run - and a gate that cannot run must fail,
+        # or a local "all checks passed" hides a broken collector.
+        Write-Fail "No coverage files found - the collector produced nothing, so the coverage gate cannot run"
+        $failed += "Coverage"
     }
     else {
-        # Install ReportGenerator if not present
-        $rgPath = Get-Command reportgenerator -ErrorAction SilentlyContinue
-        if (-not $rgPath) {
-            Write-Host "Installing ReportGenerator..."
-            dotnet tool update -g dotnet-reportgenerator-globaltool 2>$null
-            if ($LASTEXITCODE -ne 0) { dotnet tool install -g dotnet-reportgenerator-globaltool }
-            # Ensure global tools dir is on PATH for this session. The .NET
-            # installer normally adds it to the user's profile, but a fresh
-            # shell or a pwsh-invoked-from-script session may not have it yet.
-            $globalToolsDir = if ($IsWindows -or $env:OS -eq 'Windows_NT') {
-                Join-Path $env:USERPROFILE '.dotnet\tools'
-            } else {
-                Join-Path $HOME '.dotnet/tools'
-            }
-            if (Test-Path $globalToolsDir -PathType Container) {
-                $sep = [IO.Path]::PathSeparator
-                $pathSegments = $env:PATH -split [regex]::Escape($sep)
-                if ($pathSegments -notcontains $globalToolsDir) {
-                    $env:PATH = "$globalToolsDir$sep$env:PATH"
-                }
-            }
+        # ReportGenerator is pinned in .config/dotnet-tools.json, exactly as pr.yaml
+        # uses it. Run it as a local tool: no global install, no PATH dependency, so
+        # it works from any shell or account that has `dotnet` on PATH.
+        if (-not (Restore-LocalTools)) {
+            $failed += "Coverage"
         }
 
-        reportgenerator `
+        dotnet reportgenerator `
             -reports:"TestResults/**/coverage.cobertura.xml" `
             -targetdir:"CoverageReport" `
             -reporttypes:"Html;TextSummary;MarkdownSummaryGithub;CsvSummary"
@@ -331,20 +339,30 @@ if (-not $SkipTests -and -not $SkipCoverage -and $failed.Count -eq 0) {
 if (-not $SkipSecurity) {
     Write-Step "Step 4: DevSkim Security Scan"
 
-    $devskim = Get-Command devskim -ErrorAction SilentlyContinue
-    if (-not $devskim) {
-        Write-Host "Installing DevSkim CLI..."
-        dotnet tool install --global Microsoft.CST.DevSkim.CLI
+    # Pinned in .config/dotnet-tools.json and run as a local tool, as pr.yaml does.
+    # A global `devskim` lookup used to fail silently when ~/.dotnet/tools was not on
+    # PATH: analyze never ran, no results file was written, and the step reported
+    # "No security issues found". Any failure to run is now a failure.
+    $devskimRan = $false
+    if (Restore-LocalTools) {
+        dotnet devskim analyze `
+            --source-code . `
+            --file-format text `
+            --output-file devskim-results.txt `
+            --ignore-rule-ids DS176209 `
+            --ignore-globs "**/api/**,**/CoverageReport/**,**/TestResults/**,**/.github/license-audit/**"
+        # Mirror pr.yaml, where a non-zero exit fails the DevSkim step.
+        $devskimExit = $LASTEXITCODE
+        $devskimRan = ($devskimExit -eq 0)
     }
 
-    devskim analyze `
-        --source-code . `
-        --file-format text `
-        --output-file devskim-results.txt `
-        --ignore-rule-ids DS176209 `
-        --ignore-globs "**/api/**,**/CoverageReport/**,**/TestResults/**"
-
-    if (Test-Path "devskim-results.txt") {
+    if (-not $devskimRan) {
+        if (Test-Path "devskim-results.txt") { Get-Content "devskim-results.txt" -Raw | Write-Host }
+        Write-Fail "DevSkim did not complete successfully (exit code $devskimExit)"
+        $failed += "DevSkim"
+        Remove-Item "devskim-results.txt" -ErrorAction SilentlyContinue
+    }
+    elseif (Test-Path "devskim-results.txt") {
         $results = Get-Content "devskim-results.txt" -Raw
         if ($results -and $results -match '(?i)(error|critical|high)') {
             Write-Host $results

@@ -113,7 +113,11 @@
          Change these three lines when forking the template for another owner. -->
     <Authors>Chris Wolfgang</Authors>
     <Company>Chris Wolfgang</Company>
-    <Copyright>Copyright (c) $([System.DateTime]::UtcNow.Year) Chris Wolfgang</Copyright>
+    <!-- A literal year, never $([System.DateTime]::UtcNow.Year): that puts the BUILD year in
+         AssemblyCopyrightAttribute, so a rebuild after 1 January no longer matches the
+         released binary - which reproducible-build.yaml exists to prevent. Keep it in step
+         with LICENSE. -->
+    <Copyright>Copyright (c) 2026 Chris Wolfgang</Copyright>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
