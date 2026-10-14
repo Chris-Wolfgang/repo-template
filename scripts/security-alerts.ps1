@@ -199,7 +199,7 @@ function Get-TrackedIssues
         # or an alert issue closed by hand and re-filed. Keep the OPEN one, and between two of the
         # same state the newest. The listing is newest first, so a plain last-wins kept the OLDEST
         # (a closed summary), and every weekly run filed a new summary instead of updating the
-        # open one (Chris-Wolfgang/DbContextBuilder#542, then #714).
+        # open one.
         $current = $map[$key]
         if (-not $current -or
             ($issue.state -eq 'OPEN' -and $current.state -ne 'OPEN') -or
