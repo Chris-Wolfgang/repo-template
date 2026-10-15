@@ -79,6 +79,31 @@ jobs:
         }
         Write-Host "========================================" -ForegroundColor Cyan
 
+    # The main ruleset's code-scanning rule waits for a CodeQL analysis on every
+    # PR. With no C# the csharp analysis below is skipped and nothing is uploaded,
+    # so the PR stays blocked even though this job passes. Upload an empty CodeQL
+    # result under the same category so the rule sees an analysis with no alerts.
+    - name: Write empty CodeQL SARIF (no C# code)
+      if: matrix.language == 'csharp' && steps.check-csharp.outputs.has-csharp == 'false'
+      shell: pwsh
+      run: |
+        $sarif = @{
+          '$schema' = 'https://json.schemastore.org/sarif-2.1.0.json'
+          version   = '2.1.0'
+          runs      = @(@{
+            tool    = @{ driver = @{ name = 'CodeQL'; rules = @() } }
+            results = @()
+          })
+        }
+        $sarif | ConvertTo-Json -Depth 10 | Set-Content -Path "$env:RUNNER_TEMP/codeql-empty.sarif" -Encoding utf8
+
+    - name: Upload empty CodeQL SARIF (no C# code)
+      if: matrix.language == 'csharp' && steps.check-csharp.outputs.has-csharp == 'false'
+      uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+      with:
+        sarif_file: ${{ runner.temp }}/codeql-empty.sarif
+        category: "/language:${{matrix.language}}"
+
     - name: Initialize CodeQL
       if: matrix.language == 'actions' || steps.check-csharp.outputs.has-csharp == 'true'
       uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
