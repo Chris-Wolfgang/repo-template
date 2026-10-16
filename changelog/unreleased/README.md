@@ -65,6 +65,11 @@ unless the PR carries `no-changelog` **or the PR is the release that assembles t
 It also validates every fragment in this directory: a recognised `type:` on line 1 and a non-empty
 description.
 
+The check treats a PR as that release assembly only when all three hold: it changes `CHANGELOG.md`, it
+deletes fragments from this directory, and **no fragment is left** in this directory afterwards (exactly
+what `assemble` produces). Deleting one stale fragment and editing `CHANGELOG.md` while others remain
+does not qualify, so such a PR still needs a fragment of its own or the `no-changelog` label.
+
 ```powershell
 pwsh ./scripts/changelog.ps1 check                     # against origin/main
 pwsh ./scripts/changelog.ps1 check -BaseRef origin/vNext
