@@ -1589,7 +1589,7 @@ jobs:
             if ! rlc_out=$(dotnet msbuild "$test_proj" -noLogo -getProperty:RequiresLinuxContainers 2>"$RUNNER_TEMP/msbuild-eval.err"); then
               echo "::error file=$test_proj::MSBuild evaluation of RequiresLinuxContainers failed for $test_proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
             fi
-            rlc=$(printf '%s\n' "$rlc_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^RequiresLinuxContainers[=:][[:space:]]*//' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]' || true)
+            rlc=$(printf '%s\n' "$rlc_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^RequiresLinuxContainers[=:][[:space:]]*//' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]' || true)
             case "$rlc" in
               true)
                 echo "::notice file=$test_proj::RequiresLinuxContainers=true: skipped on Stage 3 (macOS cannot run Linux containers); it runs and is coverage-gated in Stage 1."
