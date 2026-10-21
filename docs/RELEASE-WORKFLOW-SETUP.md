@@ -13,7 +13,7 @@ The release workflow triggers when you **publish a GitHub Release** and implemen
 - ✅ Records a SLSA build-provenance attestation for every package (`gh attestation verify`)
 - ✅ Publishes to NuGet.org via OIDC trusted publishing — no stored API key
 - ✅ Deploys the versioned documentation to `gh-pages`
-- ✅ Attaches the packages, SBOM and coverage report to the GitHub Release
+- ✅ Attaches the packages, SBOM, provenance bundle and coverage report to the GitHub Release
 
 ## Required Configuration
 
@@ -100,7 +100,7 @@ Ensure the following settings are enabled:
 
 5. **trigger-docs** — calls `docfx.yaml` to build and deploy the versioned docs to `gh-pages`
 
-6. **update-release-artifacts** — attaches the `.nupkg` / `.snupkg` / `.bom.json` files and the zipped coverage report to the GitHub Release with `gh release upload`
+6. **update-release-artifacts** — attaches the `.nupkg` / `.snupkg` / `.bom.json` files, the `<repo>-<tag>.intoto.jsonl` provenance bundle (which Scorecard's Signed-Releases check reads) and the zipped coverage report to the GitHub Release with `gh release upload`
 
 ### Monitoring the Workflow
 
@@ -223,7 +223,7 @@ Before publishing a production GitHub Release (for example `v1.0.0`):
 ┌──────────────────────────────────────────────────────────────┐
 │  update-release-artifacts                                    │
 │  • gh release upload: *.nupkg, *.snupkg, *.bom.json,         │
-│    release-coverage.zip                                      │
+│    *.intoto.jsonl, release-coverage.zip                      │
 └──────────────────────────────────────────────────────────────┘
 ```
 

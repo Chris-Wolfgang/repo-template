@@ -29,7 +29,7 @@ still includes it so external links / scripts can resolve it.
 
 ### 1. `docfx_project/public/version-picker.js`
 
-Browser-side picker (~160 lines). On `DOMContentLoaded`:
+Browser-side picker. On `DOMContentLoaded`:
 
 - Detects whether the host is `*.github.io` and computes the repo
   prefix accordingly — same file works on github.io, on

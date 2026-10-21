@@ -140,13 +140,12 @@ See [docs/README-FORMATTING.md](docs/README-FORMATTING.md) for detailed formatti
 This project uses [DocFX](https://dotnet.github.io/docfx/) to generate API documentation:
 
 ```bash
-# Install DocFX (one-time setup)
-dotnet tool install -g docfx
+# Restore the pinned tools from .config/dotnet-tools.json (one-time setup)
+dotnet tool restore
 
 # Generate API metadata and build documentation
-cd docfx_project
-docfx metadata  # Extract API metadata from source code
-docfx build     # Build HTML documentation into docfx_project/_site/
+dotnet docfx metadata docfx_project/docfx.json  # Extract API metadata from source code
+dotnet docfx build docfx_project/docfx.json     # Build HTML documentation into docfx_project/_site/
 ```
 
 The documentation is built and deployed to GitHub Pages by the release workflow: each release lands under `versions/<tag>/` (plus `versions/latest/`) with a version picker on every page, so earlier versions stay online.
@@ -154,8 +153,7 @@ The documentation is built and deployed to GitHub Pages by the release workflow:
 **Local Preview:**
 ```bash
 # Serve documentation locally (with live reload)
-cd docfx_project
-docfx build --serve
+dotnet docfx build docfx_project/docfx.json --serve
 
 # Open http://localhost:8080 in your browser
 ```
