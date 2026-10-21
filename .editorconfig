@@ -35,9 +35,6 @@ indent_size = 2
 # C# files
 [*.cs]
 
-# SA0001 - Disable XML documentation file requirement
-dotnet_diagnostic.SA0001.severity = none
-
 # .NET Code Analysis Rules
 # Enable .NET analyzers with conservative defaults
 dotnet_analyzer_diagnostic.severity = suggestion
@@ -77,7 +74,7 @@ dotnet_diagnostic.VSTHRD107.severity = warning    # Await Task within using expr
 dotnet_diagnostic.VSTHRD108.severity = warning    # Assert thread affinity unconditionally
 dotnet_diagnostic.VSTHRD109.severity = warning    # Switch instead of assert in async methods
 dotnet_diagnostic.VSTHRD110.severity = warning    # Observe result of async calls
-dotnet_diagnostic.VSTHRD111.severity = none       # ConfigureAwait - not needed in library code targeting modern .NET
+dotnet_diagnostic.VSTHRD111.severity = none       # ConfigureAwait - CA2007 is the enforced rule (see [src/**/*.cs])
 dotnet_diagnostic.VSTHRD112.severity = warning    # Implement System.IAsyncDisposable
 dotnet_diagnostic.VSTHRD114.severity = warning    # Avoid returning null from a Task-returning method
 dotnet_diagnostic.VSTHRD200.severity = suggestion # Use Async naming convention
@@ -161,19 +158,6 @@ dotnet_diagnostic.S3927.severity = warning       # Serialization event handlers 
 dotnet_diagnostic.S4049.severity = suggestion    # Properties should be preferred
 dotnet_diagnostic.S4056.severity = suggestion    # Overloads with a "CultureInfo" or an "IFormatProvider" parameter should be used
 dotnet_diagnostic.S4136.severity = warning       # Method overloads should be grouped together
-
-# SecurityCodeScan Rules
-dotnet_diagnostic.SCS0005.severity = warning     # Weak random number generator
-dotnet_diagnostic.SCS0006.severity = warning     # Weak hash algorithm
-dotnet_diagnostic.SCS0015.severity = warning     # Hardcoded password
-dotnet_diagnostic.SCS0016.severity = warning     # Controller method is vulnerable to CSRF
-dotnet_diagnostic.SCS0017.severity = warning     # Request validation disabled
-dotnet_diagnostic.SCS0018.severity = warning     # Path traversal
-dotnet_diagnostic.SCS0019.severity = warning     # OutputCache conflict
-dotnet_diagnostic.SCS0020.severity = warning     # SQL injection via EF raw query
-dotnet_diagnostic.SCS0026.severity = warning     # SQL injection via EF FromSqlRaw
-dotnet_diagnostic.SCS0029.severity = warning     # Cross-Site Scripting (XSS)
-dotnet_diagnostic.SCS0031.severity = warning     # SQL injection via EF ExecuteSqlRaw
 
 # Performance-critical rules for library code
 dotnet_diagnostic.CA1062.severity = warning       # Validate arguments of public methods
@@ -323,28 +307,9 @@ dotnet_naming_style.begins_with_i.required_prefix = I
 dotnet_naming_style.begins_with_i.capitalization = pascal_case
 
 # Disable file header requirements
-dotnet_diagnostic.SA1633.severity = none
-dotnet_diagnostic.SA1634.severity = none
-dotnet_diagnostic.SA1635.severity = none
-dotnet_diagnostic.SA1636.severity = none
-dotnet_diagnostic.SA1637.severity = none
-dotnet_diagnostic.SA1638.severity = none
-dotnet_diagnostic.SA1639.severity = none
-dotnet_diagnostic.SA1640.severity = none
-dotnet_diagnostic.SA1641.severity = none
 file_header_template = unset
 
-# Disable overly strict formatting rules globally
-dotnet_diagnostic.SA1505.severity = none
-dotnet_diagnostic.SA1508.severity = none
-dotnet_diagnostic.SA1110.severity = none
-dotnet_diagnostic.SA1009.severity = none
-dotnet_diagnostic.SA1111.severity = none
-dotnet_diagnostic.SA1500.severity = none
-dotnet_diagnostic.SA1101.severity = none
-
 # Naming - error by default (strict)
-dotnet_diagnostic.SA1300.severity = error
 dotnet_diagnostic.IDE1006.severity = error
 dotnet_diagnostic.CA1707.severity = error
 
@@ -372,58 +337,9 @@ dotnet_diagnostic.S3216.severity = suggestion   # SonarAnalyzer: ConfigureAwait
 dotnet_diagnostic.RS0016.severity = warning  # PublicApiAnalyzers: symbol not declared in the public API files
 dotnet_diagnostic.RS0037.severity = warning  # PublicApiAnalyzers: public API entry missing nullability annotation
 
-# Test projects - relaxed naming, no doc requirements
-[tests/**/*.cs]
-# Allow Test_Method_Names_With_Underscores
-dotnet_diagnostic.SA1300.severity = none
-dotnet_diagnostic.IDE1006.severity = none
-dotnet_diagnostic.CA1707.severity = none
-
-# Allow synchronous CancellationTokenSource.Cancel() in tests
-dotnet_diagnostic.CA1849.severity = none
-
-# Relax async/await analyzer rules for tests
-dotnet_diagnostic.AsyncFixer01.severity = none    # Allow unnecessary async/await in tests
-dotnet_diagnostic.AsyncFixer02.severity = none    # Allow synchronous blocking in tests
-dotnet_diagnostic.AsyncFixer05.severity = none    # Allow downcasting in tests
-dotnet_diagnostic.IDE0058.severity = none          # Allow unused expression values in tests
-dotnet_diagnostic.VSTHRD102.severity = none       # Allow synchronous implementation in tests
-dotnet_diagnostic.VSTHRD103.severity = none       # Allow calling sync methods when async alternatives exist in tests
-dotnet_diagnostic.VSTHRD104.severity = none       # Allow missing async options in tests
-dotnet_diagnostic.VSTHRD107.severity = none       # Allow Task in using without await in tests
-dotnet_diagnostic.VSTHRD114.severity = none       # Allow returning null from Task methods in tests
-dotnet_diagnostic.VSTHRD200.severity = none       # Async suffix not required in test method names
-
-# Banned API Analyzer - Allow in tests (sync I/O and Stream overrides are common in test setup)
-dotnet_diagnostic.RS0030.severity = none          # Allow banned APIs in tests
-
-# Meziantou - Relax in tests
-dotnet_diagnostic.MA0004.severity = none         # ConfigureAwait not needed in tests
-dotnet_diagnostic.MA0011.severity = none         # IFormatProvider not critical in tests
-dotnet_diagnostic.MA0026.severity = none         # TODO comments OK in tests
-dotnet_diagnostic.MA0040.severity = none         # CancellationToken flow not critical in tests
-dotnet_diagnostic.MA0048.severity = none         # File name matching not critical in tests
-dotnet_diagnostic.MA0051.severity = none         # Method length OK in tests
-
-# SonarAnalyzer - Relax in tests
-dotnet_diagnostic.S1118.severity = none          # Utility class constructors OK in tests
-dotnet_diagnostic.S1135.severity = none          # TODO tags OK in tests
-dotnet_diagnostic.S1144.severity = none          # Unused private members OK in tests (reflection-based POCOs)
-dotnet_diagnostic.S3216.severity = none          # ConfigureAwait not needed in tests
-dotnet_diagnostic.S3776.severity = none          # Complexity OK in tests
-dotnet_diagnostic.S4049.severity = none          # Properties vs methods flexibility in tests
-dotnet_diagnostic.S6966.severity = none          # Async versions not available on all target frameworks
-
-# .NET Analyzer - Relax in tests
-dotnet_diagnostic.CA2007.severity = none         # ConfigureAwait not needed in tests
-
-# SecurityCodeScan - Relax in tests (but keep serious ones)
-dotnet_diagnostic.SCS0005.severity = suggestion  # Weak random OK for test data
-
 # Benchmark projects - relaxed naming, no doc requirements
 [benchmarks/**/*.cs]
 # Allow Benchmark_Method_Names
-dotnet_diagnostic.SA1300.severity = none
 dotnet_diagnostic.IDE1006.severity = none
 dotnet_diagnostic.CA1707.severity = none
 
@@ -459,7 +375,6 @@ dotnet_diagnostic.VSTHRD200.severity = none
 # Example projects - relaxed naming, docs encouraged
 [examples/**/*.cs]
 # Allow Example_Method_Names
-dotnet_diagnostic.SA1300.severity = none
 dotnet_diagnostic.IDE1006.severity = none
 dotnet_diagnostic.CA1707.severity = none
 
