@@ -297,6 +297,8 @@ If this repository requires linear history, stacked pull requests are restacked 
 
 Changes to protected configuration files (`.editorconfig`, `Directory.Build.props`, workflows, ...) must be a PR of their own, separate from code that depends on them — mixed PRs fail the protected-files guard and cannot be bypassed; a configuration-only PR runs CI with the new configuration and is reviewed by a maintainer on its own. See [docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md#making-changes-to-protected-configuration-files).
 
+Dependabot pull requests whose highest version bump is a **patch** are merged automatically: `dependabot-auto-merge.yaml` enables GitHub auto-merge (squash) on them, and GitHub merges once every check the branch ruleset requires has passed. Minor and major bumps are left for a maintainer to review. Because `dependabot.yml` groups updates, a grouped PR counts as its highest bump - one minor bump in the group means the whole PR waits for review. The repository setting *Allow auto-merge* must be on for this to work.
+
 - Ensure your pull request passes all tests and analyzer checks.
 - Respond to review feedback in a timely manner.
 - Reference related issues in your pull request description.
