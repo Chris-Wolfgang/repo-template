@@ -103,8 +103,9 @@ jobs:
               fi
             done
             if [ "$runner" = ubuntu-latest ]; then
+              # NUL-delimited so a project path containing a space is not split by xargs.
               # grep exits 1 (and xargs 123) when nothing matches - that is the Linux case, not an error
-              fw=$(git ls-files '*.csproj' '*.vbproj' '*.fsproj' | xargs -r grep -lE '<TargetFrameworks?>[^<]*\bnet4[0-9]' 2>/dev/null | head -5 || true)
+              fw=$(git ls-files -z '*.csproj' '*.vbproj' '*.fsproj' | xargs -0 -r grep -lE '<TargetFrameworks?>[^<]*\bnet4[0-9]' 2>/dev/null | head -5 || true)
               if [ -n "$fw" ]; then
                 echo "  .NET Framework TFM(s) in the solution need Windows for the initial build:"
                 while IFS= read -r f; do echo "    $f"; done <<< "$fw"
