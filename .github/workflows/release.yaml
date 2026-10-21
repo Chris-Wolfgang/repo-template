@@ -191,125 +191,47 @@ jobs:
             }
             $testedProjects++
 
-            # Parse the project file to extract target frameworks
-            try {
-              [xml]$projectXml = Get-Content $testProj.FullName
-            } catch {
-              Write-Error "❌ Failed to parse project file $($testProj.Name): $_"
+            # Extract target frameworks via MSBuild property evaluation (handles
+            # multi-line XML, Directory.Build.props inheritance and conditional
+            # properties — all of which break parsing of the raw csproj). Same approach
+            # as pr.yaml: evaluate first; reading the XML and only falling back to MSBuild
+            # when the element is absent made a conditional TFM run differently here
+            # than on every PR. Falls back from <TargetFrameworks> (multiple) to
+            # <TargetFramework> (single).
+            $tfmRaw = (dotnet msbuild $testProj.FullName -noLogo -getProperty:TargetFrameworks 2>$null |
+              Where-Object { $_ -and $_.Trim() } | Select-Object -Last 1)
+            # A failed evaluation must fail the job, not read as "no frameworks".
+            if ($LASTEXITCODE -ne 0) { Write-Error "❌ MSBuild evaluation of TargetFrameworks failed for $($testProj.Name)"; exit 1 }
+            if (-not $tfmRaw) {
+              $tfmRaw = (dotnet msbuild $testProj.FullName -noLogo -getProperty:TargetFramework 2>$null |
+                Where-Object { $_ -and $_.Trim() } | Select-Object -Last 1)
+              if ($LASTEXITCODE -ne 0) { Write-Error "❌ MSBuild evaluation of TargetFramework failed for $($testProj.Name)"; exit 1 }
+            }
+            $tfmRaw = ("$tfmRaw" -replace '^TargetFrameworks?[=:]\s*', '') -replace '\s', ''
+
+            # pr.yaml Stage 2 skips a project that is left with no TFM because its runner
+            # allowlist may have dropped them all. This runner has no allowlist (every TFM
+            # runs here), so an empty result is a broken test project, and a release must
+            # not ship with one of its suites silently untested.
+            if (-not $tfmRaw) {
+              Write-Error "❌ No target frameworks found for $($testProj.Name) - MSBuild evaluated neither TargetFrameworks nor TargetFramework"
               exit 1
             }
-            
-            # Search all PropertyGroup elements for TargetFramework(s)
-            $targetFramework = $null
-            $targetFrameworks = $null
-            foreach ($propGroup in $projectXml.Project.PropertyGroup) {
-              if ($propGroup.TargetFrameworks) {
-                $targetFrameworks = $propGroup.TargetFrameworks
-                break
-              } elseif ($propGroup.TargetFramework) {
-                $targetFramework = $propGroup.TargetFramework
-                break
-              }
-            }
-            
-            # Determine which frameworks this project targets
-            $frameworks = @()
-            if ($targetFrameworks) {
-              # Multiple frameworks (semicolon-separated)
-              $frameworks = $targetFrameworks -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-              if ($frameworks.Count -eq 0) {
-                Write-Error "❌ TargetFrameworks property in $($testProj.Name) is empty or malformed"
-                exit 1
-              }
-            } elseif ($targetFramework) {
-              # Single framework
-              $frameworks = @($targetFramework.Trim())
-              if (-not $frameworks[0]) {
-                Write-Error "❌ TargetFramework property in $($testProj.Name) is empty"
-                exit 1
-              }
-            } else {
-              # If no TargetFramework/TargetFrameworks are defined directly in the project file,
-              # attempt to resolve them via MSBuild (to account for Directory.Build.props, imports, etc.).
-              Write-Host "No TargetFramework or TargetFrameworks found directly in $($testProj.Name); querying MSBuild..." -ForegroundColor Yellow
-              
-              $msbuildOutput = @()
-              $msbuildExitCode = 0
-              foreach ($prop in @("TargetFrameworks", "TargetFramework")) {
-                $result = dotnet msbuild $testProj.FullName /nologo "-getProperty:$prop" 2>&1
-                if ($LASTEXITCODE -ne 0) {
-                  $msbuildExitCode = $LASTEXITCODE
-                }
-                if ($result) {
-                  $msbuildOutput += $result
-                }
-              }
-              
-              if ($msbuildExitCode -ne 0) {
-                # MSBuild query failed, fall back to running tests without explicit --framework
-                Write-Warning "MSBuild query failed for $($testProj.Name). Tests will run without explicit --framework."
-                $frameworks = @('')
-              } else {
-                # MSBuild succeeded, parse the output
-                $resolvedFrameworks = @()
-                foreach ($line in $msbuildOutput) {
-                  if ([string]::IsNullOrWhiteSpace($line)) {
-                    continue
-                  }
-                  
-                  # Expect lines like "TargetFrameworks=net7.0;net8.0" or "TargetFramework=net8.0"
-                  # Support both '=' and ':' separators for different MSBuild output formats
-                  if ($line -match '^\s*TargetFrameworks\s*[:=]\s*(.+)$') {
-                    $propertyValue = $Matches[1].Trim()
-                    $resolvedFrameworks = $propertyValue -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-                    break
-                  } elseif ($line -match '^\s*TargetFramework\s*[:=]\s*(.+)$') {
-                    $propertyValue = $Matches[1].Trim()
-                    if ($propertyValue) {
-                      $resolvedFrameworks = @($propertyValue)
-                    }
-                    
-                    if ($resolvedFrameworks.Count -gt 0) {
-                      break
-                    }
-                  }
-                }
-                
-                if ($resolvedFrameworks.Count -gt 0) {
-                  $frameworks = $resolvedFrameworks
-                } else {
-                  Write-Warning "MSBuild query returned no target frameworks for $($testProj.Name). Tests will run without explicit --framework."
-                  $frameworks = @('')
-                }
-              }
-            }
-            
+            $frameworks = @($tfmRaw -split ';' | Where-Object { $_ })
+
             Write-Host "Detected frameworks: $($frameworks -join ', ')" -ForegroundColor Cyan
-            
+
             foreach ($fw in $frameworks) {
-              if ([string]::IsNullOrWhiteSpace($fw)) {
-                Write-Host "Testing project $($testProj.Name) without explicit --framework (using SDK/MSBuild defaults)" -ForegroundColor Yellow
-                
-                # When framework cannot be determined, run tests once without specifying --framework.
-                # Collect coverage in this case to avoid missing data due to unknown TFM.
-                dotnet test $testProj.FullName `
-                  --configuration Release `
-                  --no-build `
-                  --no-restore `
-                  --collect:"XPlat Code Coverage" `
-                  --results-directory "./TestResults" `
-                  --logger "console;verbosity=minimal"
-                
-                if ($LASTEXITCODE -ne 0) {
-                  Write-Error "❌ Tests failed (no explicit TargetFramework) in $($testProj.Name)"
-                  exit $LASTEXITCODE
-                }
-                
-                continue
-              }
-              
               Write-Host "Testing framework: $fw" -ForegroundColor Yellow
-              
+
+              # Tee the console output so the zero-tests-ran guard below can read it:
+              # `dotnet test` exits 0 when the runner finds NO tests, which is how
+              # ETL-FixedWidth ran zero tests on two TFMs for weeks with a green CI.
+              # pr.yaml guards every stage this way; the release must not be the one
+              # run without it. Fail the TFM unless the summary reports a non-zero
+              # total (vstest prints "Total: N" at verbosity=minimal and "Total tests: N"
+              # at verbosity=normal; MTP prints "total: N").
+              $testLog = [System.IO.Path]::GetTempFileName()
               # Collect coverage only for .NET 5.0+ TFMs; still run tests for all frameworks
               if ($fw -match '^net([5-9]|[1-9][0-9]+)\.') {
                 dotnet test $testProj.FullName `
@@ -319,7 +241,7 @@ jobs:
                   --no-restore `
                   --collect:"XPlat Code Coverage" `
                   --results-directory "./TestResults" `
-                  --logger "console;verbosity=minimal"
+                  --logger "console;verbosity=minimal" 2>&1 | Tee-Object -FilePath $testLog
               } else {
                 # For older frameworks (e.g., netstandard, net4x, net3x, etc.), run tests without coverage
                 dotnet test $testProj.FullName `
@@ -328,16 +250,18 @@ jobs:
                   --no-build `
                   --no-restore `
                   --results-directory "./TestResults" `
-                  --logger "console;verbosity=minimal"
+                  --logger "console;verbosity=minimal" 2>&1 | Tee-Object -FilePath $testLog
               }
-              
+
               if ($LASTEXITCODE -ne 0) {
-                if ($fw) {
-                  Write-Error "❌ Tests failed for $fw in $($testProj.Name)"
-                } else {
-                  Write-Error "❌ Tests failed in $($testProj.Name)"
-                }
+                Write-Error "❌ Tests failed for $fw in $($testProj.Name)"
                 exit $LASTEXITCODE
+              }
+              $testOutput = Get-Content $testLog -Raw
+              Remove-Item $testLog -Force -ErrorAction SilentlyContinue
+              if ($testOutput -match 'No test is available' -or $testOutput -notmatch '(?i)total( tests)?:\s*[1-9][0-9]*') {
+                Write-Error "❌ Zero tests ran for $fw in $($testProj.Name) - the test adapter found nothing to execute (missing/incompatible xunit.runner.visualstudio for this TFM?). dotnet test exits 0 in this case, so this guard fails the job instead."
+                exit 1
               }
             }
             Write-Host ""
@@ -432,13 +356,15 @@ jobs:
             Write-Host "==========================================" -ForegroundColor Red
             Write-Host "❌ COVERAGE GATE FAILED" -ForegroundColor Red
             Write-Host "==========================================" -ForegroundColor Red
-            Write-Host "Modules below ${threshold}% coverage: $($failedModules -join ', ')" -ForegroundColor Red
+            Write-Host "Modules below their threshold: $($failedModules -join ', ')" -ForegroundColor Red
+            Write-Host ""
+            Write-Host "src assemblies must reach ${threshold}%; test assemblies must reach ${testThreshold}%." -ForegroundColor Red
             exit 1
           }
           
           Write-Host ""
           Write-Host "==========================================" -ForegroundColor Green
-          Write-Host "✅ All modules meet ${threshold}% coverage threshold" -ForegroundColor Green
+          Write-Host "✅ All modules meet their coverage threshold (src ${threshold}%, test ${testThreshold}%)" -ForegroundColor Green
           Write-Host "==========================================" -ForegroundColor Green
 
       - name: Upload coverage report
@@ -714,10 +640,12 @@ jobs:
         if: steps.check.outputs.found == 'true'
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
         with:
-          # Install the same SDK set as validate-release so dotnet build can
-          # compile every TFM the solution targets (some test projects span
-          # netcoreapp3.1 → net10.0). Without these, the docs verify step
-          # fails on repos with broad multi-targeting.
+          # Same SDK set as validate-release, for parity with the runner that
+          # tested the tag - not because the docs build needs it. One SDK compiles
+          # every TFM (codeql.yaml builds the whole solution with 10.0.x alone;
+          # docfx.yaml and build-all-versions.yaml build without 3.1.x); only
+          # RUNNING a netcoreapp3.1 test suite needs the 3.1 runtime. Kept so this
+          # job never diverges from validate-release.
           dotnet-version: |
             3.1.x
             5.0.x
