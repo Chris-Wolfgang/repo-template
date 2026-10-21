@@ -211,7 +211,7 @@ function Read-Input {
         $userInput = (Read-Host).Trim()
 
         if ([string]::IsNullOrWhiteSpace($userInput) -and $Default) {
-return $Default
+            return $Default
         }
         
         if ([string]::IsNullOrWhiteSpace($userInput) -and $Required) {
@@ -224,7 +224,7 @@ return $Default
 }
 
 # Replace placeholders in a file
-function Replace-Placeholders {
+function Update-Placeholders {
     param(
         [string]$FilePath,
         [hashtable]$Replacements
@@ -582,7 +582,7 @@ function Start-Setup {
     Write-Info "Step 2/${totalSteps}: Replacing placeholders in files..."
     
     foreach ($file in $script:FilesToUpdate) {
-        Replace-Placeholders -FilePath $file -Replacements $replacements
+        Update-Placeholders -FilePath $file -Replacements $replacements
     }
     
     # Step 3: Set up LICENSE
@@ -656,7 +656,7 @@ function Start-Setup {
     }
 
     # Step 4: Create solution (if requested)
-if ($solutionName) {
+    if ($solutionName) {
         Write-Info "Step 4/${totalSteps}: Creating solution file..."
         
         # Create blank solution in .slnx format
@@ -741,7 +741,7 @@ if ($solutionName) {
             # Get relative path safely
             $relativePath = Get-SafeRelativePath $_.FullName
 
-# Exclude hidden files (starting with .) except those in .github directory
+            # Exclude hidden files (starting with .) except those in .github directory
             $fileName = [System.IO.Path]::GetFileName($relativePath)
             $isInGitHubDir = $relativePath -like '.github/*'
             if ($fileName.StartsWith('.') -and -not $isInGitHubDir) {
