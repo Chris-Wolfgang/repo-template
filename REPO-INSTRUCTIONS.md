@@ -20,7 +20,7 @@ Below is a list of what needs to be done. Once you have completed the checklist 
  	2. `Description`
   	3. Select `Public` or `Private`
 1. `Start with a template` select `{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}`
-1. `Include all branches` set `On` - this will include the `develop` branch. If you don't want the `develop` branch or if there are other branches you don't want you can leave this `off` and create the `develop` branch in your new repository
+1. `Include all branches` can stay `Off` - the template has a single `main` branch, so there is nothing else to copy
 
 
 ## Add Branch Protection Rules
@@ -55,7 +55,7 @@ Only use this path if `Setup-BranchRuleset.ps1` does not fit your scenario
 (e.g. you are adopting this layout in a non-template repo that does not have
 the script).
 
-1. Go to your repository''s **Settings > Rules > Rulesets**.
+1. Go to your repository's **Settings > Rules > Rulesets**.
 2. Click **New ruleset > New branch ruleset**.
 3. **Ruleset Name** enter `Protect main branch`.
 4. **Enforcement status** set to **Active**.
@@ -77,23 +77,12 @@ These settings require that all checks in the pr.yaml file succeed before you ca
 
 **Note:** The pr.yaml workflow runs on `pull_request`, so a PR is validated with its own workflow, configuration and code in a run with a read-only token and no secrets. The separate `Protected Files Guard` (`protected-files.yaml`) refuses any PR that mixes a change to a protected file (workflows, analyzer config, build props, ...) with other changes, so a PR cannot weaken a check it is subject to except as a configuration-only PR reviewed on its own. See `docs/WORKFLOW_SECURITY.md`.
 
-1. Go to your repository’s Settings → Branches.
-2. Under “Branch protection rules,” edit the rule for main.
-3. Check “Require status checks to pass before merging.”
-4. In the "Status checks that are required" list, select the status check contexts produced by your PR workflow jobs. These options appear after the workflow has run at least once on `main`. For example:
-   - "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate"
-   - "Stage 2a: Windows Tests (.NET 5.0-10.0)"
-   - "Stage 2b: Windows .NET Framework Tests (4.6.2-4.8.1)"
-   - "Stage 3: macOS Tests (.NET 6.0-10.0)"
-   - "Security Scan (DevSkim)"
-
-5. Enable “Require branches to be up to date before merging.”
-6. Check `Restrict deletions`
-7. Check `Require a pull request before merging`
-	1. Check `Dismiss stale pull request approvals when new commits are pushed`
-	3. **For multi-developer repos:** Check `Require review from Code Owners` and set required approvals to 1 or more
-8. Check `Block force pushes`
-9. Check `Require code scanning`
+The required checks, pull-request rules, force-push and deletion protection
+and the code-scanning gate are all part of the branch ruleset described in
+[Add Branch Protection Rules](#add-branch-protection-rules) above -
+`scripts/Setup-BranchRuleset.ps1` holds the canonical list of check names.
+Do not add a classic branch-protection rule under **Settings > Branches** as
+well; the two would drift apart as check names change upstream.
 
 
 ## Add Custom Labels
@@ -104,9 +93,11 @@ Run the label setup script once after creating your repository:
 pwsh -File ./scripts/Setup-Labels.ps1
 ```
 
-This creates the labels used by Dependabot and the Maintenance framework.
-The canonical list lives in `scripts/Setup-Labels.ps1`; today it is:
+This creates the labels used by the issue forms, Dependabot, the changelog
+check and the Maintenance framework. The canonical list lives in
+`scripts/Setup-Labels.ps1`; today it is:
 
+- `bug`, `needs-triage`, `enhancement`, `feature-request` — applied by the issue forms in `.github/ISSUE_TEMPLATE/`; GitHub silently drops a label that does not exist, so they must be created here.
 - `dependencies` — applied automatically by Dependabot to every update PR.
 - `no-changelog` — waives the *Changelog Fragment Check* for a PR that touches `src/` but has no user-visible effect (see `changelog/unreleased/README.md`).
 - `maintenance` — kind label for the per-repo parent Maintenance issue.
@@ -130,11 +121,14 @@ API, CI/CD). The `Maintenance: <repo>` parent issue is referenced by
 if you skip this step those references point at a non-existent issue.
 
 ```powershell
-pwsh -File ./scripts/Setup-Maintenance.ps1
+pwsh -File ./scripts/Setup-Maintenance.ps1 -MaintenanceProjectUrl https://github.com/users/<username>/projects/<n>
 ```
 
-This is a one-time step per repo. The script is idempotent - re-running it
-updates the existing parent issue rather than creating duplicates.
+`-MaintenanceProjectUrl` is mandatory: it is the GitHub Project the parent
+issue and its sub-issues are added to. This is a one-time step per repo - the
+script self-deletes after a successful run (restore it from the template to
+run it again), and if a `Maintenance: <repo>` issue already exists it exits
+without touching it rather than creating a duplicate.
 
 Requires `gh auth login` (same prerequisite as the labels script).
 
@@ -307,31 +301,40 @@ because they are useful in steady-state:
 
 ## Mutation Testing
 
-`.github/workflows/stryker.yaml` runs Stryker.NET mutation testing against
-every test project under `tests/` on a **Windows** runner. Windows is
-required because the test matrix can include .NET Framework 4.6.2-4.8.1
-TFMs, which only build on Windows; a Linux runner would silently mutate
-only the .NET (Core) TFMs and miss any bugs that reproduce only on
-Framework.
-
-**No opt-in is required** - Stryker runs without a `stryker-config.json`. (Triggers are still schedule + manual dispatch only; mutation testing is not a per-PR check.)
-
-Two configuration modes are supported:
-
-- **Root-level umbrella** - if a `stryker-config.json` exists at the repo
-  root, it is treated as the umbrella config: Stryker is invoked once with
-  it and per-project runs are skipped (avoids duplicating the same work).
-  Use this when one Stryker invocation should cover multiple test projects.
-- **Per-project (default)** - if no root config exists, Stryker runs once
-  per test project under `tests/`. A per-project `stryker-config.json` next
-  to a test project overrides Stryker's defaults (excluded files, specific
-  mutators, mutation level, etc.).
+`.github/workflows/stryker.yaml` runs Stryker.NET mutation testing. Mutation
+testing is canonical for every repo created from this template: the
+`thresholds.break` value in a `stryker-config.json` is the enforced floor -
+`dotnet stryker` exits non-zero when the score drops below it, so a run is a
+gate, not just a report. Ratchet the floor **up** over time; never down.
 
 Triggers:
 
-- `workflow_dispatch` - manual ad-hoc runs (e.g. while iterating on tests)
-- `schedule` - weekly Sunday 06:00 UTC; catches quality regressions between
-  releases without burning CI time on every PR (mutation testing is slow)
+- `pull_request` touching `src/**`, test code or a `stryker-config.json` -
+  gates a PR that would drop the score below the floor before it merges.
+  Mutation runs are slow, so docs- and workflow-only PRs skip it, and a repo
+  with no `stryker-config.json` (no floor to enforce) skips the PR gate
+  entirely - add a config with `thresholds.break` to opt in. Never make this
+  a required status check: the workflow is path-filtered, so a PR that does
+  not trigger it would wait on an "Expected" check forever.
+- `schedule` (weekly Sunday 06:00 UTC) and `workflow_dispatch` - full runs
+  that also publish the score-history trend chart to `gh-pages` under
+  `/dev/stryker` and keep the single rolling `kind:mutation-survives` issue
+  ("Mutation survivors (N) - kill these to raise the score") current.
+
+Configuration discovery - every config found is run, none is skipped:
+
+- A root `stryker-config.json` (umbrella) **and** every
+  `tests/**/stryker-config.json`. A repo can have both (an umbrella for the
+  main library plus per-suite configs).
+- No config anywhere: on schedule/dispatch, Stryker runs once per test
+  project under `tests/` with its defaults (report only, no floor); on
+  `pull_request` the run is skipped.
+
+Runner: the detect job picks `windows-latest` so Stryker can compile every
+TFM the repo targets, including .NET Framework 4.6.2-4.8.1, which a Linux
+runner cannot build. When every config pins a modern `target-framework`
+(net5.0+ / netcoreapp), nothing needs Windows and the run moves to
+`ubuntu-latest`, which is faster and cheaper.
 
 The Stryker HTML report is uploaded as a workflow artifact
 (`stryker-report-<run-id>`) and retained for 30 days. Download it from the
