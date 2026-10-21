@@ -104,7 +104,7 @@ jobs:
       - name: Gate on high-severity findings
         # zizmor maps High severity to SARIF level=error; medium and below
         # upload as warning/note for the Security tab but do not block. A
-        # finding that is deliberate (e.g. pr.yaml's pull_request_target) is
+        # finding that is deliberate (e.g. protected-files.yaml's pull_request_target) is
         # accepted with an inline `# zizmor: ignore[rule]` next to the flagged
         # key — do NOT use a .zizmor.yml at the repo root: zizmor only reads
         # .github/zizmor.yml, so a root file is silently ignored.
