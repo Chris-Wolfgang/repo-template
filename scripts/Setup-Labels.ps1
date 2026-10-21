@@ -95,6 +95,7 @@ $labels = @(
     @{ name = "needs-triage";             color = "ededed"; description = "New bug report awaiting maintainer triage" },
     @{ name = "enhancement";              color = "a2eeef"; description = "New feature or request" },
     @{ name = "feature-request";          color = "0e8a16"; description = "Feature request filed through the issue form" },
+    @{ name = "upstream-gap";             color = "bfd4f2"; description = "Gap in an upstream dependency that this library works around" },
 
     # Dependabot — applies `dependencies` automatically per .github/dependabot.yml
     @{ name = "dependencies";             color = "0366d6"; description = "Pull requests that update a dependency file" },
