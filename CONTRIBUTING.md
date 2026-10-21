@@ -64,8 +64,8 @@ You can contribute in several ways:
    - **actionlint** and **zizmor** (`actions-audit.yaml`) on the workflow files themselves.
    - License audit and SBOM generation for the dependency closure (`license-audit.yaml`, `sbom.yaml`).
 
-   The branch ruleset **requires** Detect .NET Projects, the three test stages, DevSkim, CodeQL,
-   gitleaks and the Changelog Fragment Check to pass before merging. InspectCode, actionlint/zizmor,
+   The branch ruleset **requires** the Protected Files Guard, Detect .NET Projects, the three test
+   stages, DevSkim, CodeQL, gitleaks and the Changelog Fragment Check to pass before merging. InspectCode, actionlint/zizmor,
    the license audit and the SBOM are advisory — they annotate the PR and the Security tab but do
    not block the merge on their own. If a check fails, read its log, fix, and push.
    `pwsh ./scripts/build-pr.ps1` reproduces the Windows stage locally (see *Build and Test* below).
