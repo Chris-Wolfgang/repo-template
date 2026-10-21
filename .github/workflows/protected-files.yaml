@@ -6,8 +6,9 @@
 #   - only protected files changed   -> pass with a notice; a maintainer reviews the diff
 #   - protected files + anything else -> FAIL, and nothing can bypass it: split the PR
 # "Protected" is every file that shapes what CI checks: the workflows, analyzer config,
-# build props, coverage config, the gitleaks config, the CI tool manifest, the
-# license-audit policy and the CI scripts pr.yaml and license-audit.yaml run.
+# build props, coverage config, the gitleaks config and ignore list, the mutation-test
+# floor, the CI tool manifest, the hash-pinned scanner requirements, the license-audit
+# policy and the CI scripts pr.yaml and license-audit.yaml run.
 # Because pr.yaml runs on the PR's own copies of those files, a mixed PR would otherwise
 # be able to weaken a gate and pass it in the same change.
 name: Protected Files
@@ -82,11 +83,16 @@ jobs:
             # resolve those paths case-insensitively, so the renamed file is still the one
             # MSBuild imports.
             lower=$(printf '%s' "$file" | tr '[:upper:]' '[:lower:]')
-            case "$lower" in              .editorconfig|directory.build.props|directory.build.targets|bannedsymbols.txt|coverlet.runsettings|.config/dotnet-tools.json|.gitleaks.toml|scripts/changelog.ps1|scripts/tfm-parity.ps1|scripts/build-pr.ps1|scripts/third-party-notices.ps1) protected+=("$file") ;;
+            case "$lower" in              .editorconfig|directory.build.props|directory.build.targets|bannedsymbols.txt|coverlet.runsettings|.config/dotnet-tools.json|.gitleaks.toml|.gitleaksignore|stryker-config.json|scripts/changelog.ps1|scripts/tfm-parity.ps1|scripts/build-pr.ps1|scripts/third-party-notices.ps1) protected+=("$file") ;;
               # MSBuild imports Directory.Build.props/.targets by DIRECTORY, so a nested copy
               # (src/Directory.Build.props and friends) shapes the build exactly as the root one
               # does. Matching only the root names let a mixed PR change one of those unnoticed.
               */directory.build.props|*/directory.build.targets) protected+=("$file") ;;
+              # stryker.yaml enforces the mutation floor from the root stryker-config.json AND
+              # every tests/**/stryker-config.json, so a nested copy lowers the floor exactly as
+              # the root one does. The gitleaks CLI reads .gitleaksignore from the repository
+              # root on its own: a mixed PR could add a secret and its fingerprint together.
+              */stryker-config.json) protected+=("$file") ;;
               *)
                 # -i: Windows (and ReSharper on it) resolve names case-insensitively, so
                 # foo.dotsettings is as live as foo.DotSettings. The license-audit policy
