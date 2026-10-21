@@ -335,6 +335,7 @@ if ($needsDocFxConfig) {
         'docfx_project/api/index.md',
         'docfx_project/api/README.md',
         'docfx_project/docs/toc.yml',
+        'docfx_project/docs/index.md',
         'docfx_project/docs/introduction.md',
         'docfx_project/docs/getting-started.md'
     )

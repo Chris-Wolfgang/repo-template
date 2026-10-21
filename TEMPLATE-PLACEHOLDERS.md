@@ -87,28 +87,15 @@ Users should provide custom values when:
 
 ### How These Values Are Collected
 
-The setup script (`pwsh ./scripts/setup.ps1`) prompts users for this information:
-
-**PowerShell (setup.ps1):**
-```powershell
-$templateRepoOwner = Read-Input `
-    -Prompt "Template Repository Owner" `
-    -Default "Chris-Wolfgang" `
-    -Example "YourUsername"
-
-$templateRepoName = Read-Input `
-    -Prompt "Template Repository Name" `
-    -Default "repo-template" `
-    -Example "my-template"
-```
-
-These values are collected during the interactive setup process (lines 341-349 in setup.ps1) and added to the replacements hashtable (lines 390-391).
+The setup script (`pwsh ./scripts/setup.ps1`) prompts for both values with `Read-Input` immediately after the license selection (the "Template repository info" block in `scripts/setup.ps1`), using the defaults above, and adds them to the `$replacements` hashtable as `TEMPLATE_REPO_OWNER` and `TEMPLATE_REPO_NAME`. Refer to the script for the exact prompt text; it is not repeated here so the two cannot drift apart.
 
 ### Where These Are Used
 
-The primary usage is in `REPO-INSTRUCTIONS.md` where the setup instructions reference the template:
+Two files use these placeholders:
 
-**Before replacement (line 46):**
+**`REPO-INSTRUCTIONS.md`** — the "Start with a template" step of the setup instructions:
+
+**Before replacement:**
 ```markdown
 1. `Start with a template` select `{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}`
 ```
@@ -123,11 +110,12 @@ The primary usage is in `REPO-INSTRUCTIONS.md` where the setup instructions refe
 1. `Start with a template` select `YourUsername/my-template`
 ```
 
+**`README-TEMPLATE.md`** (renamed to `README.md` during setup) — the "Keeping Up With the Template" section links to `{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}` so a generated repository points back at the template it was created from.
+
 ### Validation
 
-The setup script validates that these placeholders are properly replaced (along with other core placeholders) before completing:
+The setup script validates that these placeholders are properly replaced (along with other core placeholders) before completing. The `$corePlaceholders` array in `scripts/setup.ps1` lists the placeholder names it checks:
 
-**PowerShell (setup.ps1, lines 475-479):**
 ```powershell
 $corePlaceholders = @(
     'PROJECT_NAME', 'PROJECT_DESCRIPTION', 'PACKAGE_NAME',
@@ -138,75 +126,75 @@ $corePlaceholders = @(
 ```
 
 **Files That Process These Placeholders:**
-1. **scripts/setup.ps1** - PowerShell setup script (prompts: lines 341-349; replacements hashtable: lines 390-391)
-2. **REPO-INSTRUCTIONS.md** - Target file where replacement occurs (line 46)
+1. **scripts/setup.ps1** - prompts for the values ("Template repository info" block), adds them to the `$replacements` hashtable, and validates them via `$corePlaceholders`
+2. **REPO-INSTRUCTIONS.md** - target file (template selection step)
+3. **README-TEMPLATE.md** (renamed to **README.md**) - target file ("Keeping Up With the Template" section)
 
 ---
 
 ## Files Containing Placeholders
 
+The sections below are keyed by file and placeholder. Line numbers are deliberately not given because they change with every edit; search for the placeholder text instead. The file order matches the list `scripts/setup.ps1` substitutes (print it with `pwsh ./scripts/setup.ps1 -ListFiles`), followed by the license files, which the script handles separately.
+
+To regenerate this catalogue from the tree:
+
+```bash
+grep -rnoE '\{\{[A-Z_]+\}\}' --exclude-dir=.git --exclude-dir=obj --exclude-dir=bin .
+```
+
 ### 1. README.md (After Rename)
 
 **Important:** `README-TEMPLATE.md` becomes `README.md` during setup.
 
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| 1 | `{{PROJECT_NAME}}` | Main heading |
-| 3 | `{{PROJECT_DESCRIPTION}}` | Project description |
-| 5–6 | `{{PACKAGE_NAME}}` | NuGet version + downloads badges |
-| 7 | `{{GITHUB_OWNER}}`, `{{REPO_NAME}}`, `{{GITHUB_REPO_URL}}` | PR build badge |
-| 8 | `{{GITHUB_OWNER}}`, `{{REPO_NAME}}`, `{{GITHUB_REPO_URL}}` | Release build badge |
-| 9 | `{{LICENSE_TYPE}}` | License badge |
-| 11 | `{{GITHUB_REPO_URL}}` | GitHub badge link |
-| 18 | `{{PACKAGE_NAME}}` | Installation command |
-| 21 | `{{NUGET_STATUS}}` | NuGet availability |
-| 27 | `{{LICENSE_TYPE}}` | License section |
-| 33 | `{{GITHUB_REPO_URL}}` | Documentation link (2 occurrences) |
-| 34 | `{{DOCS_URL}}` | API documentation URL |
-| 42 | `{{QUICK_START_EXAMPLE}}` | Quick start code |
-| 48 | `{{FEATURES_TABLE}}` | Features table |
-| 51 | `{{FEATURE_EXAMPLES}}` | Feature examples |
-| 57 | `{{TARGET_FRAMEWORKS}}` | Supported Frameworks list |
-| 59 | `{{PACKAGE_NAME}}` | NuGet package matrix link |
-| 103 | `{{GITHUB_REPO_URL}}` | Clone command |
-| 104 | `{{REPO_NAME}}` | Directory name |
-| 182 | `{{ACKNOWLEDGMENTS}}` | Acknowledgments section |
+| Placeholder | Context |
+|-------------|---------|
+| `{{PROJECT_NAME}}` | Main heading |
+| `{{PROJECT_DESCRIPTION}}` | Project description |
+| `{{PACKAGE_NAME}}` | NuGet version and downloads badges; installation command; NuGet package matrix link; `gh attestation verify` example |
+| `{{GITHUB_OWNER}}`, `{{REPO_NAME}}` | PR build badge; release build badge; OpenSSF Scorecard badge; `gh attestation verify` example (`--repo` and `--signer-workflow`) |
+| `{{GITHUB_REPO_URL}}` | PR build and release build badge links; GitHub badge link; Documentation link (2 occurrences); clone command |
+| `{{REPO_NAME}}` | Directory name after clone |
+| `{{LICENSE_TYPE}}` | License badge (2 occurrences); License section |
+| `{{DOCS_URL}}` | Coverage badge (2 occurrences); API documentation URL |
+| `{{NUGET_STATUS}}` | NuGet availability |
+| `{{TEMPLATE_REPO_OWNER}}`, `{{TEMPLATE_REPO_NAME}}` | "Keeping Up With the Template" section (link text and URL) |
+| `{{QUICK_START_EXAMPLE}}` | Quick start code (optional, left for you to fill in) |
+| `{{FEATURES_TABLE}}` | Features table (optional) |
+| `{{FEATURE_EXAMPLES}}` | Feature examples (optional) |
+| `{{TARGET_FRAMEWORKS}}` | Supported Frameworks list (optional) |
+| `{{ACKNOWLEDGMENTS}}` | Acknowledgments section (optional) |
 
 ### 2. CONTRIBUTING.md
 
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| 1 | `{{PROJECT_NAME}}` | Main heading |
-| 3 | `{{PROJECT_NAME}}` | Introduction paragraph |
+| Placeholder | Context |
+|-------------|---------|
+| `{{PROJECT_NAME}}` | Main heading; introduction paragraph |
 
-### 2a. SECURITY.md
+### 3. SECURITY.md
 
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| 14 | `{{GITHUB_REPO_URL}}` | Private vulnerability report form link |
+| Placeholder | Context |
+|-------------|---------|
+| `{{GITHUB_REPO_URL}}` | Private vulnerability report form link |
 
-### 3. .github/CODEOWNERS
+### 4. .github/CODEOWNERS
 
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| 5 | `{{GITHUB_USERNAME}}` | Default owner |
-| 8 | `{{GITHUB_USERNAME}}` | src/ directory (commented) |
-| 11 | `{{GITHUB_USERNAME}}` | docs/ directory (commented) |
-| 14 | `{{GITHUB_USERNAME}}` | workflows/ directory (commented) |
-| 17 | `{{GITHUB_USERNAME}}` | .github/ directory |
+| Placeholder | Context |
+|-------------|---------|
+| `{{GITHUB_USERNAME}}` | Default owner; `.github/` directory; commented-out `src/`, `docs/` and `workflows/` examples (5 occurrences) |
 
-### 4. REPO-INSTRUCTIONS.md
+### 5. REPO-INSTRUCTIONS.md
 
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| 46 | `{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}` | Template selection instruction |
-| ~135 | `{{GITHUB_USERNAME}}` | CODEOWNERS update instruction |
+| Placeholder | Context |
+|-------------|---------|
+| `{{TEMPLATE_REPO_OWNER}}/{{TEMPLATE_REPO_NAME}}` | Template selection instruction |
+| `{{GITHUB_USERNAME}}` | CODEOWNERS update instruction |
+| `{{PROJECT_NAME}}`, `{{DOCS_URL}}` | Mentioned as examples in the manual-setup instructions; substituted along with the rest of the file |
 
-### 5. scripts/Setup-BranchRuleset.ps1
+### 6. scripts/Setup-BranchRuleset.ps1
 
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| 55 | `{{GITHUB_OWNER}}/{{REPO_NAME}}` | Default repository parameter |
+| Placeholder | Context |
+|-------------|---------|
+| `{{GITHUB_OWNER}}/{{REPO_NAME}}` | Default `-Repository` parameter value and the two checks that detect whether it was replaced (3 occurrences) |
 
 **Note:** This file is automatically updated during setup to contain your repository information. After setup, the script will automatically use the correct repository without needing to auto-detect or pass parameters.
 
@@ -214,20 +202,32 @@ $corePlaceholders = @(
 
 `scripts/Setup-GitHubPages.ps1` and `scripts/Fix-BranchRuleset.ps1` carry the same default but are **not** in the substitution list on purpose: Setup-GitHubPages.ps1 performs its own `{{...}}` replacements in the docfx files and must keep those literals intact, so both scripts auto-detect the repository from `gh repo view` instead.
 
-### 6. License Files (Selected During Setup)
+### 7. BannedSymbols.txt
+
+| Placeholder | Context |
+|-------------|---------|
+| `{{PROJECT_NAME}}` | Header comment |
+
+### 8. .github/workflows/benchmarks.yaml
+
+| Placeholder | Context |
+|-------------|---------|
+| `{{PROJECT_NAME}}` | Benchmark project path `benchmarks/{{PROJECT_NAME}}.Benchmarks/...` in the csproj detection, restore, build, run and report steps (6 occurrences) |
+
+### 9. License Files (Selected During Setup)
 
 **LICENSE-MIT.txt:**
-- Line 3: `{{YEAR}}` and `{{COPYRIGHT_HOLDER}}`
+- Copyright line: `{{YEAR}}` and `{{COPYRIGHT_HOLDER}}`
 
 **LICENSE-APACHE-2.0.txt:**
-- Line 189: `{{YEAR}}` and `{{COPYRIGHT_HOLDER}}`
+- Copyright line in the appendix: `{{YEAR}}` and `{{COPYRIGHT_HOLDER}}`
 
 **LICENSE-MPL-2.0.txt:**
 - No placeholders (license text is complete)
 - Copyright notice added separately if needed
 
 **LICENSE-TBD.txt** (option 4, custom/TBD — all rights reserved pending license selection):
-- Line 1: `{{YEAR}}` and `{{COPYRIGHT_HOLDER}}`
+- Copyright line: `{{YEAR}}` and `{{COPYRIGHT_HOLDER}}`
 - Manual setup for this option also requires, because the file alone does not do it:
   1. In `.editorconfig`, replace `file_header_template = unset` with
      `file_header_template = Copyright (c) <holder>. All rights reserved. SPDX-License-Identifier: LicenseRef-TBD`
@@ -236,61 +236,61 @@ $corePlaceholders = @(
      `This project is **not yet licensed**. All rights reserved pending license selection: no reuse, redistribution, or hosting rights are granted. See the [LICENSE](LICENSE) file.`
   3. Set `{{LICENSE_TYPE}}` to `TBD`.
 
-### 7. docfx_project/docfx.json
+### 10. docfx_project/docfx.json
 
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| 46 | `{{PROJECT_NAME}}` | Application name |
-| 47 | `{{PROJECT_NAME}}` | Application title |
-| 53 | `{{DOCS_URL}}` | Base URL for documentation |
+| Placeholder | Context |
+|-------------|---------|
+| `{{PROJECT_NAME}}` | `_appName`; `_appTitle` |
+| `{{DOCS_URL}}` | `_baseUrl` for documentation |
 
-### 8. docfx_project/index.md
+### 11. docfx_project/index.md
 
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| 5 | `{{PROJECT_NAME}}` | Main heading |
-| 7 | `{{PROJECT_NAME}}` | Welcome message |
-| 13 | `{{GITHUB_REPO_URL}}` | GitHub repository link |
-| 15 | `{{PROJECT_NAME}}` | About section |
-| 17 | `{{PROJECT_DESCRIPTION}}` | About section |
-| 22 | `{{PACKAGE_NAME}}` | Installation command |
-| 35-37 | `{{GITHUB_REPO_URL}}` | Additional resources links (3 occurrences) |
+| Placeholder | Context |
+|-------------|---------|
+| `{{PROJECT_NAME}}` | Main heading; welcome message; About section heading; documentation guides description |
+| `{{GITHUB_REPO_URL}}` | GitHub repository link; Additional resources links (3 occurrences) |
+| `{{PROJECT_DESCRIPTION}}` | About section |
+| `{{PACKAGE_NAME}}` | Installation command |
 
-### 9. docfx_project/api/index.md
+### 12. docfx_project/api/index.md
 
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| 3 | `{{PROJECT_NAME}}` | Welcome message |
+| Placeholder | Context |
+|-------------|---------|
+| `{{PROJECT_NAME}}` | Welcome message |
 
-### 10. docfx_project/docs/toc.yml
+### 13. docfx_project/api/README.md
 
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| 8 | `{{GITHUB_REPO_URL}}` | Project website link |
+| Placeholder | Context |
+|-------------|---------|
+| `{{PROJECT_NAME}}` | Mentioned in the note explaining that the placeholder is replaced; substituted along with the rest of the file |
 
-### 11. docfx_project/docs/introduction.md
+### 14. docfx_project/docs/toc.yml
 
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| 3 | `{{PROJECT_NAME}}` | Welcome message |
-| 7 | `{{PROJECT_DESCRIPTION}}` | Overview section |
-| 21 | `{{PROJECT_NAME}}` | Getting help section |
-| 25 | `{{GITHUB_REPO_URL}}` | GitHub repository link |
-| 26 | `{{GITHUB_REPO_URL}}` | GitHub issues link |
+| Placeholder | Context |
+|-------------|---------|
+| `{{GITHUB_REPO_URL}}` | Project website link |
 
-### 12. docfx_project/docs/getting-started.md
+### 15. docfx_project/docs/index.md
 
-| Line(s) | Placeholder | Context |
-|---------|-------------|---------|
-| 3 | `{{PROJECT_NAME}}` | Guide title |
-| 17 | `{{PACKAGE_NAME}}` | NuGet installation command |
-| 23 | `{{PACKAGE_NAME}}` | Package Manager Console command |
-| 34 | `{{PROJECT_NAME}}` | Using statement in code example |
-| 42 | `{{PROJECT_NAME}}` | Next steps section |
-| 43 | `{{GITHUB_REPO_URL}}` | GitHub repository link |
-| 51 | `{{GITHUB_REPO_URL}}` | Additional resources |
-| 52 | `{{GITHUB_REPO_URL}}` | Contributing guidelines link |
-| 53 | `{{GITHUB_REPO_URL}}` | Issue reporting link |
+| Placeholder | Context |
+|-------------|---------|
+| `{{PROJECT_NAME}}` | Main heading of the published documentation index |
+
+### 16. docfx_project/docs/introduction.md
+
+| Placeholder | Context |
+|-------------|---------|
+| `{{PROJECT_NAME}}` | Welcome message; Getting help section |
+| `{{PROJECT_DESCRIPTION}}` | Overview section |
+| `{{GITHUB_REPO_URL}}` | GitHub repository link; GitHub issues link |
+
+### 17. docfx_project/docs/getting-started.md
+
+| Placeholder | Context |
+|-------------|---------|
+| `{{PROJECT_NAME}}` | Guide title; using statement in code example; Next steps section |
+| `{{PACKAGE_NAME}}` | NuGet installation command; Package Manager Console command |
+| `{{GITHUB_REPO_URL}}` | GitHub repository links (2 occurrences); Contributing guidelines link; Issue reporting link |
 
 ---
 
@@ -323,31 +323,38 @@ If you must replace manually:
 3. **Global Find and Replace** in your editor:
    - Search for: `{{PLACEHOLDER_NAME}}`
    - Replace with: `Your Value`
-   - Files to search:
+   - Files to search: the list `scripts/setup.ps1` substitutes, which is the single source of truth. Print it with:
+     ```bash
+     pwsh ./scripts/setup.ps1 -ListFiles
+     ```
+     At the time of writing it prints:
      - `README.md` (now the renamed template)
      - `CONTRIBUTING.md`
      - `SECURITY.md`
      - `.github/CODEOWNERS`
-     - `scripts/Setup-BranchRuleset.ps1`
      - `REPO-INSTRUCTIONS.md`
+     - `scripts/Setup-BranchRuleset.ps1`
      - `docfx_project/docfx.json`
      - `docfx_project/index.md`
      - `docfx_project/api/index.md`
      - `docfx_project/api/README.md`
      - `docfx_project/docs/toc.yml`
+     - `docfx_project/docs/index.md`
      - `docfx_project/docs/introduction.md`
      - `docfx_project/docs/getting-started.md`
+     - `BannedSymbols.txt`
+     - `.github/workflows/benchmarks.yaml`
 
 4. **Validation:**
    ```bash
-   # Check for remaining required placeholders
-   # Note: README.md will still contain optional placeholders like {{QUICK_START_EXAMPLE}},
-   # {{FEATURES_TABLE}}, {{FEATURE_EXAMPLES}}, {{TARGET_FRAMEWORKS}}, {{ACKNOWLEDGMENTS}}
-   # which you fill in as you develop your project
-   grep -r "{{.*}}" CONTRIBUTING.md SECURITY.md .github/CODEOWNERS REPO-INSTRUCTIONS.md docfx_project/ || echo "No required placeholders found in core files"
-   
+   # Check for remaining placeholders in every file the setup script substitutes,
+   # except README.md, which keeps the optional placeholders ({{QUICK_START_EXAMPLE}},
+   # {{FEATURES_TABLE}}, {{FEATURE_EXAMPLES}}, {{TARGET_FRAMEWORKS}}, {{ACKNOWLEDGMENTS}})
+   # for you to fill in as you develop your project
+   grep -nE '\{\{[A-Z_]+\}\}' $(pwsh ./scripts/setup.ps1 -ListFiles | tr -d '\r' | grep -vx 'README.md') || echo "No required placeholders found in core files"
+
    # Check README.md separately for required placeholders only
-   grep -E "{{(PROJECT_NAME|PROJECT_DESCRIPTION|PACKAGE_NAME|GITHUB_REPO_URL|REPO_NAME|DOCS_URL|LICENSE_TYPE|NUGET_STATUS)}}" README.md && echo "⚠️  Found required placeholders in README.md - please replace them" || echo "✓ All required placeholders replaced in README.md"
+   grep -nE '\{\{(PROJECT_NAME|PROJECT_DESCRIPTION|PACKAGE_NAME|GITHUB_REPO_URL|GITHUB_OWNER|REPO_NAME|DOCS_URL|LICENSE_TYPE|NUGET_STATUS|TEMPLATE_REPO_OWNER|TEMPLATE_REPO_NAME)\}\}' README.md && echo "⚠️  Found required placeholders in README.md - please replace them" || echo "✓ All required placeholders replaced in README.md"
    ```
 
 ---
