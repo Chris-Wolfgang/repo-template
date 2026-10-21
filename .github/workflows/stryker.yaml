@@ -116,12 +116,15 @@ jobs:
             echo "::notice::No stryker-config.json found - no floor to enforce, skipping the PR gate. Add one at the repo root or under tests/<project>/ (with thresholds.break) to enable it."
             mode=none; run=false; runner=ubuntu-latest
           else
-            tests=(tests/**/*Test*.csproj)
+            # Location-based, like pr.yaml: every project under tests/ is a candidate, not
+            # only those whose FILE NAME contains "Test" (and VB/F# projects too). The run
+            # job, which has an SDK, keeps only the ones MSBuild says are test projects.
+            tests=(tests/**/*.csproj tests/**/*.vbproj tests/**/*.fsproj)
             if (( ${#tests[@]} )); then
-              echo "No stryker-config.json - Stryker will run once per test project (${#tests[@]}) with its defaults."
+              echo "No stryker-config.json - Stryker will run once per test project under tests/ (${#tests[@]} candidate project(s)) with its defaults."
               mode=projects; run=true
             else
-              echo "::notice::No stryker-config.json and no test projects under tests/ - nothing to mutate."
+              echo "::notice::No stryker-config.json and no projects under tests/ - nothing to mutate."
               mode=none; run=false
             fi
             # Defaults mutate every TFM the test projects target, so Windows.
@@ -139,6 +142,14 @@ jobs:
     if: needs.detect.outputs.run == 'true'
     runs-on: ${{ needs.detect.outputs.runner }}
     timeout-minutes: 120
+    # Non-PR runs push to gh-pages (the publish step below): share the `gh-pages` group
+    # with benchmarks.yaml and docfx.yaml so two publishers never race into a
+    # non-fast-forward push. The group is held for the whole job, as benchmarks.yaml
+    # holds it for its whole run; queued, never cancelled. PR runs publish nothing and
+    # keep a group of their own so they never queue behind a publisher.
+    concurrency:
+      group: ${{ github.event_name == 'pull_request' && format('stryker-run-{0}', github.ref) || 'gh-pages' }}
+      cancel-in-progress: false
     permissions:
       contents: write   # publish the score-history chart to gh-pages (non-PR runs only)
       issues: write     # upsert the single survivors tracking issue (non-PR runs only)
@@ -192,6 +203,35 @@ jobs:
           shopt -s globstar nullglob
           mkdir -p "$GITHUB_WORKSPACE/stryker-logs"
           failed=0; n=0
+          # Same rule as pr.yaml Stage 1: a project under tests/ is a test project when
+          # MSBuild evaluates IsTestProject to true for any of its TFMs (Microsoft.NET.Test.Sdk's
+          # props are imported per TFM after restore), falling back to the PackageReference
+          # itself. TFMs are evaluated through MSBuild, not read from the raw csproj, so values
+          # inherited from Directory.Build.props or set conditionally are seen. A failed
+          # evaluation must fail the run, never read as "not a test project".
+          is_test_project() {  # $1 = project file; returns 0 when it is a test project
+            local proj="$1" tfm_out tfm_raw fw
+            if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$proj::MSBuild evaluation of TargetFrameworks failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+            fi
+            tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            if [ -z "$tfm_raw" ]; then
+              if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFramework 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$proj::MSBuild evaluation of TargetFramework failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            fi
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
+              if dotnet msbuild "$proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:IsTestProject 2>/dev/null | grep -qi '^true$'; then
+                return 0
+              fi
+              if dotnet msbuild "$proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getItem:PackageReference 2>/dev/null | grep -qi '"Identity": *"Microsoft.NET.Test.Sdk"'; then
+                return 0
+              fi
+            done < <(printf '%s' "$tfm_raw" | tr ';' '\n')
+            return 1
+          }
           run_one() {  # $1 = label, $2 = directory, $3.. = extra args
             local label="$1" dir="$2"; shift 2
             n=$((n + 1))
@@ -215,7 +255,13 @@ jobs:
               run_one "$(dirname "$cfg")" "$(dirname "$cfg")"
             done
           else
-            for proj in tests/**/*Test*.csproj; do
+            # Location-based discovery (see the detect job); the IsTestProject gate keeps a
+            # fixture or helper library under tests/ from being handed to Stryker.
+            for proj in tests/**/*.csproj tests/**/*.vbproj tests/**/*.fsproj; do
+              if ! is_test_project "$proj"; then
+                echo "⊘ Skipping $proj: not a test project (no IsTestProject / Microsoft.NET.Test.Sdk)"
+                continue
+              fi
               run_one "$(dirname "$proj") (defaults)" "$(dirname "$proj")"
             done
           fi
