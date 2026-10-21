@@ -645,6 +645,12 @@ jobs:
           ran_assemblies_file="$RUNNER_TEMP/stage1-ran-test-assemblies.txt"
           : > "$ran_assemblies_file"
 
+          # Assembly names of EVERY project under tests/ (ran here or not), as MSBuild
+          # evaluates them per TFM. The coverage gate below gates by location, so it
+          # reads this file instead of re-deriving names from the raw csproj.
+          test_assemblies_file="$RUNNER_TEMP/stage1-test-assembly-names.txt"
+          : > "$test_assemblies_file"
+
           if [ ${#test_projects[@]} -eq 0 ]; then
             if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
               echo "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the coverage gate."
@@ -685,6 +691,29 @@ jobs:
               tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
             fi
             frameworks=$(printf '%s' "$tfm_raw" | tr ';' '\n' | grep -E '^(net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0)|netcoreapp3\.1)$' || true)
+
+            # Evaluate the assembly name per TFM through MSBuild, like TargetFrameworks
+            # above. A raw <AssemblyName> grep of the csproj misses a value inherited
+            # from Directory.Build.props, split across lines, built from other
+            # properties or conditioned on the TFM, and Summary.txt reports coverage
+            # under the EVALUATED name, so a mismatch reads as "no coverage data".
+            # Every TFM is evaluated (not only the ones this stage runs) because the
+            # coverage gate keys on location, and a fixture under tests/ that a test
+            # project references has a coverage row too. A failed or empty evaluation
+            # fails the step: a gate that cannot name its rows must not pass.
+            asm_by_fw=""
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
+              if ! asm_out=$(dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:AssemblyName 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$test_proj::MSBuild evaluation of AssemblyName failed for $test_proj ($fw)"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              asm=$(printf '%s\n' "$asm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^AssemblyName[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+              if [ -z "$asm" ]; then
+                echo "::error file=$test_proj::MSBuild evaluated an empty AssemblyName for $test_proj ($fw)"; exit 1
+              fi
+              asm_by_fw="${asm_by_fw}${fw} ${asm}"$'\n'
+              echo "$asm" >> "$test_assemblies_file"
+            done < <(printf '%s' "$tfm_raw" | tr ';' '\n')
             
             if [ -z "$frameworks" ]; then
               echo "⊘ Skipping: No compatible .NET 5.0-10.0 target frameworks found"
@@ -741,15 +770,10 @@ jobs:
                 exit 1
               fi
               rm -f "$test_log"
+              # Record the evaluated name for THIS TFM (it can differ per TFM); the
+              # row check de-duplicates.
+              printf '%s' "$asm_by_fw" | awk -v fw="$fw" '$1 == fw { print $2 }' >> "$ran_assemblies_file"
             done <<< "$frameworks"
-            # Same assembly-name rule as the coverage gate below. This step runs under
-            # pipefail, and grep exits 1 when the csproj sets no <AssemblyName>; the
-            # `|| true` covers only that no-match case (the basename fallback follows).
-            asm=$(grep -oE '<AssemblyName>[^<]+' "$test_proj" 2>/dev/null | head -1 | cut -d'>' -f2 || true)
-            if [ -z "$asm" ]; then
-              asm=$(basename "$test_proj"); asm="${asm%.*}"
-            fi
-            echo "$asm" >> "$ran_assemblies_file"
             echo ""
           done
 
@@ -799,6 +823,9 @@ jobs:
           matched_count=0
 
           # Build the set of assembly names produced by projects under tests/.
+          # The test step evaluated them through MSBuild, per project and TFM,
+          # and wrote them to this file (see there for why a raw csproj grep is
+          # not enough).
           #
           # DO NOT identify test assemblies by name. Shipped PRODUCT packages
           # legitimately contain "Test" — e.g. Wolfgang.Etl.TestKit and
@@ -809,14 +836,12 @@ jobs:
           # Delimited with '|' on both sides so membership tests can't match a
           # prefix (|Foo| must not match |FooBar|).
           test_assemblies="|"
-          if [ -d ./tests ]; then
-            while IFS= read -r -d '' proj; do
-              asm=$(grep -oE '<AssemblyName>[^<]+' "$proj" 2>/dev/null | head -1 | cut -d'>' -f2)
-              if [ -z "$asm" ]; then
-                asm=$(basename "$proj"); asm="${asm%.*}"
-              fi
+          test_assemblies_file="$RUNNER_TEMP/stage1-test-assembly-names.txt"
+          if [ -f "$test_assemblies_file" ]; then
+            while IFS= read -r asm; do
+              [ -z "$asm" ] && continue
               test_assemblies="${test_assemblies}${asm}|"
-            done < <(find ./tests -type f \( -name '*.csproj' -o -name '*.vbproj' -o -name '*.fsproj' \) -print0)
+            done < <(sort -u "$test_assemblies_file")
           fi
           echo "Test assemblies (gated at ${test_threshold}%): ${test_assemblies}"
           echo ""
@@ -1042,6 +1067,10 @@ jobs:
           # targeting only those must not be expected to have a coverage row.
           $ranAssemblies = @()
 
+          # Assembly names of EVERY project under tests/ (ran here or not), as MSBuild
+          # evaluates them per TFM; the coverage gate below reads them (see Stage 1).
+          $testAssemblyNames = @()
+
           foreach ($testProj in $testProjects) {
             Write-Host "==========================================" -ForegroundColor Cyan
             Write-Host "Testing project: $($testProj.FullName)" -ForegroundColor Cyan
@@ -1067,6 +1096,21 @@ jobs:
               Write-Host "⊘ Skipping: No target frameworks found" -ForegroundColor Yellow
               Write-Host ""
               continue
+            }
+
+            # Evaluate the assembly name per TFM through MSBuild, like TargetFrameworks
+            # above (see Stage 1 for why a raw <AssemblyName> regex is not enough).
+            # Every TFM is evaluated, not only the ones this stage runs. A failed or
+            # empty evaluation fails the step.
+            $asmByFw = @{}
+            foreach ($fw in @($tfmRaw -split ';' | Where-Object { $_ })) {
+              $asmRaw = (dotnet msbuild $testProj.FullName -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:AssemblyName 2>$null |
+                Where-Object { $_ -and "$_".Trim() } | Select-Object -Last 1)
+              if ($LASTEXITCODE -ne 0) { Write-Host "::error file=$($testProj.FullName)::MSBuild evaluation of AssemblyName failed ($fw)"; exit 1 }
+              $asm = ("$asmRaw" -replace '^AssemblyName[=:]\s*', '').Trim()
+              if (-not $asm) { Write-Host "::error file=$($testProj.FullName)::MSBuild evaluated an empty AssemblyName ($fw)"; exit 1 }
+              $asmByFw[$fw] = $asm
+              $testAssemblyNames += $asm
             }
 
             # Split by semicolon for multi-targeting projects
@@ -1148,9 +1192,9 @@ jobs:
             # netcoreapp3.1 and net4x are tested but excluded from coverage:
             # netcoreapp3.1 has no matching test TFM on Linux (Stage 1) so its numbers
             # would not be comparable; net4x cannot use the XPlat collector on Windows.
-            $collectedCoverage = $false
             foreach ($fw in $frameworks) {
               Write-Host "Testing framework: $fw" -ForegroundColor Yellow
+              $collectsCoverage = $fw -match '^net([5-9]|[1-9][0-9]+)\.'
 
               # Tee the console output so the zero-tests-ran guard below can read
               # it: `dotnet test` exits 0 when the runner finds NO tests, which is
@@ -1159,7 +1203,7 @@ jobs:
               # total (vstest prints "Total: N" at verbosity=minimal and "Total tests: N"
               # at verbosity=normal; MTP prints "total: N").
               $testLog = [System.IO.Path]::GetTempFileName()
-              if ($fw -match '^net([5-9]|[1-9][0-9]+)\.') {
+              if ($collectsCoverage) {
                 dotnet test $testProj.FullName `
                   --configuration Release `
                   --framework $fw `
@@ -1168,7 +1212,6 @@ jobs:
                   --settings coverlet.runsettings `
                   --results-directory "./TestResults" `
                   --logger "console;verbosity=normal" 2>&1 | Tee-Object -FilePath $testLog
-                $collectedCoverage = $true
               } else {
                 dotnet test $testProj.FullName `
                   --configuration Release `
@@ -1187,17 +1230,17 @@ jobs:
                 Write-Host "::error file=$($testProj.FullName)::Zero tests ran for $fw — the test adapter found nothing to execute (missing/incompatible xunit.runner.visualstudio for this TFM?). dotnet test exits 0 in this case, so this guard fails the job instead."
                 exit 1
               }
-            }
-
-            if ($collectedCoverage) {
-              $asmMatch = [regex]::Match((Get-Content $testProj.FullName -Raw), '<AssemblyName>([^<]+)</AssemblyName>')
-              $ranAssemblies += if ($asmMatch.Success) { $asmMatch.Groups[1].Value.Trim() } else { $testProj.BaseName }
+              # Record the evaluated name for THIS TFM (it can differ per TFM); the
+              # row check de-duplicates.
+              if ($collectsCoverage) { $ranAssemblies += $asmByFw[$fw] }
             }
             Write-Host ""
           }
 
           $ranFile = Join-Path $env:RUNNER_TEMP 'stage2-ran-test-assemblies.txt'
           Set-Content -Path $ranFile -Value $ranAssemblies
+          $namesFile = Join-Path $env:RUNNER_TEMP 'stage2-test-assembly-names.txt'
+          Set-Content -Path $namesFile -Value $testAssemblyNames
           Write-Host "Recorded $($ranAssemblies.Count) test assembly/assemblies with coverage: $($ranAssemblies -join ', ')"
 
       - name: Check for coverage files
@@ -1293,17 +1336,16 @@ jobs:
           $matchedCount   = 0
 
           # Set of assembly names produced by projects under tests/ — see the
-          # matching Stage 1 block. Identify test assemblies by LOCATION, never
-          # by name: shipped product packages such as Wolfgang.Etl.TestKit and
-          # Wolfgang.AuditTrail.TestKit.Xunit contain "Test" and live in src/,
-          # and matching on the name would hold product code to the test
-          # threshold.
+          # matching Stage 1 block. The test step evaluated them through MSBuild,
+          # per project and TFM, and wrote them to this file. Identify test
+          # assemblies by LOCATION, never by name: shipped product packages such
+          # as Wolfgang.Etl.TestKit and Wolfgang.AuditTrail.TestKit.Xunit contain
+          # "Test" and live in src/, and matching on the name would hold product
+          # code to the test threshold.
           $testAssemblies = @()
-          if (Test-Path "tests") {
-            Get-ChildItem -Path "tests" -Recurse -File -Include *.csproj,*.vbproj,*.fsproj | ForEach-Object {
-              $m = [regex]::Match((Get-Content $_.FullName -Raw), '<AssemblyName>([^<]+)</AssemblyName>')
-              $testAssemblies += $(if ($m.Success) { $m.Groups[1].Value.Trim() } else { $_.BaseName })
-            }
+          $namesFile = Join-Path $env:RUNNER_TEMP 'stage2-test-assembly-names.txt'
+          if (Test-Path $namesFile) {
+            $testAssemblies = @(Get-Content $namesFile | Where-Object { $_.Trim() } | Sort-Object -Unique)
           }
           Write-Host "Test assemblies (gated at ${testThreshold}%): $($testAssemblies -join ', ')"
           Write-Host ""
@@ -1554,6 +1596,11 @@ jobs:
             exit 0
           fi
 
+          # Assembly names of EVERY project under tests/ (ran here or not), as MSBuild
+          # evaluates them per TFM; the coverage gate below reads them (see Stage 1).
+          test_assemblies_file="$RUNNER_TEMP/stage3-test-assembly-names.txt"
+          : > "$test_assemblies_file"
+
           # while-read rather than mapfile: macOS runners ship bash 3.2, which has no
           # mapfile (the step would die with exit 127 before running a single test).
           test_projects=()
@@ -1623,6 +1670,22 @@ jobs:
               tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
             fi
             frameworks=$(printf '%s' "$tfm_raw" | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0)$' || true)
+
+            # Evaluate the assembly name per TFM through MSBuild, like TargetFrameworks
+            # above (see Stage 1 for why a raw <AssemblyName> grep is not enough).
+            # Every TFM is evaluated, not only the ones this stage runs. A failed or
+            # empty evaluation fails the step.
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
+              if ! asm_out=$(dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:AssemblyName 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$test_proj::MSBuild evaluation of AssemblyName failed for $test_proj ($fw)"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              asm=$(printf '%s\n' "$asm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^AssemblyName[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+              if [ -z "$asm" ]; then
+                echo "::error file=$test_proj::MSBuild evaluated an empty AssemblyName for $test_proj ($fw)"; exit 1
+              fi
+              echo "$asm" >> "$test_assemblies_file"
+            done < <(printf '%s' "$tfm_raw" | tr ';' '\n')
             
             if [ -z "$frameworks" ]; then
               echo "⊘ Skipping: No compatible .NET 6.0-10.0 target frameworks found (ARM64 required)"
@@ -1720,18 +1783,17 @@ jobs:
           MATCHED=0
 
           # Assembly names produced by projects under tests/ — see the matching
-          # Stage 1 block. Identify test assemblies by LOCATION, never by name:
-          # shipped product packages such as Wolfgang.Etl.TestKit live in src/
-          # and contain "Test".
+          # Stage 1 block. The test step evaluated them through MSBuild, per
+          # project and TFM, and wrote them to this file. Identify test
+          # assemblies by LOCATION, never by name: shipped product packages such
+          # as Wolfgang.Etl.TestKit live in src/ and contain "Test".
           TEST_ASSEMBLIES="|"
-          if [ -d ./tests ]; then
-            while IFS= read -r -d '' proj; do
-              asm=$(grep -oE '<AssemblyName>[^<]+' "$proj" 2>/dev/null | head -1 | cut -d'>' -f2)
-              if [ -z "$asm" ]; then
-                asm=$(basename "$proj"); asm="${asm%.*}"
-              fi
+          TEST_ASSEMBLIES_FILE="$RUNNER_TEMP/stage3-test-assembly-names.txt"
+          if [ -f "$TEST_ASSEMBLIES_FILE" ]; then
+            while IFS= read -r asm; do
+              [ -z "$asm" ] && continue
               TEST_ASSEMBLIES="${TEST_ASSEMBLIES}${asm}|"
-            done < <(find ./tests -type f \( -name '*.csproj' -o -name '*.vbproj' -o -name '*.fsproj' \) -print0)
+            done < <(sort -u "$TEST_ASSEMBLIES_FILE")
           fi
           echo "Test assemblies (gated at ${TEST_THRESHOLD}%): ${TEST_ASSEMBLIES}"
           echo ""
