@@ -44,6 +44,41 @@ jobs:
           results_format: sarif
           publish_results: true
 
+      # The scorecard.dev webapp verifies this job before accepting published
+      # results: every step must be a `uses:` of an allow-listed action, and a
+      # `run:` step here makes it reject the publish with a 400 ("scorecard job
+      # must only have steps with `uses`"). The action only logs a warning for
+      # that, so the run stays green while the README badge reports "invalid
+      # repo path". The SARIF filter therefore runs in the separate job below.
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scorecard-sarif
+          path: results.sarif
+          retention-days: 5
+
+  upload:
+    name: Filter and upload SARIF
+    needs: analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      security-events: write   # upload the SARIF results
+      contents: read
+    steps:
+      # Checked out so upload-sarif can compute the same source fingerprints
+      # it did when this ran in the analysis job; without the files, alert
+      # fingerprints drift and existing alerts reappear under new IDs.
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download SARIF artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: scorecard-sarif
+
       # Drop Scorecard findings that are known won't-fix for this repository
       # BEFORE the SARIF reaches Code Scanning. Filtering here (rather than
       # dismissing alerts one by one) is durable: Scorecard emits a fresh SARIF
