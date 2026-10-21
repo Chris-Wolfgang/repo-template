@@ -725,21 +725,36 @@ jobs:
             # under tests/ has nothing for the adapter to execute and would trip the
             # zero-tests guard below. IsTestProject comes from Microsoft.NET.Test.Sdk's
             # props (imported per TFM after restore); fall back to the PackageReference
-            # itself. Mirrors scripts/build-pr.ps1 and scripts/tfm-parity.ps1.
+            # itself. A project under tests/ is skipped ONLY on an explicit opt-out:
+            # `<IsTestProject>false</IsTestProject>` in its project file (Test.Sdk sets
+            # the property only when it is still empty, so the opt-out always wins).
+            # A project with neither Test.Sdk nor the opt-out FAILS the step: a test
+            # project that lost its Microsoft.NET.Test.Sdk reference used to drop out
+            # of the gate silently, before the zero-tests guard could see it.
+            # Mirrors scripts/build-pr.ps1 and scripts/tfm-parity.ps1 (which still skip).
             is_test_project=false
+            opted_out=false
             while IFS= read -r fw; do
               [ -z "$fw" ] && continue
-              if dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:IsTestProject 2>/dev/null | grep -qi '^true$'; then
+              is_test_value=$(dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:IsTestProject 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+              if [ "$is_test_value" = "true" ]; then
                 is_test_project=true; break
+              fi
+              if [ "$is_test_value" = "false" ]; then
+                opted_out=true; break
               fi
               if dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getItem:PackageReference 2>/dev/null | grep -qi '"Identity": *"Microsoft.NET.Test.Sdk"'; then
                 is_test_project=true; break
               fi
             done <<< "$frameworks"
-            if [ "$is_test_project" = false ]; then
-              echo "⊘ Skipping: not a test project (no IsTestProject / Microsoft.NET.Test.Sdk)"
+            if [ "$opted_out" = true ]; then
+              echo "⊘ Skipping: opted out of dotnet test (<IsTestProject>false</IsTestProject> is set explicitly)"
               echo ""
               continue
+            fi
+            if [ "$is_test_project" = false ]; then
+              echo "::error file=$test_proj::Not a test project (no IsTestProject / Microsoft.NET.Test.Sdk) and no explicit opt-out — a project under ./tests must either reference Microsoft.NET.Test.Sdk or set <IsTestProject>false</IsTestProject>. Skipping it silently would hide a test project that lost its Test.Sdk reference from the zero-tests guard, so this guard fails the job instead."
+              exit 1
             fi
 
             echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
@@ -1171,18 +1186,28 @@ jobs:
             
             # Only projects that really run tests (see the Linux stage): IsTestProject
             # per TFM, falling back to the Microsoft.NET.Test.Sdk PackageReference.
+            # Skipped ONLY on the explicit opt-out `<IsTestProject>false</IsTestProject>`;
+            # a project with neither Test.Sdk nor the opt-out fails the step so a test
+            # project that lost its Test.Sdk reference cannot drop out silently.
             $isTestProject = $false
+            $optedOut = $false
             foreach ($fw in $frameworks) {
               $isTest = (dotnet msbuild $testProj.FullName -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:IsTestProject 2>$null |
                 Where-Object { $_ -and "$_".Trim() } | Select-Object -Last 1)
-              if (("$isTest" -replace '^IsTestProject[=:]\s*', '').Trim() -ieq 'true') { $isTestProject = $true; break }
+              $isTestValue = ("$isTest" -replace '^IsTestProject[=:]\s*', '').Trim()
+              if ($isTestValue -ieq 'true') { $isTestProject = $true; break }
+              if ($isTestValue -ieq 'false') { $optedOut = $true; break }
               $refs = (dotnet msbuild $testProj.FullName -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getItem:PackageReference 2>$null | Out-String)
               if ($refs.Trim() -and ((ConvertFrom-Json $refs).Items.PackageReference | Where-Object { $_.Identity -ieq 'Microsoft.NET.Test.Sdk' })) { $isTestProject = $true; break }
             }
-            if (-not $isTestProject) {
-              Write-Host "⊘ Skipping: not a test project (no IsTestProject / Microsoft.NET.Test.Sdk)" -ForegroundColor Yellow
+            if ($optedOut) {
+              Write-Host "⊘ Skipping: opted out of dotnet test (<IsTestProject>false</IsTestProject> is set explicitly)" -ForegroundColor Yellow
               Write-Host ""
               continue
+            }
+            if (-not $isTestProject) {
+              Write-Host "::error file=$($testProj.FullName)::Not a test project (no IsTestProject / Microsoft.NET.Test.Sdk) and no explicit opt-out — a project under ./tests must either reference Microsoft.NET.Test.Sdk or set <IsTestProject>false</IsTestProject>. Skipping it silently would hide a test project that lost its Test.Sdk reference from the zero-tests guard, so this guard fails the job instead."
+              exit 1
             }
 
             Write-Host "Target frameworks: $($frameworks -join ', ')" -ForegroundColor White
@@ -1697,21 +1722,36 @@ jobs:
             # under tests/ has nothing for the adapter to execute and would trip the
             # zero-tests guard below. IsTestProject comes from Microsoft.NET.Test.Sdk's
             # props (imported per TFM after restore); fall back to the PackageReference
-            # itself. Mirrors scripts/build-pr.ps1 and scripts/tfm-parity.ps1.
+            # itself. A project under tests/ is skipped ONLY on an explicit opt-out:
+            # `<IsTestProject>false</IsTestProject>` in its project file (Test.Sdk sets
+            # the property only when it is still empty, so the opt-out always wins).
+            # A project with neither Test.Sdk nor the opt-out FAILS the step: a test
+            # project that lost its Microsoft.NET.Test.Sdk reference used to drop out
+            # of the gate silently, before the zero-tests guard could see it.
+            # Mirrors scripts/build-pr.ps1 and scripts/tfm-parity.ps1 (which still skip).
             is_test_project=false
+            opted_out=false
             while IFS= read -r fw; do
               [ -z "$fw" ] && continue
-              if dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:IsTestProject 2>/dev/null | grep -qi '^true$'; then
+              is_test_value=$(dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:IsTestProject 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+              if [ "$is_test_value" = "true" ]; then
                 is_test_project=true; break
+              fi
+              if [ "$is_test_value" = "false" ]; then
+                opted_out=true; break
               fi
               if dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getItem:PackageReference 2>/dev/null | grep -qi '"Identity": *"Microsoft.NET.Test.Sdk"'; then
                 is_test_project=true; break
               fi
             done <<< "$frameworks"
-            if [ "$is_test_project" = false ]; then
-              echo "⊘ Skipping: not a test project (no IsTestProject / Microsoft.NET.Test.Sdk)"
+            if [ "$opted_out" = true ]; then
+              echo "⊘ Skipping: opted out of dotnet test (<IsTestProject>false</IsTestProject> is set explicitly)"
               echo ""
               continue
+            fi
+            if [ "$is_test_project" = false ]; then
+              echo "::error file=$test_proj::Not a test project (no IsTestProject / Microsoft.NET.Test.Sdk) and no explicit opt-out — a project under ./tests must either reference Microsoft.NET.Test.Sdk or set <IsTestProject>false</IsTestProject>. Skipping it silently would hide a test project that lost its Test.Sdk reference from the zero-tests guard, so this guard fails the job instead."
+              exit 1
             fi
 
             echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
