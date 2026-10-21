@@ -260,6 +260,7 @@ The script will:
 | License Type | `MIT`, `Apache-2.0`, `MPL-2.0`, or `TBD` (all rights reserved pending selection) | No |
 | Copyright Holder | `Chris Wolfgang` | Yes (from git) |
 | NuGet Status | `Coming soon to NuGet.org` | No |
+| Repository Kind | `library` (default) or `application` — an application repository drops the library-only `upstream_gap` issue form | No |
 
 **Note:** The setup scripts handle the placeholders above. Additional optional content placeholders (`{{QUICK_START_EXAMPLE}}`, `{{FEATURES_TABLE}}`, `{{FEATURE_EXAMPLES}}`, `{{TARGET_FRAMEWORKS}}`, `{{ACKNOWLEDGMENTS}}`) remain in your README.md for you to fill in as you develop your project. See [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS.md) for details.
 
