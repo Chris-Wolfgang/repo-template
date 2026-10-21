@@ -62,7 +62,8 @@
     Applies the safe files and stamps the new template commit; commit the result as a PR.
 .NOTES
     Requires gh (authenticated) and git. Run from the repository root. Remember that workflow and
-    Directory.Build.props changes trip the protected-file guard in pr.yaml and need the admin bypass.
+    Directory.Build.props changes are protected files: keep them in a PR of their own so the
+    Protected Files Guard (protected-files.yaml) passes; a mixed PR fails it and cannot be bypassed.
 #>
 [CmdletBinding()]
 param
