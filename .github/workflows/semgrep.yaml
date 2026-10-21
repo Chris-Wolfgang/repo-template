@@ -77,9 +77,55 @@ jobs:
       - name: Upload Semgrep SARIF
         # A fork's pull_request token cannot write Code Scanning (security-events: write is
         # not granted), so the upload would fail after a successful scan. Skip it there; the
-        # scan step above still runs (report-only, as documented) and its SARIF is available
-        # once the change lands in this repository.
+        # scan step above still runs (report-only, as documented) and the two fork-only steps
+        # below surface its findings instead, so reviewers are not left blind until the change
+        # lands in this repository.
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           sarif_file: semgrep.sarif
+
+      - name: Summarize Semgrep findings (fork PR)
+        # Inverse of the upload condition above: Code Scanning is unavailable here, so list
+        # the findings in the job log and the step summary instead. Report-only, like the
+        # scan itself — this step never changes the job's outcome.
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          if [ ! -s semgrep.sarif ]; then
+            echo "::warning::semgrep.sarif is missing or empty; nothing to summarize"
+            exit 0
+          fi
+          count=$(jq '[.runs[].results[]?] | length' semgrep.sarif)
+          {
+            echo "## Semgrep findings ($count)"
+            echo
+            echo "Code Scanning upload is skipped on fork pull requests; the full SARIF is attached as the \`semgrep-sarif\` artifact."
+            echo
+            if [ "$count" -eq 0 ]; then
+              echo "No findings."
+            else
+              echo "| Level | Rule | Location | Message |"
+              echo "|---|---|---|---|"
+              jq -r '
+                .runs[].results[]? |
+                [
+                  (.level // "warning"),
+                  .ruleId,
+                  ((.locations[0].physicalLocation.artifactLocation.uri // "?") + ":" +
+                   ((.locations[0].physicalLocation.region.startLine // 0) | tostring)),
+                  ((.message.text // "") | gsub("[|\r\n]+"; " "))
+                ] | "| " + join(" | ") + " |"
+              ' semgrep.sarif
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Semgrep SARIF artifact (fork PR)
+        # Same condition as the summary step: the raw SARIF for anyone who wants the full
+        # detail (fingerprints, code flows) that the table above leaves out.
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: semgrep-sarif
+          path: semgrep.sarif
+          retention-days: 30
+          if-no-files-found: warn
