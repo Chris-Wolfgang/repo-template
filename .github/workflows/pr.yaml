@@ -1901,6 +1901,7 @@ jobs:
           echo "Architecture: $(uname -m)"
           echo ""
           echo "Skipped frameworks (no ARM64 support):"
+          echo "  - .NET Core 3.1 ❌"
           echo "  - .NET 5.0 ❌"
           echo ""
           echo "Tested frameworks (ARM64 compatible):"
@@ -1910,7 +1911,7 @@ jobs:
           echo "  - .NET 9.0 ✅"
           echo "  - .NET 10.0 ✅"
           echo ""
-          echo ".NET Core 5.0 are tested on Linux and Windows"
+          echo ".NET Core 3.1 is tested on Windows (Stage 2); .NET 5.0 is tested on Linux (Stage 1) and Windows (Stage 2)"
           echo ""
 
       - name: Summarize pipeline result

@@ -74,8 +74,23 @@ jobs:
             # and they produce no net10.0 PDB for the SourceLink step to verify.
             # Exact TFM only: net10.0-android / net10.0-windows10.0.x are platform TFMs that
             # cannot be built with -f net10.0.
-            if ! grep -qE 'net10\.0([;<"]|$)' "$proj"; then
-              echo "== skip $proj (no net10.0 target) =="
+            # Evaluate through MSBuild, as pr.yaml does: a grep of the raw csproj misses a
+            # TargetFrameworks inherited from Directory.Build.props or set conditionally.
+            # A failed evaluation must fail the step, not read as "no net10.0" and skip.
+            # The `|| true` covers only the text filter (a single-TFM project legitimately
+            # prints nothing for TargetFrameworks), never the msbuild call.
+            if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$proj::MSBuild evaluation of TargetFrameworks failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+            fi
+            tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            if [ -z "$tfm_raw" ]; then
+              if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFramework 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$proj::MSBuild evaluation of TargetFramework failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            fi
+            if ! printf '%s' "$tfm_raw" | tr ';' '\n' | grep -qx 'net10.0'; then
+              echo "== skip $proj (no net10.0 target; targets: ${tfm_raw:-<none>}) =="
               continue
             fi
             echo "== build $proj =="
