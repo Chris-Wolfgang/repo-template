@@ -1,0 +1,7 @@
+# Overrides applied when semgrep.txt is regenerated (uv pip compile --override).
+# semgrep pins mcp==1.29.0 exactly (still true of 1.182.0), but mcp < 1.30.0 is affected by
+# GHSA-84m7-p3x7-pcfv (unbounded session accumulation in the StreamableHTTP transport).
+# semgrep imports mcp only for its MCP server, never for `semgrep scan`. semgrep.yaml installs
+# the lock with --no-deps, so semgrep's own pin is not re-applied at install time.
+# Drop this override once a semgrep release depends on mcp >= 1.30.0.
+mcp==1.30.0
