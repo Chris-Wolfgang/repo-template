@@ -461,13 +461,16 @@ Configured by running the local PowerShell setup script (see "How It Works" belo
 - ✅ **Require pull requests** before merging
 - ✅ **Require these status checks to pass:**
   - Detect .NET Projects
-  - Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate
-  - Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)
-  - Stage 3: macOS Tests (.NET 6.0-10.0)
+  - Stage 1: Linux Tests + Coverage Gate
+  - Stage 2: Windows Tests
+  - Stage 3: macOS Tests
   - Security Scan (DevSkim)
   - Security Scan (CodeQL) (csharp)
   - Secrets Scan (gitleaks)
   - Changelog Fragment Check
+
+  A required check name says what is checked, never how: no TFM ranges, OS or tool versions, because a ruleset requires a check by exact name and renaming the job blocks every PR until the ruleset is edited. The TFMs each stage ran are listed in that job's step summary.
+
 - ✅ **Require branches to be up to date** before merging
 - ✅ **Require conversation resolution** before merging
 - ✅ **Dismiss stale reviews** when new commits are pushed
