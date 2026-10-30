@@ -81,11 +81,12 @@ These settings require that all checks in the pr.yaml file succeed before you ca
 2. Under “Branch protection rules,” edit the rule for main.
 3. Check “Require status checks to pass before merging.”
 4. In the "Status checks that are required" list, select the status check contexts produced by your PR workflow jobs. These options appear after the workflow has run at least once on `main`. For example:
-   - "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate"
-   - "Stage 2a: Windows Tests (.NET 5.0-10.0)"
-   - "Stage 2b: Windows .NET Framework Tests (4.6.2-4.8.1)"
-   - "Stage 3: macOS Tests (.NET 6.0-10.0)"
+   - "Stage 1: Linux Tests + Coverage Gate"
+   - "Stage 2: Windows Tests"
+   - "Stage 3: macOS Tests"
    - "Security Scan (DevSkim)"
+
+   A required check name says what is checked, never how: no TFM ranges, OS or tool versions, because a ruleset requires a check by exact name and renaming the job blocks every PR until the ruleset is edited. The TFMs each stage ran are listed in that job's step summary.
 
 5. Enable “Require branches to be up to date before merging.”
 6. Check `Restrict deletions`
