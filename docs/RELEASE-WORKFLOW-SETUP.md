@@ -62,7 +62,7 @@ Ensure the following settings are enabled:
 
 - ✅ **Require conversation resolution before merging**
 - ✅ **Block force pushes** and **Restrict deletions**
-- ⬜ **Require linear history** — optional. `Setup-BranchRuleset.ps1 -RequireLinearHistory` adds it (and limits merges to squash/rebase); stacked PRs then use `scripts/restack.ps1` after each merge, see [STACKED-PRS.md](STACKED-PRS.md). It is being trialled per repo, not fleet-wide.
+- ✅ **Require linear history** — `Setup-BranchRuleset.ps1` adds it by default (and limits merges to squash/rebase; `-AllowMergeCommits` opts out); stacked PRs then use `scripts/restack.ps1` after each merge, see [STACKED-PRS.md](STACKED-PRS.md).
 
 **What this does:** Ensures all code merged to `main` has passed comprehensive validation, preventing broken releases. Keep the ruleset **active** — disable nothing to merge; a configuration-only PR passes the protected-file guard on review, and a mixed PR is split (baseline item 10).
 

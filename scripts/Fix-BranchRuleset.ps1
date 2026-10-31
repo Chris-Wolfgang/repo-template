@@ -21,9 +21,9 @@
 .PARAMETER Force
     Skip the confirmation prompt and proceed automatically. Alias: -y
 
-.PARAMETER RequireLinearHistory
-    Forwarded to Setup-BranchRuleset.ps1 when the ruleset is recreated (adds the
-    required_linear_history rule and limits merges to squash/rebase).
+.PARAMETER AllowMergeCommits
+    Forwarded to Setup-BranchRuleset.ps1 when the ruleset is recreated (leaves out the
+    required_linear_history rule and keeps merge commits allowed; linear history is the default).
 
 .EXAMPLE
     .\Fix-BranchRuleset.ps1
@@ -52,7 +52,7 @@ param(
     [switch]$Force,
 
     [Parameter()]
-    [switch]$RequireLinearHistory
+    [switch]$AllowMergeCommits
 )
 
 # Check if gh CLI is installed
@@ -312,7 +312,7 @@ if ($errors -gt 0) {
 
 Write-Host "Running Setup-BranchRuleset.ps1 to create a fresh ruleset..." -ForegroundColor Cyan
 Write-Host ""
-& $setupScript -Repository $Repository -RequireLinearHistory:$RequireLinearHistory
+& $setupScript -Repository $Repository -AllowMergeCommits:$AllowMergeCommits
 $setupExit = $LASTEXITCODE
 
 if ($setupExit -ne 0) {

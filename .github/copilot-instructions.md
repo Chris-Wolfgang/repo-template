@@ -106,7 +106,7 @@ Branch protection rules are configured by running the local PowerShell script `s
 - Require conversation resolution before merging
 - Restrict deletions and block force pushes
 - Require code scanning (CodeQL, errors / High+ security), Copilot code review, code quality
-- Optional `-RequireLinearHistory` (squash/rebase only; stacked PRs use `scripts/restack.ps1`, see `docs/STACKED-PRS.md`)
+- Linear history by default (squash/rebase only; `-AllowMergeCommits` opts out; stacked PRs use `scripts/restack.ps1`, see `docs/STACKED-PRS.md`)
 
 **Branch Protection Setup Instructions:**
 1. Install GitHub CLI (gh) from https://cli.github.com/
