@@ -478,7 +478,7 @@ Configured by running the local PowerShell setup script (see "How It Works" belo
 - ✅ **Require Copilot code review** and the **code quality** rule
 - ✅ **Block force pushes** to main
 - ✅ **Prevent branch deletion**
-- ⬜ **Require linear history** - optional (`-RequireLinearHistory`), see [docs/STACKED-PRS.md](docs/STACKED-PRS.md)
+- ✅ **Require linear history** (squash and rebase merges only; `-AllowMergeCommits` opts out), see [docs/STACKED-PRS.md](docs/STACKED-PRS.md)
 - Nobody is in the bypass list. A PR that changes only protected files (workflows, `Directory.Build.props`, `.editorconfig`, …) passes the guard with a warning and merges on review; a PR that mixes them with other changes fails the guard and is split
 
 **Repository Type Options:**
