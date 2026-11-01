@@ -6,7 +6,7 @@
 .DESCRIPTION
     This script uses the GitHub CLI (gh) to create a repository ruleset that protects
     the main branch with pull request requirements, required status checks, security
-    scanning rules, and automatic Copilot code review.
+    scanning rules and a code-quality gate.
     Run this locally after creating a new repo from the template.
     
     The script will prompt you to choose between single-developer or multi-developer 
@@ -33,10 +33,21 @@
     push to the branch after the repository is created produces that analysis; on a brand-new
     repository run this script after that first CodeQL run (or re-run it with just this rule to add).
 
-.PARAMETER RequireLinearHistory
-    Also add the "required_linear_history" rule and restrict merges to squash and rebase (no merge
-    commits). Satisfies baseline item 9. Stacked PRs then need scripts/restack.ps1 after each merge —
-    see docs/STACKED-PRS.md. Off by default so existing repositories keep merge commits.
+.PARAMETER AllowMergeCommits
+    Leave out the "required_linear_history" rule and keep merge commits as an allowed merge method.
+    By default the ruleset requires linear history and allows only squash and rebase merges
+    (baseline item 9); stacked PRs then need scripts/restack.ps1 after each merge, see
+    docs/STACKED-PRS.md. Use this switch only for a declared deviation.
+
+.PARAMETER Emit
+    Print the ruleset JSON this script would create and exit without calling GitHub: no
+    authentication check, no prompt, no POST, no self-delete. The output is the canonical
+    "Protect main branch" definition, so a live ruleset can be diffed against it. Emits the
+    single-developer variant unless -MultiDeveloper is given, and always includes the
+    code_scanning rule.
+
+.PARAMETER MultiDeveloper
+    With -Emit, emit the multi-developer variant (1 approving review, code owner review).
 
 .EXAMPLE
     .\Setup-BranchRuleset.ps1
@@ -45,6 +56,10 @@
 .EXAMPLE
     .\Setup-BranchRuleset.ps1 -Repository "Chris-Wolfgang/my-repo"
     Creates the ruleset for a specific repository
+
+.EXAMPLE
+    .\Setup-BranchRuleset.ps1 -Emit > canonical-ruleset.json
+    Writes the canonical ruleset definition without touching GitHub
 
 .NOTES
     Requires: GitHub CLI (gh) authenticated with sufficient permissions
@@ -66,11 +81,26 @@ param(
     [string]$BranchName = "main",
 
     [Parameter()]
-    [switch]$RequireLinearHistory,
+    [switch]$AllowMergeCommits,
 
     [Parameter()]
-    [switch]$ForceCodeScanningRule
+    [switch]$ForceCodeScanningRule,
+
+    [Parameter()]
+    [switch]$Emit,
+
+    [Parameter()]
+    [switch]$MultiDeveloper
 )
+
+$requireLinearHistory = -not $AllowMergeCommits.IsPresent
+
+if ($Emit) {
+    # Canonical definition only: no GitHub calls, no prompts, no side effects.
+    $addCodeScanningRule = $true
+    $requireApprovals = if ($MultiDeveloper) { 1 } else { 0 }
+    $requireCodeOwnerReview = $MultiDeveloper.IsPresent
+} else {
 
 # Check if gh CLI is installed
 try {
@@ -208,8 +238,11 @@ if ($repoTypeChoice -eq "2") {
     Write-Host "✅ Configured for single-developer repository (no approvals required)" -ForegroundColor Green
 }
 
-# Create ruleset configuration
 Write-Host "`n📝 Creating ruleset configuration..." -ForegroundColor Cyan
+} # end of the non-Emit path (gh checks, repository detection, prompts)
+
+# Create ruleset configuration. This block is the canonical "Protect main branch" definition;
+# -Emit prints it so a live ruleset can be diffed against it.
 
 $rulesetConfig = @{
     name = "Protect main branch"
@@ -234,7 +267,7 @@ $rulesetConfig = @{
                 required_review_thread_resolution = $true
                 # With linear history only squash/rebase can satisfy the rule; hide "merge commit" so the
                 # button cannot pick a method the ruleset would reject.
-                allowed_merge_methods = $(if ($RequireLinearHistory) { @("squash", "rebase") } else { @("merge", "squash", "rebase") })
+                allowed_merge_methods = $(if ($requireLinearHistory) { @("squash", "rebase") } else { @("merge", "squash", "rebase") })
             }
         },
         @{
@@ -268,8 +301,8 @@ $rulesetConfig = @{
             type = "deletion"
         },
         # Baseline item 9: no merge commits on the protected branch (squash/rebase only).
-        # Added only with -RequireLinearHistory; see docs/STACKED-PRS.md for the stacked-PR workflow.
-        $(if ($RequireLinearHistory) { @{ type = "required_linear_history" } }),
+        # Left out only with -AllowMergeCommits; see docs/STACKED-PRS.md for the stacked-PR workflow.
+        $(if ($requireLinearHistory) { @{ type = "required_linear_history" } }),
         # The CodeQL alerts-dashboard gate. Only blocks merges when the alerts
         # threshold is exceeded; the underlying CodeQL workflow already runs as
         # a required status check above, so this is the second-tier "results"
@@ -288,16 +321,8 @@ $rulesetConfig = @{
                 )
             }
         } }),
-        # Auto-request a Copilot review on every PR, including drafts and on
-        # subsequent pushes. The rulesets API now supports this rule type
-        # (earlier versions of this script left the toggle to the UI).
-        @{
-            type = "copilot_code_review"
-            parameters = @{
-                review_draft_pull_requests = $true
-                review_on_push             = $true
-            }
-        },
+        # No copilot_code_review rule: automatic Copilot review is a repository Copilot setting,
+        # not a merge gate, and auto-requesting it on every PR spends the account's review allowance.
         # Block merges when the code-quality check (analyzer / formatter) emits
         # errors. Severity matches the canonical libraries (errors only — warnings
         # don't block, the build itself already promotes them in Release mode).
@@ -313,6 +338,11 @@ $rulesetConfig = @{
 # Convert to JSON (drop any empty placeholder left by an unset optional rule)
 $rulesetConfig.rules = @($rulesetConfig.rules | Where-Object { $_ -is [hashtable] })
 $jsonConfig = $rulesetConfig | ConvertTo-Json -Depth 10
+
+if ($Emit) {
+    Write-Output $jsonConfig
+    exit 0
+}
 
 # Save to temporary file
 $tempFile = [System.IO.Path]::GetTempFileName()
@@ -353,12 +383,16 @@ try {
         Write-Host "   ✅ Stale reviews dismissed when new commits are pushed" -ForegroundColor Gray
         Write-Host "   ✅ Force pushes blocked on $BranchName branch" -ForegroundColor Gray
         Write-Host "   ✅ Branch deletion prevented for $BranchName" -ForegroundColor Gray
+        if ($requireLinearHistory) {
+            Write-Host "   ✅ Linear history required; merges limited to squash and rebase" -ForegroundColor Gray
+        } else {
+            Write-Host "   ⏭️  Linear history NOT required (-AllowMergeCommits); merge commits allowed" -ForegroundColor Yellow
+        }
         if ($addCodeScanningRule) {
             Write-Host "   ✅ Code scanning: CodeQL alerts gate (errors / high+)" -ForegroundColor Gray
         } else {
             Write-Host "   ⏭️  Code scanning: CodeQL alerts gate NOT added (no CodeQL analysis on $BranchName yet)" -ForegroundColor Yellow
         }
-        Write-Host "   ✅ Copilot code review: auto-requested on every PR (incl. drafts, on push)" -ForegroundColor Gray
         Write-Host "   ✅ Code quality gate: blocks on analyzer / formatter errors" -ForegroundColor Gray
         Write-Host "   ✅ No bypass allowed - all users must follow these rules" -ForegroundColor Gray
         
