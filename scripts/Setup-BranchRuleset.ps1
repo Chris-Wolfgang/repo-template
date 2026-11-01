@@ -6,7 +6,7 @@
 .DESCRIPTION
     This script uses the GitHub CLI (gh) to create a repository ruleset that protects
     the main branch with pull request requirements, required status checks, security
-    scanning rules, and automatic Copilot code review.
+    scanning rules and a code-quality gate.
     Run this locally after creating a new repo from the template.
     
     The script will prompt you to choose between single-developer or multi-developer 
@@ -321,16 +321,8 @@ $rulesetConfig = @{
                 )
             }
         } }),
-        # Auto-request a Copilot review on every PR, including drafts and on
-        # subsequent pushes. The rulesets API now supports this rule type
-        # (earlier versions of this script left the toggle to the UI).
-        @{
-            type = "copilot_code_review"
-            parameters = @{
-                review_draft_pull_requests = $true
-                review_on_push             = $true
-            }
-        },
+        # No copilot_code_review rule: automatic Copilot review is a repository Copilot setting,
+        # not a merge gate, and auto-requesting it on every PR spends the account's review allowance.
         # Block merges when the code-quality check (analyzer / formatter) emits
         # errors. Severity matches the canonical libraries (errors only — warnings
         # don't block, the build itself already promotes them in Release mode).
@@ -401,7 +393,6 @@ try {
         } else {
             Write-Host "   ⏭️  Code scanning: CodeQL alerts gate NOT added (no CodeQL analysis on $BranchName yet)" -ForegroundColor Yellow
         }
-        Write-Host "   ✅ Copilot code review: auto-requested on every PR (incl. drafts, on push)" -ForegroundColor Gray
         Write-Host "   ✅ Code quality gate: blocks on analyzer / formatter errors" -ForegroundColor Gray
         Write-Host "   ✅ No bypass allowed - all users must follow these rules" -ForegroundColor Gray
         

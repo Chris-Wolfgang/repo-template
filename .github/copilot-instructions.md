@@ -105,7 +105,7 @@ Branch protection rules are configured by running the local PowerShell script `s
 - Require branches to be up to date
 - Require conversation resolution before merging
 - Restrict deletions and block force pushes
-- Require code scanning (CodeQL, errors / High+ security), Copilot code review, code quality
+- Require code scanning (CodeQL, errors / High+ security) and code quality
 - Linear history by default (squash/rebase only; `-AllowMergeCommits` opts out; stacked PRs use `scripts/restack.ps1`, see `docs/STACKED-PRS.md`)
 
 **Branch Protection Setup Instructions:**

@@ -27,7 +27,7 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 
 The fastest path is the bundled script. It provisions the full canonical
 ruleset (required status checks, code-scanning gate, force-push protection,
-conversation-resolution requirement, Copilot code review) in one command:
+conversation-resolution requirement, code-quality gate) in one command:
 
 ```powershell
 pwsh -File ./scripts/Setup-BranchRuleset.ps1
