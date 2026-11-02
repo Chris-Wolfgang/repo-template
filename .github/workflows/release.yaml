@@ -107,6 +107,7 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Run multi-framework tests with coverage
+        id: tests
         shell: pwsh
         run: |
           # Every project under tests/, not only those whose FILE NAME contains "Test". A suite
@@ -160,11 +161,36 @@ jobs:
             exit 1
           }
           
+          $testedProjects = 0
+          $markedProjects = 0
           foreach ($testProj in $testProjects) {
             Write-Host "==========================================" -ForegroundColor Cyan
             Write-Host "Testing project: $($testProj.Name)" -ForegroundColor Cyan
             Write-Host "==========================================" -ForegroundColor Cyan
             
+            # Same rule as pr.yaml Stages 2 and 3: a project that sets
+            # <RequiresLinuxContainers>true</RequiresLinuxContainers> needs Linux containers,
+            # which this windows-latest runner cannot start, so it is skipped here; pr.yaml
+            # Stage 1 (Linux) runs and coverage-gates it on every PR. A failed evaluation fails
+            # the job, and so does any value other than true, false or empty.
+            $rlcRaw = (dotnet msbuild $testProj.FullName -nologo -getProperty:RequiresLinuxContainers 2>$null |
+              Where-Object { $_ -and "$_".Trim() } | Select-Object -Last 1)
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "❌ MSBuild evaluation of RequiresLinuxContainers failed for $($testProj.Name)"
+              exit 1
+            }
+            $requiresLinuxContainers = ("$rlcRaw" -replace '^RequiresLinuxContainers[=:]\s*', '').Trim()
+            if ($requiresLinuxContainers -and ($requiresLinuxContainers -notin @('true', 'false'))) {
+              Write-Error "❌ RequiresLinuxContainers in $($testProj.Name) must be true or false, not '$requiresLinuxContainers'"
+              exit 1
+            }
+            if ($requiresLinuxContainers -eq 'true') {
+              Write-Host "⊘ Skipping $($testProj.Name): RequiresLinuxContainers=true (Linux containers; covered by pr.yaml Stage 1)" -ForegroundColor Yellow
+              $markedProjects++
+              continue
+            }
+            $testedProjects++
+
             # Parse the project file to extract target frameworks
             try {
               [xml]$projectXml = Get-Content $testProj.FullName
@@ -317,8 +343,17 @@ jobs:
             Write-Host ""
           }
           Write-Host "✅ All framework tests passed" -ForegroundColor Green
+          # Every test project needing Linux containers (all skipped above) leaves nothing to
+          # measure here; pr.yaml Stage 1 coverage-gates them on Linux. Tell the coverage step
+          # so it does not fail on files that could not exist. If anything ran, it still must
+          # produce coverage.
+          if ($testedProjects -eq 0 -and $markedProjects -gt 0) {
+            Write-Host "::notice::Every test project sets RequiresLinuxContainers=true ($markedProjects skipped); release coverage is not measured on this runner. pr.yaml Stage 1 gates it."
+            "all-linux-containers=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
 
       - name: Verify coverage threshold
+        if: steps.tests.outputs.all-linux-containers != 'true'
         shell: pwsh
         run: |
           # Check if coverage files exist
