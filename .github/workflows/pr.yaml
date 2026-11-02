@@ -40,6 +40,10 @@ on:
   pull_request:
     branches:
       - main
+  # DEMO (standards/workflows.md item 2): let another repository call this file as a
+  # reusable workflow. The caller's pr.yaml becomes `jobs: core: uses: ...@<ref>` plus its
+  # own jobs with `needs: core`; github.repository / event context are the caller's.
+  workflow_call:
   # A push to main re-runs the same gates on the merged result and keeps the InspectCode
   # alert set on main current (a pull_request run attributes its SARIF to the PR ref).
   push:
