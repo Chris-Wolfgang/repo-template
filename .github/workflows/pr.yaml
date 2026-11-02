@@ -453,7 +453,9 @@ jobs:
   # ============================================================================
   test-linux-core: 
     name: "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate"
-    runs-on:  ubuntu-latest
+    # Pinned to 24.04: on ubuntu-latest (26.04) the netcoreapp3.1 test host finds no ICU it can
+    # load and aborts. Keep the pin until the netcoreapp3.1 slot is handled another way.
+    runs-on: ubuntu-24.04
     needs: detect-projects
     if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
     
