@@ -38,46 +38,11 @@ jobs:
           persist-credentials: false
 
       - name: Run Scorecard
-        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc  # v2.4.4
+        uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e  # v2.5.0
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
-
-      # The scorecard.dev webapp verifies this job before accepting published
-      # results: every step must be a `uses:` of an allow-listed action, and a
-      # `run:` step here makes it reject the publish with a 400 ("scorecard job
-      # must only have steps with `uses`"). The action only logs a warning for
-      # that, so the run stays green while the README badge reports "invalid
-      # repo path". The SARIF filter therefore runs in the separate job below.
-      - name: Upload SARIF artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: scorecard-sarif
-          path: results.sarif
-          retention-days: 5
-
-  upload:
-    name: Filter and upload SARIF
-    needs: analysis
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      security-events: write   # upload the SARIF results
-      contents: read
-    steps:
-      # Checked out so upload-sarif can compute the same source fingerprints
-      # it did when this ran in the analysis job; without the files, alert
-      # fingerprints drift and existing alerts reappear under new IDs.
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Download SARIF artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: scorecard-sarif
 
       # Drop Scorecard findings that are known won't-fix for this repository
       # BEFORE the SARIF reaches Code Scanning. Filtering here (rather than
@@ -181,6 +146,6 @@ jobs:
           mv results.filtered.sarif results.sarif
 
       - name: Upload SARIF to Code Scanning
-        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           sarif_file: results.sarif
