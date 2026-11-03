@@ -8,7 +8,9 @@
     Replicates the PR workflow's Windows stage locally so you can verify
     your changes will pass before pushing. Runs in order:
       1. Restore and build (Release)
-      2. Run all tests across all target frameworks
+      2. Run all tests across all target frameworks (*.Tests.Integration.* projects
+         are skipped, as on pr.yaml's Windows stage; pass -IncludeIntegration to run
+         them when Docker Desktop is available locally)
       3. Generate coverage report and enforce threshold
       4. Run DevSkim security scan
       5. Run gitleaks secrets scan
@@ -25,6 +27,11 @@
 
 .PARAMETER SkipSecurity
     Skip DevSkim and gitleaks scans.
+
+.PARAMETER IncludeIntegration
+    Also run *.Tests.Integration.* projects. pr.yaml's Windows stage skips them
+    (Windows runners cannot run the Linux containers they need) and gates them on
+    the Linux stage instead; locally they need Docker Desktop.
 
 .PARAMETER CoverageThreshold
     Minimum line coverage for PRODUCTION assemblies (anything under src/).
@@ -44,6 +51,7 @@ param(
     [switch]$SkipTests,
     [switch]$SkipCoverage,
     [switch]$SkipSecurity,
+    [switch]$IncludeIntegration,
     [int]$CoverageThreshold = 90,
     [int]$TestCoverageThreshold = 100
 )
@@ -141,9 +149,23 @@ if (-not $SkipTests -and $failed.Count -eq 0) {
         }
     }
     else {
+        # Test projects that actually reached `dotnet test`. Every project under
+        # ./tests can be skipped by the checks in the loop (integration, no TFMs,
+        # fixture / smoke executable), and then nothing ran — reported below as a
+        # failure instead of "All tests passed".
+        $ranTestProjects = 0
+
         foreach ($testProj in $testProjects) {
             Write-Host ""
             Write-Host "Testing: $($testProj.FullName)" -ForegroundColor White
+
+            # Mirrors pr.yaml's Windows stage: *.Tests.Integration.* projects need the
+            # Linux containers only the Linux stage can run, so they are skipped here
+            # unless -IncludeIntegration says Docker Desktop is available.
+            if (-not $IncludeIntegration -and $testProj.Name -like '*.Tests.Integration.*') {
+                Write-Host "  Integration test project skipped (as on pr.yaml's Windows stage) — pass -IncludeIntegration to run it" -ForegroundColor Yellow
+                continue
+            }
 
             # Evaluate the TFMs through MSBuild exactly as pr.yaml does, so
             # values inherited from Directory.Build.props or set conditionally
@@ -231,10 +253,15 @@ if (-not $SkipTests -and $failed.Count -eq 0) {
             }
 
             if ($failed.Count -gt 0) { break }
+            $ranTestProjects++
         }
 
-        if ($failed.Count -eq 0) {
-            Write-Pass "All tests passed"
+        if ($failed.Count -eq 0 -and $ranTestProjects -eq 0) {
+            Write-Fail "Zero test projects ran — every project under ./tests was skipped (integration, no compatible TFM, or not a test project), so no tests were executed and the coverage gate cannot be evaluated"
+            $failed += "Tests (zero projects ran)"
+        }
+        elseif ($failed.Count -eq 0) {
+            Write-Pass "All tests passed ($ranTestProjects test project(s))"
         }
     }
 }
@@ -258,16 +285,24 @@ if (-not $SkipTests -and -not $SkipCoverage -and $failed.Count -eq 0) {
         # ReportGenerator is pinned in .config/dotnet-tools.json, exactly as pr.yaml
         # uses it. Run it as a local tool: no global install, no PATH dependency, so
         # it works from any shell or account that has `dotnet` on PATH.
-        if (-not (Restore-LocalTools)) {
+        $toolsRestored = Restore-LocalTools
+        if (-not $toolsRestored) {
+            # Without the tool there is nothing to run: report once here instead
+            # of a "command not found" from reportgenerator on top of it.
+            Write-Fail "Coverage report cannot be generated: dotnet tool restore failed (see .config/dotnet-tools.json)"
             $failed += "Coverage"
         }
+        else {
+            dotnet reportgenerator `
+                -reports:"TestResults/**/coverage.cobertura.xml" `
+                -targetdir:"CoverageReport" `
+                -reporttypes:"Html;TextSummary;MarkdownSummaryGithub;CsvSummary"
+        }
 
-        dotnet reportgenerator `
-            -reports:"TestResults/**/coverage.cobertura.xml" `
-            -targetdir:"CoverageReport" `
-            -reporttypes:"Html;TextSummary;MarkdownSummaryGithub;CsvSummary"
-
-        if (Test-Path "CoverageReport/Summary.txt") {
+        if (-not $toolsRestored) {
+            # Reported above; nothing to parse.
+        }
+        elseif (Test-Path "CoverageReport/Summary.txt") {
             Write-Host ""
             Get-Content "CoverageReport/Summary.txt"
             Write-Host ""
@@ -286,12 +321,18 @@ if (-not $SkipTests -and -not $SkipCoverage -and $failed.Count -eq 0) {
             $failedProjects = @()
             $matched = 0
             foreach ($line in (Get-Content "CoverageReport/Summary.txt")) {
+                # Same regex as pr.yaml's Windows stage — keep them in sync.
                 # Anchor on `^(\S+)` — NOT `^\s*(\S+)`. The leading `\s*` used to
                 # let ReportGenerator's indented per-class rows match, so individual
                 # classes were gated as if they were projects (the same defect
                 # pr.yaml's Stage 1 had via a bare `read -r`). Only assembly rows
                 # are gated; an assembly only reaches 100% when every class does.
-                if ($line -match '^(\S+)\s+(\d+(?:\.\d+)?)%\s*$' -and $line -notmatch '^Summary') {
+                # The `.*` between the name and the percent allows the extra
+                # columns (line/branch/method) ReportGenerator can emit on the
+                # same row; requiring `\s` immediately before the final `\d+%`
+                # stops the greedy `.*` from eating all but the last digit of
+                # the percent ("100" would otherwise be read as "0").
+                if ($line -match '^(\S+).*\s(\d+(?:\.\d+)?)%\s*$' -and $line -notmatch '^Summary') {
                     $module = $Matches[1]
                     $percent = [int][math]::Floor([double]$Matches[2])
                     $matched++
@@ -344,13 +385,14 @@ if (-not $SkipSecurity) {
     # PATH: analyze never ran, no results file was written, and the step reported
     # "No security issues found". Any failure to run is now a failure.
     $devskimRan = $false
+    $devskimExit = $null
     if (Restore-LocalTools) {
         dotnet devskim analyze `
             --source-code . `
             --file-format text `
             --output-file devskim-results.txt `
             --ignore-rule-ids DS176209 `
-            --ignore-globs "**/api/**,**/CoverageReport/**,**/TestResults/**,**/.github/license-audit/**"
+            --ignore-globs "**/api/**,**/CoverageReport/**,**/TestResults/**"
         # Mirror pr.yaml, where a non-zero exit fails the DevSkim step.
         $devskimExit = $LASTEXITCODE
         $devskimRan = ($devskimExit -eq 0)
@@ -358,19 +400,30 @@ if (-not $SkipSecurity) {
 
     if (-not $devskimRan) {
         if (Test-Path "devskim-results.txt") { Get-Content "devskim-results.txt" -Raw | Write-Host }
-        Write-Fail "DevSkim did not complete successfully (exit code $devskimExit)"
+        if ($null -eq $devskimExit) {
+            # Restore-LocalTools failed, so DevSkim never ran and there is no exit code.
+            Write-Fail "DevSkim did not run: dotnet tool restore failed (see .config/dotnet-tools.json)"
+        }
+        else {
+            Write-Fail "DevSkim did not complete successfully (exit code $devskimExit)"
+        }
         $failed += "DevSkim"
         Remove-Item "devskim-results.txt" -ErrorAction SilentlyContinue
     }
     elseif (Test-Path "devskim-results.txt") {
         $results = Get-Content "devskim-results.txt" -Raw
-        if ($results -and $results -match '(?i)(error|critical|high)') {
+        # Same gate as pr.yaml: every finding line ("<file>:<line>:<col>:<line>:<col> [Severity] DSnnnnnn")
+        # fails, whatever its severity; a false positive is excluded as narrowly as it can be -
+        # by rule id, by glob, or inline on the line - never by lowering the bar. These exclusions
+        # MUST stay in step with pr.yaml, or a local run disagrees with CI.
+        $findings = @($results -split "`n" | Where-Object { $_ -match '^.+:\d+:\d+:\d+:\d+ \[[A-Za-z]+\] DS\d+' })
+        if ($findings.Count -gt 0) {
             Write-Host $results
-            Write-Fail "DevSkim found security issues"
+            Write-Fail "DevSkim reported $($findings.Count) finding(s) - every finding fails this gate"
             $failed += "DevSkim"
         }
         else {
-            Write-Pass "No critical security issues found"
+            Write-Pass "No DevSkim findings"
         }
         Remove-Item "devskim-results.txt" -ErrorAction SilentlyContinue
     }

@@ -64,7 +64,8 @@
     Applies the safe files and stamps the new template commit; commit the result as a PR.
 .NOTES
     Requires gh (authenticated) and git. Run from the repository root. Remember that workflow and
-    Directory.Build.props changes trip the protected-file guard in pr.yaml and need the admin bypass.
+    Directory.Build.props changes are protected files: keep them in a PR of their own so the
+    Protected Files Guard (protected-files.yaml) passes; a mixed PR fails it and cannot be bypassed.
 #>
 [CmdletBinding()]
 param
@@ -99,12 +100,14 @@ if ($stamp -and $stamp.PSObject.Properties['placeholders'] -and $stamp.placehold
 $managedPrefixes = @('.github/workflows/', '.github/license-audit/', '.github/requirements/', '.githooks/', 'scripts/')
 $managedFiles = @('.editorconfig', '.globalconfig', 'BannedSymbols.txt', 'coverlet.runsettings', 'Directory.Build.props',
                   '.gitleaks.toml', '.gitattributes', '.gitignore', '.github/dependabot.yml', '.github/pull_request_template.md',
-                  '.github/ISSUE_TEMPLATE/BUG_REPORT.yaml', '.github/ISSUE_TEMPLATE/feature_request.yaml',
-                  '.github/ISSUE_TEMPLATE/maintenance-task.yaml', 'changelog/unreleased/README.md')
+                  'tests/.editorconfig', '.github/ISSUE_TEMPLATE/BUG_REPORT.yaml', '.github/ISSUE_TEMPLATE/feature_request.yaml',
+                  '.github/ISSUE_TEMPLATE/maintenance-task.yaml', '.github/ISSUE_TEMPLATE/upstream_gap.yaml',
+                  'changelog/unreleased/README.md')
 if ($IncludeDocs) { $managedPrefixes += 'docs/' }
 # Template-only files that never belong in a generated repository, plus the one-time setup
-# scripts that delete themselves after a successful run (their absence is expected).
-$templateOnly = @('scripts/setup.ps1', 'scripts/upgrade.ps1', 'scripts/templates/', 'docs/repository-baseline.md',
+# scripts that delete themselves after a successful run (their absence is expected). This
+# script is managed like any other so a fix to it reaches generated repositories.
+$templateOnly = @('scripts/setup.ps1', 'scripts/templates/', 'docs/repository-baseline.md',
                   'scripts/Setup-GitHubPages.ps1', 'scripts/Setup-Maintenance.ps1')
 # Setup-BranchRuleset.ps1 self-deletes after its first run, but Fix-BranchRuleset.ps1 calls it
 # again later, so a repository that still has it needs the current version: managed while
@@ -297,6 +300,10 @@ if (-not $Apply)
     exit 0
 }
 
+# This script can be in the safe set itself. PowerShell runs the parsed script from memory, so
+# overwriting the file mid-run is harmless, but write it last so an apply that stops part-way
+# never leaves a new upgrader next to files it has not yet written.
+$safe = @($safe | Sort-Object -Stable { $_.Path -eq 'scripts/upgrade.ps1' })
 foreach ($s in $safe)
 {
     $dir = Split-Path -Parent $s.Path

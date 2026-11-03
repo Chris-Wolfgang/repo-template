@@ -58,6 +58,15 @@ jobs:
     permissions:
       contents: write # Allow write access for gh-pages branch
 
+    # Serialize writes to gh-pages with the other publishers (benchmarks.yaml,
+    # stryker.yaml): the shared `gh-pages` group queues overlapping jobs instead
+    # of letting two pushes race into a non-fast-forward failure. Job-level so it
+    # also applies when release.yaml calls this workflow. Queue, never cancel:
+    # a cancelled deploy is a missing docs version.
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
