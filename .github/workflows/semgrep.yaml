@@ -41,7 +41,9 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: '3.x'
+          # Not '3.x': on Python 3.15 semgrep-core crashes at startup (it derives an
+          # unbounded stack limit). Move back to '3.x' once semgrep handles 3.15.
+          python-version: '3.14'
 
       - name: Install Semgrep
         # Hash-pinned rather than a bare `pip install semgrep` (OSSF Scorecard
