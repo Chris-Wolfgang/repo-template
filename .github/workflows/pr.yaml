@@ -26,6 +26,9 @@ permissions:
   contents: read
 
 env:
+  # A busy runner can take longer than vstest's default 90 seconds to start a test
+  # host, and the run then aborts with no test having failed.
+  VSTEST_CONNECTION_TIMEOUT: 300
   # Minimum line coverage for PRODUCTION assemblies (anything under src/).
   CODECOV_MINIMUM: 90
   # Minimum line coverage for TEST assemblies (anything under tests/).
