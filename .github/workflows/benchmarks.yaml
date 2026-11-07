@@ -27,9 +27,8 @@ permissions:
 # updates. cancel-in-progress: false — every merge represents a meaningful
 # data point, so we queue rather than discard.
 #
-# NOTE: docfx.yaml currently has no `concurrency:` block (release.yaml has
-# its own), so cross-workflow serialization is only partial today. Adding the
-# same `gh-pages` group to docfx.yaml is tracked as a fleet-wide follow-up.
+# docfx.yaml's deploy job and stryker.yaml's run job carry the same group;
+# release.yaml deploys docs through docfx.yaml, so its push is covered too.
 concurrency:
   group: gh-pages
   cancel-in-progress: false
