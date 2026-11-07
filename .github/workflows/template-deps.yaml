@@ -81,12 +81,14 @@ jobs:
           with io.open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
               fh.write(f"behind={len(behind)}\n")
           PY
-          echo "Packages behind: $(wc -l < behind.md)"
+          # behind.md also holds the "lookup failed" rows; count only packages behind.
+          echo "Packages behind: $(grep -vc 'lookup failed' behind.md || true)"
 
       - name: Update the tracking issue
         if: steps.check.outputs.behind != '0'
         env:
           GH_TOKEN: ${{ github.token }}
+          BEHIND: ${{ steps.check.outputs.behind }}
         shell: bash
         run: |
           set -euo pipefail
@@ -101,7 +103,8 @@ jobs:
           gh label create "kind:template-deps" --repo "$GITHUB_REPOSITORY" \
             --color 0366d6 --description "Template dependency versions have fallen behind" 2>/dev/null || true
 
-          title="Directory.Build.props is behind NuGet ($(wc -l < behind.md) package(s))"
+          # $BEHIND is the count the check step computed; behind.md also lists lookup failures.
+          title="Directory.Build.props is behind NuGet ($BEHIND package(s))"
           body=$(printf '_Auto-updated by the Template Dependencies workflow (run %s)._\n\nDependabot cannot see this file: its NuGet updater needs a project file to anchor on and this repository has none. Check a repository that already runs the newer version before taking it here - a major analyzer release means new diagnostics fleet-wide, and warnings are errors in Release.\n\n| Package | Template | Latest stable |\n|---|---|---|\n%s\n' \
                    "$GITHUB_RUN_ID" "$(cat behind.md)")
           existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "kind:template-deps" \

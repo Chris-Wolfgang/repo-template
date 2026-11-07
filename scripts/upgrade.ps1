@@ -7,12 +7,14 @@
 .DESCRIPTION
     setup.ps1 stamps .template-version with the template's commit at setup time. This script
     compares the template-managed files in this repository against the template's current main
-    and sorts every changed file into one of three buckets:
+    and sorts every changed file into one of four buckets:
 
       safe    - the template changed the file and this repository still has the version it was
                 set up with (a three-way check against the stamped commit). Applied by -Apply.
       review  - both the template and this repository changed the file. Never touched; the
                 template's version is written next to the file as <name>.template for a manual merge.
+      ahead   - this repository changed the file and the template has not since the stamped
+                commit: a change to feed back to the template. Never touched, no sidecar.
       in-sync - identical to the template; nothing to do.
 
     "Identical" ignores the version comment after a SHA-pinned action (`@<sha> # v7` vs
@@ -56,13 +58,14 @@
 
 .EXAMPLE
     pwsh ./scripts/upgrade.ps1
-    Dry run: lists safe / review / in-sync files against the template's main.
+    Dry run: lists safe / review / ahead / in-sync files against the template's main.
 .EXAMPLE
     pwsh ./scripts/upgrade.ps1 -Apply
     Applies the safe files and stamps the new template commit; commit the result as a PR.
 .NOTES
     Requires gh (authenticated) and git. Run from the repository root. Remember that workflow and
-    Directory.Build.props changes trip the protected-file guard in pr.yaml and need the admin bypass.
+    Directory.Build.props changes are protected files: keep them in a PR of their own so the
+    Protected Files Guard (protected-files.yaml) passes; a mixed PR fails it and cannot be bypassed.
 #>
 [CmdletBinding()]
 param
@@ -97,12 +100,14 @@ if ($stamp -and $stamp.PSObject.Properties['placeholders'] -and $stamp.placehold
 $managedPrefixes = @('.github/workflows/', '.github/license-audit/', '.github/requirements/', '.githooks/', 'scripts/')
 $managedFiles = @('.editorconfig', '.globalconfig', 'BannedSymbols.txt', 'coverlet.runsettings', 'Directory.Build.props',
                   '.gitleaks.toml', '.gitattributes', '.gitignore', '.github/dependabot.yml', '.github/pull_request_template.md',
-                  '.github/ISSUE_TEMPLATE/BUG_REPORT.yaml', '.github/ISSUE_TEMPLATE/feature_request.yaml',
-                  '.github/ISSUE_TEMPLATE/maintenance-task.yaml', 'changelog/unreleased/README.md')
+                  'tests/.editorconfig', '.github/ISSUE_TEMPLATE/BUG_REPORT.yaml', '.github/ISSUE_TEMPLATE/feature_request.yaml',
+                  '.github/ISSUE_TEMPLATE/maintenance-task.yaml', '.github/ISSUE_TEMPLATE/upstream_gap.yaml',
+                  'changelog/unreleased/README.md')
 if ($IncludeDocs) { $managedPrefixes += 'docs/' }
 # Template-only files that never belong in a generated repository, plus the one-time setup
-# scripts that delete themselves after a successful run (their absence is expected).
-$templateOnly = @('scripts/setup.ps1', 'scripts/upgrade.ps1', 'scripts/templates/', 'docs/repository-baseline.md',
+# scripts that delete themselves after a successful run (their absence is expected). This
+# script is managed like any other so a fix to it reaches generated repositories.
+$templateOnly = @('scripts/setup.ps1', 'scripts/templates/', 'docs/repository-baseline.md',
                   'scripts/Setup-GitHubPages.ps1', 'scripts/Setup-Maintenance.ps1')
 # Setup-BranchRuleset.ps1 self-deletes after its first run, but Fix-BranchRuleset.ps1 calls it
 # again later, so a repository that still has it needs the current version: managed while
@@ -211,7 +216,7 @@ $headPaths = Get-ManagedPaths $head -RecordModes
 $basePaths = if ($base) { Get-ManagedPaths $base } else { @() }
 $candidates = @($headPaths + $basePaths | Sort-Object -Unique)
 
-$safe = @(); $review = @(); $inSync = @(); $missing = @(); $removed = @()
+$safe = @(); $review = @(); $ahead = @(); $inSync = @(); $missing = @(); $removed = @()
 foreach ($path in $candidates)
 {
     $templateNow = if ($path -in $headPaths) { Get-TemplateContent $path $head } else { $null }
@@ -252,6 +257,12 @@ foreach ($path in $candidates)
     {
         $safe += [pscustomobject]@{ Path = $path; Reason = 'template changed, local untouched since setup'; Content = $templateNow }
     }
+    elseif ($base -and $null -ne $templateThen -and (Get-CompareKey $templateThen) -eq (Get-CompareKey $templateNow))
+    {
+        # Template unchanged since the stamp, local differs: the change is ours. Nothing to take
+        # from the template; the candidate direction is repository -> template.
+        $ahead += [pscustomobject]@{ Path = $path; Reason = 'changed only in this repository since the stamp; feed back to the template' }
+    }
     else
     {
         $review += [pscustomobject]@{ Path = $path; Content = $templateNow; Base = $templateThen; Reason = $(if ($base) { 'changed in both the template and this repository' } else { 'differs from the template (no base to compare)' }) }
@@ -268,6 +279,8 @@ Write-Host "Safe    : $($safe.Count) file(s)$(if (-not $Apply -and $safe.Count) 
 foreach ($s in $safe) { Write-Host "    $($s.Path)  ($($s.Reason))" }
 Write-Host "Review  : $($review.Count) file(s)$(if ($review.Count) { ' - template version written as <file>.template for a manual merge' })" -ForegroundColor $(if ($review.Count) { 'Yellow' } else { 'Green' })
 foreach ($r in $review) { Write-Host "    $($r.Path)  ($($r.Reason))" }
+Write-Host "Ahead   : $($ahead.Count) file(s)$(if ($ahead.Count) { ' - this repository is ahead of the template; open a PR against the template, nothing is written here' })" -ForegroundColor $(if ($ahead.Count) { 'Yellow' } else { 'Green' })
+foreach ($a in $ahead) { Write-Host "    $($a.Path)  ($($a.Reason))" }
 if ($removed.Count -gt 0)
 {
     Write-Host "Removed : $($removed.Count) file(s) no longer in the template$(if (-not $Apply) { ' - -Apply deletes the unmodified ones' })" -ForegroundColor Yellow
@@ -287,6 +300,10 @@ if (-not $Apply)
     exit 0
 }
 
+# This script can be in the safe set itself. PowerShell runs the parsed script from memory, so
+# overwriting the file mid-run is harmless, but write it last so an apply that stops part-way
+# never leaves a new upgrader next to files it has not yet written.
+$safe = @($safe | Sort-Object -Stable { $_.Path -eq 'scripts/upgrade.ps1' })
 foreach ($s in $safe)
 {
     $dir = Split-Path -Parent $s.Path
