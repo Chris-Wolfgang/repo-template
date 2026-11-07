@@ -245,12 +245,15 @@ $rulesetConfig = @{
                 # must NOT have path filters (paths/paths-ignore). If a workflow is path-filtered
                 # and doesn't run for a PR, GitHub will treat the required check as missing and
                 # block the merge. All required status checks must run on every PR.
+                # A context names WHAT is checked, never how: no TFM ranges, OS or tool versions.
+                # Renaming a job changes its context and blocks every PR until the ruleset is
+                # edited, so the TFMs each stage ran go in the job's step summary instead.
                 required_status_checks = @(
                     @{ context = "Protected Files Guard" },
                     @{ context = "Detect .NET Projects" },
-                    @{ context = "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate" },
-                    @{ context = "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" },
-                    @{ context = "Stage 3: macOS Tests (.NET 6.0-10.0)" },
+                    @{ context = "Stage 1: Linux Tests + Coverage Gate" },
+                    @{ context = "Stage 2: Windows Tests" },
+                    @{ context = "Stage 3: macOS Tests" },
                     @{ context = "Security Scan (DevSkim)" },
                     @{ context = "Security Scan (CodeQL) (csharp)" },
                     @{ context = "Secrets Scan (gitleaks)" },
@@ -339,9 +342,9 @@ try {
         Write-Host "   ✅ Required status checks (must pass before merging):" -ForegroundColor Gray
         Write-Host "      - Protected Files Guard" -ForegroundColor DarkGray
         Write-Host "      - Detect .NET Projects" -ForegroundColor DarkGray
-        Write-Host "      - Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate" -ForegroundColor DarkGray
-        Write-Host "      - Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)" -ForegroundColor DarkGray
-        Write-Host "      - Stage 3: macOS Tests (.NET 6.0-10.0)" -ForegroundColor DarkGray
+        Write-Host "      - Stage 1: Linux Tests + Coverage Gate" -ForegroundColor DarkGray
+        Write-Host "      - Stage 2: Windows Tests" -ForegroundColor DarkGray
+        Write-Host "      - Stage 3: macOS Tests" -ForegroundColor DarkGray
         Write-Host "      - Security Scan (DevSkim)" -ForegroundColor DarkGray
         Write-Host "      - Security Scan (CodeQL) (csharp)" -ForegroundColor DarkGray
         Write-Host "      - Secrets Scan (gitleaks)" -ForegroundColor DarkGray

@@ -50,13 +50,16 @@ Ensure the following settings are enabled:
 - ✅ **Require status checks to pass before merging**, with these contexts:
   - "Protected Files Guard"
   - "Detect .NET Projects"
-  - "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate"
-  - "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)"
-  - "Stage 3: macOS Tests (.NET 6.0-10.0)"
+  - "Stage 1: Linux Tests + Coverage Gate"
+  - "Stage 2: Windows Tests"
+  - "Stage 3: macOS Tests"
   - "Security Scan (DevSkim)"
   - "Security Scan (CodeQL) (csharp)"
   - "Secrets Scan (gitleaks)"
   - "Changelog Fragment Check"
+
+  A required check name says what is checked, never how: no TFM ranges, OS or tool versions, because a ruleset requires a check by exact name and renaming the job blocks every PR until the ruleset is edited. The TFMs each stage ran are listed in that job's step summary.
+
 - ✅ **Require conversation resolution before merging**
 - ✅ **Block force pushes** and **Restrict deletions**
 - ⬜ **Require linear history** — optional. `Setup-BranchRuleset.ps1 -RequireLinearHistory` adds it (and limits merges to squash/rebase); stacked PRs then use `scripts/restack.ps1` after each merge, see [STACKED-PRS.md](STACKED-PRS.md). It is being trialled per repo, not fleet-wide.
