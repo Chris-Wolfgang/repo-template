@@ -104,7 +104,7 @@ function Get-BuildOnlyPackages([string]$Path) {
     return $ids
 }
 
-function Escape-Cell([string]$Text) {
+function ConvertTo-EscapedCell([string]$Text) {
     return (("$Text" -replace '\|', '\|') -replace '\s+', ' ').Trim()
 }
 
@@ -168,7 +168,7 @@ foreach ($proj in $projects) {
         $lines.Add('|---|---|---|---|---|')
         foreach ($r in ($rows.Values | Sort-Object { $_.Package }, { $_.License })) {
             $url = if ($r.Url) { "<$($r.Url)>" } else { '' }
-            $lines.Add("| $(Escape-Cell $r.Package) | $(($r.Versions | ForEach-Object { Escape-Cell $_ }) -join ', ') | $(Escape-Cell $r.License) | $(Escape-Cell $r.Copyright) | $url |")
+            $lines.Add("| $(ConvertTo-EscapedCell $r.Package) | $(($r.Versions | ForEach-Object { ConvertTo-EscapedCell $_ }) -join ', ') | $(ConvertTo-EscapedCell $r.License) | $(ConvertTo-EscapedCell $r.Copyright) | $url |")
         }
     }
     $lines.Add('')
