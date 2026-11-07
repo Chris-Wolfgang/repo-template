@@ -27,7 +27,7 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 
 The fastest path is the bundled script. It provisions the full canonical
 ruleset (required status checks, code-scanning gate, force-push protection,
-conversation-resolution requirement, Copilot code review) in one command:
+conversation-resolution requirement, code-quality gate) in one command:
 
 ```powershell
 pwsh -File ./scripts/Setup-BranchRuleset.ps1
@@ -70,6 +70,14 @@ the script).
    - Require code scanning results from CodeQL, errors threshold
 7. Save the ruleset.
 
+## Test Platforms
+
+`pr.yaml` tests on Linux (Stage 1, always), Windows (Stage 2) and macOS (Stage 3). A repository that
+does not ship for a platform sets the repository variable **`PR_PLATFORMS`** (Settings → Secrets and
+variables → Actions → Variables) to the ones it wants, e.g. `linux,windows`; unset means all three. A
+switched-off stage is skipped, which still satisfies the ruleset's required check, so the ruleset keeps
+the same check list in every repository.
+
 ## Security Settings
 
 Prevent Merging When Checks Fail
@@ -83,6 +91,8 @@ and the code-scanning gate are all part of the branch ruleset described in
 `scripts/Setup-BranchRuleset.ps1` holds the canonical list of check names.
 Do not add a classic branch-protection rule under **Settings > Branches** as
 well; the two would drift apart as check names change upstream.
+
+A required check name says what is checked, never how: no TFM ranges, OS or tool versions, because a ruleset requires a check by exact name and renaming the job blocks every PR until the ruleset is edited. The TFMs each stage ran are listed in that job's step summary.
 
 
 ## Add Custom Labels
@@ -289,7 +299,7 @@ because they are useful in steady-state:
 
 | Script | When to use |
 |---|---|
-| `scripts/Fix-BranchRuleset.ps1` | Replace the branch ruleset when the canonical definition changes upstream (a required check renamed or added) and the rule gets stuck waiting. Deletes "Protect main branch", disables any other active ruleset, then recreates it with `Setup-BranchRuleset.ps1` (pass `-RequireLinearHistory` to keep linear history). It does not patch rules in place. |
+| `scripts/Fix-BranchRuleset.ps1` | Replace the branch ruleset when the canonical definition changes upstream (a required check renamed or added) and the rule gets stuck waiting. Deletes "Protect main branch", disables any other active ruleset, then recreates it with `Setup-BranchRuleset.ps1` (pass `-AllowMergeCommits` to keep merge commits allowed). It does not patch rules in place. |
 | `scripts/Setup-Labels.ps1` | Re-run when new canonical labels are added (e.g. a new `maintenance - X` kind). Idempotent. |
 | `scripts/Validate-DocsDeploy.ps1` | Post-deploy validation of the `gh-pages` branch. See the **Setup GitHub Pages** section above. |
 | `scripts/build-pr.ps1` | Local dry-run of the PR workflow's Windows stage (build, every-TFM tests, coverage gates, DevSkim, gitleaks) on this machine; the Linux and macOS stages only run in CI. |

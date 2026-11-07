@@ -21,6 +21,15 @@
     - maintenance - docs       (blue)   — category: XML docs, README, CHANGELOG, samples
     - maintenance - API        (orange) — category: public/internal surface audit
     - maintenance - CI/CD      (pink)   — category: Docker, CI workflow, build/publish pipeline
+    - evergreen                (green)  — perpetual tracker: rolling scope, never closes, never in a release
+    - blocked                  (red)    — waiting on something external (billing reset, upstream)
+    - security                 (blue)   — security finding, advisory or hardening
+    - in progress              (mint)   — being worked on now
+    - PR created               (green)  — a pull request is open for this issue
+    - process                  (lilac)  — process or hygiene
+    - baseline                 (green)  — repository hardening baseline gap
+    - thorough-review          (purple) — deferred deep-review tier
+    - kind:mutation-survives   (pale)   — a mutant survived; filed by stryker.yaml, so it must exist
 
 .PARAMETER Repository
     The repository in owner/repo format. If not provided, uses the current repository.
@@ -114,7 +123,16 @@ $labels = @(
     @{ name = "maintenance - cleanup";     color = "a2845e"; description = "Maintenance: refactor for reuse, quality, efficiency" },
     @{ name = "maintenance - docs";        color = "0075ca"; description = "Maintenance: XML doc coverage, README, CHANGELOG, samples" },
     @{ name = "maintenance - API";         color = "ed7d31"; description = "Maintenance: public/internal surface audit, breaking-change vigilance" },
-    @{ name = "maintenance - CI/CD";       color = "ec6cb9"; description = "Maintenance: Docker, CI workflow, build/publish pipeline" }
+    @{ name = "maintenance - CI/CD";       color = "ec6cb9"; description = "Maintenance: Docker, CI workflow, build/publish pipeline" },
+    @{ name = "evergreen";                color = "2E7D32"; description = "Perpetual tracker - rolling scope, never closes, never scheduled into a release" },
+    @{ name = "blocked";                  color = "B60205"; description = "Waiting on something external (billing reset, upstream)" },
+    @{ name = "security";                 color = "1d76db"; description = "Security finding, advisory or hardening" },
+    @{ name = "in progress";              color = "86EFAC"; description = "Being worked on now" },
+    @{ name = "PR created";               color = "2ECC71"; description = "A pull request is open for this issue" },
+    @{ name = "process";                  color = "c5def5"; description = "Process or hygiene" },
+    @{ name = "baseline";                 color = "0e8a16"; description = "Repository hardening baseline gap" },
+    @{ name = "thorough-review";          color = "5319e7"; description = "Deferred deep-review tier - work on canonical Tier-1 issues first" },
+    @{ name = "kind:mutation-survives";   color = "BFD4F2"; description = "A mutant survived - a test gap to close (filed by stryker.yaml)" }
 )
 
 $created = 0
