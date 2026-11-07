@@ -1,0 +1,74 @@
+# Enables GitHub auto-merge on Dependabot pull requests whose highest version bump is a PATCH.
+# Minor and major bumps are left alone and still need a maintainer's review.
+#
+# WHAT THIS DOES - AND DOES NOT - DO: it never merges anything itself. `gh pr merge --auto`
+# only flags the PR for auto-merge; GitHub then performs the squash merge once every check the
+# branch ruleset requires has passed (and any required review is in). The ruleset's required
+# checks are therefore the gate - not this workflow. Two repository settings must hold for it
+# to work at all:
+#   - Settings > General > "Allow auto-merge" must be ON, or `gh pr merge --auto` is rejected.
+#   - The ruleset on main must require status checks. With no required checks, GitHub merges
+#     the PR the moment auto-merge is enabled, i.e. before CI has said anything.
+#
+# GROUPED PULL REQUESTS: dependabot.yml groups every ecosystem here with `patterns: ["*"]`, so
+# nearly every Dependabot PR bumps several packages at once. fetch-metadata's `update-type`
+# output is "the highest semver change being made by this PR" (its README) - a group of patch
+# bumps is reported as semver-patch and is enabled for auto-merge; a group that contains even
+# one minor or major bump is reported at that level and is left for review.
+#
+# SECURITY NOTE: no checkout, nothing from the PR is executed. fetch-metadata reads the PR's
+# commit messages through the API and only populates its outputs when the PR was opened by
+# Dependabot and contains only Dependabot-created commits. The write scopes are on this job
+# alone, and a `pull_request` run carries no secrets beyond GITHUB_TOKEN.
+name: Dependabot Auto-merge
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  auto-merge:
+    name: "Enable auto-merge for patch bumps"
+    runs-on: ubuntu-latest
+    # Tests the PR AUTHOR, not github.actor, like every other Dependabot guard in this
+    # repository: re-running or reopening a Dependabot PR makes the actor a maintainer.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    timeout-minutes: 5
+    permissions:
+      contents: write        # gh pr merge --auto performs the merge with this token
+      pull-requests: write   # ... and flips the PR's auto-merge flag
+
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2.5.0
+        with:
+          github-token: ${{ github.token }}
+
+      - name: Enable auto-merge (patch bumps only)
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh pr merge --auto --squash "$PR_URL"
+          echo "Auto-merge enabled for $PR_URL (update-type: version-update:semver-patch). GitHub merges it once the required checks pass." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Leave for review (minor/major bump)
+        if: steps.metadata.outputs.update-type != 'version-update:semver-patch'
+        env:
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Not enabling auto-merge: update-type is '${UPDATE_TYPE:-<empty>}', only version-update:semver-patch is merged automatically." >> "$GITHUB_STEP_SUMMARY"

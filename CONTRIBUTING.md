@@ -64,8 +64,8 @@ You can contribute in several ways:
    - **actionlint** and **zizmor** (`actions-audit.yaml`) on the workflow files themselves.
    - License audit and SBOM generation for the dependency closure (`license-audit.yaml`, `sbom.yaml`).
 
-   The branch ruleset **requires** Detect .NET Projects, the three test stages, DevSkim, CodeQL,
-   gitleaks and the Changelog Fragment Check to pass before merging. InspectCode, actionlint/zizmor,
+   The branch ruleset **requires** the Protected Files Guard, Detect .NET Projects, the three test
+   stages, DevSkim, CodeQL, gitleaks and the Changelog Fragment Check to pass before merging. InspectCode, actionlint/zizmor,
    the license audit and the SBOM are advisory — they annotate the PR and the Security tab but do
    not block the merge on their own. If a check fails, read its log, fix, and push.
    `pwsh ./scripts/build-pr.ps1` reproduces the Windows stage locally (see *Build and Test* below).
@@ -296,6 +296,8 @@ View the complete configuration in [.editorconfig](.editorconfig).
 If this repository requires linear history, stacked pull requests are restacked with `scripts/restack.ps1` after each merge — see [docs/STACKED-PRS.md](docs/STACKED-PRS.md).
 
 Changes to protected configuration files (`.editorconfig`, `Directory.Build.props`, workflows, ...) must be a PR of their own, separate from code that depends on them — mixed PRs fail the protected-files guard and cannot be bypassed; a configuration-only PR runs CI with the new configuration and is reviewed by a maintainer on its own. See [docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md#making-changes-to-protected-configuration-files).
+
+Dependabot pull requests whose highest version bump is a **patch** are merged automatically: `dependabot-auto-merge.yaml` enables GitHub auto-merge (squash) on them, and GitHub merges once every check the branch ruleset requires has passed. Minor and major bumps are left for a maintainer to review. Because `dependabot.yml` groups updates, a grouped PR counts as its highest bump - one minor bump in the group means the whole PR waits for review. The repository setting *Allow auto-merge* must be on for this to work.
 
 - Ensure your pull request passes all tests and analyzer checks.
 - Respond to review feedback in a timely manner.
