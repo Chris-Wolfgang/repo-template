@@ -21,16 +21,58 @@
     cd scripts
     pwsh ./setup.ps1
     
+.EXAMPLE
+    # Print the files the script substitutes placeholders in, then exit
+    # (the manual-setup list in TEMPLATE-PLACEHOLDERS.md is derived from this)
+    pwsh ./scripts/setup.ps1 -ListFiles
+    
+.PARAMETER ListFiles
+    Print the relative paths of the files the script replaces placeholders in
+    (one per line) and exit without running setup.
+    
 .NOTES
     Requires PowerShell Core 7.0 or later (cross-platform)
 #>
 
 [CmdletBinding()]
-param()
+param(
+    [Parameter()]
+    [switch]$ListFiles
+)
 
 # Enable strict mode
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# Files whose {{PLACEHOLDER}} tokens the script substitutes (Step 2) and then
+# validates. This is the single source of truth for that list: the manual
+# "Files to search" and validation lists in TEMPLATE-PLACEHOLDERS.md are
+# derived from it (print it with `pwsh ./scripts/setup.ps1 -ListFiles`).
+# README.md is the renamed README-TEMPLATE.md. LICENSE-*.txt are handled
+# separately during license selection and are intentionally not listed.
+$script:FilesToUpdate = @(
+    'README.md',
+    'CONTRIBUTING.md',
+    'SECURITY.md',
+    '.github/CODEOWNERS',
+    'REPO-INSTRUCTIONS.md',
+    'scripts/Setup-BranchRuleset.ps1',
+    'docfx_project/docfx.json',
+    'docfx_project/index.md',
+    'docfx_project/api/index.md',
+    'docfx_project/api/README.md',
+    'docfx_project/docs/toc.yml',
+    'docfx_project/docs/index.md',
+    'docfx_project/docs/introduction.md',
+    'docfx_project/docs/getting-started.md',
+    'BannedSymbols.txt',
+    '.github/workflows/benchmarks.yaml'
+)
+
+if ($ListFiles) {
+    $script:FilesToUpdate | ForEach-Object { Write-Output $_ }
+    exit 0
+}
 
 # Color output functions
 function Write-Success {
@@ -169,7 +211,7 @@ function Read-Input {
         $userInput = (Read-Host).Trim()
 
         if ([string]::IsNullOrWhiteSpace($userInput) -and $Default) {
-return $Default
+            return $Default
         }
         
         if ([string]::IsNullOrWhiteSpace($userInput) -and $Required) {
@@ -182,7 +224,7 @@ return $Default
 }
 
 # Replace placeholders in a file
-function Replace-Placeholders {
+function Update-Placeholders {
     param(
         [string]$FilePath,
         [hashtable]$Replacements
@@ -274,6 +316,22 @@ function Start-Setup {
     }
     else {
         $isNugetPackage = $false
+    }
+    Write-Host ""
+    
+    # Ask for the repository kind. Some template files only make sense for a
+    # library that other repositories consume (the "upstream gap" issue form
+    # asks a consuming product to report what this library lacks); an
+    # application repository gets those removed in the setup steps below.
+    $repoKind = ''
+    while ($repoKind -ne 'library' -and $repoKind -ne 'application') {
+        $repoKind = (Read-Input `
+            -Prompt "Repository kind: 'library' (a NuGet package other repositories consume) or 'application' (a program nothing else consumes)" `
+            -Default 'library' `
+            -Example 'application').ToLowerInvariant()
+        if ($repoKind -ne 'library' -and $repoKind -ne 'application') {
+            Write-TemplateError "Please enter 'library' or 'application'."
+        }
     }
     Write-Host ""
     
@@ -470,6 +528,7 @@ function Start-Setup {
     Write-Host "  Copyright Holder:    $copyrightHolder"
     Write-Host "  Copyright Year:      $year"
     Write-Host "  NuGet Status:        $nugetStatus"
+    Write-Host "  Repository Kind:     $repoKind"
     Write-Host "  Template Owner:      $templateRepoOwner"
     Write-Host "  Template Name:       $templateRepoName"
     if ($solutionName) {
@@ -539,26 +598,23 @@ function Start-Setup {
     # Step 2: Replace placeholders
     Write-Info "Step 2/${totalSteps}: Replacing placeholders in files..."
     
-    $filesToUpdate = @(
-        'README.md',
-        'CONTRIBUTING.md',
-        'SECURITY.md',
-        '.github/CODEOWNERS',
-        'REPO-INSTRUCTIONS.md',
-        'scripts/Setup-BranchRuleset.ps1',
-        'docfx_project/docfx.json',
-        'docfx_project/index.md',
-        'docfx_project/api/index.md',
-        'docfx_project/api/README.md',
-        'docfx_project/docs/toc.yml',
-        'docfx_project/docs/introduction.md',
-        'docfx_project/docs/getting-started.md',
-        'BannedSymbols.txt',
-        '.github/workflows/benchmarks.yaml'
-    )
+    foreach ($file in $script:FilesToUpdate) {
+        Update-Placeholders -FilePath $file -Replacements $replacements
+    }
     
-    foreach ($file in $filesToUpdate) {
-        Replace-Placeholders -FilePath $file -Replacements $replacements
+    # Library-only files: an application repository has no consumers, so the
+    # "upstream gap" issue form (a consuming product reporting what this
+    # library lacks) would only mislead there.
+    if ($repoKind -eq 'application') {
+        $libraryOnlyFiles = @(
+            '.github/ISSUE_TEMPLATE/upstream_gap.yaml'
+        )
+        foreach ($libraryOnlyFile in $libraryOnlyFiles) {
+            if (Test-Path $libraryOnlyFile) {
+                Remove-Item $libraryOnlyFile -Force
+                Write-Success "Removed library-only file: $libraryOnlyFile"
+            }
+        }
     }
     
     # Step 3: Set up LICENSE
@@ -632,7 +688,7 @@ function Start-Setup {
     }
 
     # Step 4: Create solution (if requested)
-if ($solutionName) {
+    if ($solutionName) {
         Write-Info "Step 4/${totalSteps}: Creating solution file..."
         
         # Create blank solution in .slnx format
@@ -717,7 +773,7 @@ if ($solutionName) {
             # Get relative path safely
             $relativePath = Get-SafeRelativePath $_.FullName
 
-# Exclude hidden files (starting with .) except those in .github directory
+            # Exclude hidden files (starting with .) except those in .github directory
             $fileName = [System.IO.Path]::GetFileName($relativePath)
             $isInGitHubDir = $relativePath -like '.github/*'
             if ($fileName.StartsWith('.') -and -not $isInGitHubDir) {
@@ -869,7 +925,7 @@ if ($solutionName) {
     Write-Info "Step ${totalSteps}/${totalSteps}: Validating changes..."
     
     # Core placeholders that should have been replaced by the script
-    # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in FILES_TO_UPDATE
+    # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in $script:FilesToUpdate
     $corePlaceholders = @(
         'PROJECT_NAME', 'PROJECT_DESCRIPTION', 'PACKAGE_NAME',
         'GITHUB_REPO_URL', 'REPO_NAME', 'GITHUB_USERNAME', 'GITHUB_OWNER',
@@ -890,7 +946,7 @@ if ($solutionName) {
     $corePlaceholdersByName = @{}
     $optionalPlaceholdersByName = @{}
     
-    foreach ($file in $filesToUpdate) {
+    foreach ($file in $script:FilesToUpdate) {
         if (Test-Path $file) {
             $content = Get-Content $file -Raw
             $placeholderMatches = [regex]::Matches($content, '\{\{([A-Z_]+)\}\}')

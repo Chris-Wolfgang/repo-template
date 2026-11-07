@@ -36,13 +36,13 @@ This is a **repository template** for creating new .NET repositories. It provide
 - **Test projects**: every project under `tests/` is a test project (no name pattern). Every entry in its `<TargetFrameworks>` is tested, and a framework on which zero tests ran fails the stage.
 - **Code coverage**: **90 %** line coverage for assemblies under `src/`, **100 %** for assemblies under `tests/` (test code that never runs is dead code). Gated per assembly.
 - **Changelog fragment**: a PR that changes anything under `src/` must add `changelog/unreleased/<name>.md` (`type: breaking|feature|fix|docs|internal` + one user-facing sentence) or carry the `no-changelog` label. `CHANGELOG.md` is never edited by hand. See `changelog/unreleased/README.md`.
-- **Protected configuration files**: `.editorconfig`, `Directory.Build.props`, `Directory.Build.targets`, `BannedSymbols.txt`, `*.globalconfig`, `*.ruleset`, `*.DotSettings` and anything under `.github/workflows/` are re-fetched from `main` during CI, and a PR that changes them **fails the `Detect .NET Projects` check by design** so a maintainer reviews the diff and merges with the admin bypass. Keep such changes in their own PR. See `docs/WORKFLOW_SECURITY.md`.
+- **Protected configuration files**: `.editorconfig`, `Directory.Build.props`, `Directory.Build.targets`, `BannedSymbols.txt`, `*.globalconfig`, `*.ruleset`, `*.DotSettings` and anything under `.github/workflows/` are classified by the **`Protected Files Guard`** (`.github/workflows/protected-files.yaml`): a PR that changes only protected files passes with a notice and merges on review; a PR that mixes them with other changes **fails the guard and nothing can bypass it** — split it. Keep such changes in their own PR. See `docs/WORKFLOW_SECURITY.md`.
 - **Security scanning**: gitleaks, DevSkim, CodeQL (security-extended), Semgrep, ReSharper InspectCode (error-severity findings fail), actionlint + zizmor on the workflow files (High-severity zizmor findings fail).
 - **Documentation**: `GenerateDocumentationFile` is on for every project under `src/`; a public member without an XML doc comment is CS1591 → Release error.
 
 ### Common Issues and Workarounds
 - **Coverage threshold failures**: the build fails below the gate by design; the gate reads ReportGenerator's `Summary.txt` per assembly.
-- **`Detect .NET Projects` red with "PROTECTED CONFIGURATION FILES CHANGED"**: expected for any workflow/config change — it is the review signal, not a bug to fix.
+- **`Protected Files Guard` red**: the PR mixes a protected file (workflow, analyzer config, build props, ...) with other changes — split the protected-file change into its own PR. A configuration-only PR passes the guard with a notice.
 - **`Changelog Fragment Check` red**: add the fragment or the `no-changelog` label, then re-run the job.
 - **Missing test projects**: CI refuses to skip the coverage gate silently when `src/` has projects but `tests/` has none.
 
@@ -74,20 +74,20 @@ root/
 - **`CONTRIBUTING.md`**, **`SECURITY.md`**, **`CODE_OF_CONDUCT.md`**: contribution guidelines, reporting channel + response timelines, Contributor Covenant.
 
 ### GitHub Integration
-- **Workflows** (`.github/workflows/`): `pr.yaml` (the gated PR pipeline), `release.yaml` (release → NuGet trusted publishing + attestation + docs), `docfx.yaml` (versioned docs deploy, called by release), `codeql.yaml`, `actions-audit.yaml` (actionlint + zizmor), `scorecard.yaml`, `semgrep.yaml`, `license-audit.yaml`, `sbom.yaml`, `sourcelink.yaml`, `security-alerts.yml` (nightly alert → issue triage), `stryker.yaml`, `benchmarks.yaml`, `build-all-versions.yaml`.
-- **Issue templates** (all YAML forms): bug report, feature request, maintenance task.
+- **Workflows** (`.github/workflows/`): `pr.yaml` (the gated PR pipeline), `release.yaml` (release → NuGet trusted publishing + attestation + docs), `docfx.yaml` (versioned docs deploy, called by release), `codeql.yaml`, `actions-audit.yaml` (actionlint + zizmor), `scorecard.yaml`, `semgrep.yaml`, `license-audit.yaml`, `sbom.yaml`, `sourcelink.yaml`, `security-alerts.yml` (nightly alert → issue triage), `stryker.yaml`, `benchmarks.yaml`, `build-all-versions.yaml`, `protected-files.yaml` (fails a PR that mixes protected and non-protected files), `copilot-code-review.yml`, `template-deps.yaml`.
+- **Issue templates** (all YAML forms): bug report, feature request, maintenance task, upstream gap.
 - **PR template**: structured checklist.
 - **CODEOWNERS**: default owner `@Chris-Wolfgang`, update as needed.
 - **Dependabot**: NuGet, GitHub Actions and the hash-pinned pip tooling under `.github/requirements/`, weekly, grouped, labelled `dependencies`.
 
 ### Continuous Integration Pipeline (`.github/workflows/pr.yaml`)
-Runs on `pull_request_target` (the workflow file and protected config come from `main`; the PR head is checked out for the code):
+Runs on `pull_request` (plus `push` to `main`): the PR's own workflow file, configuration and code are what is validated, in a run with a read-only token and no secrets. Gate integrity comes from the separate `Protected Files Guard` (`protected-files.yaml`), which never executes PR content (see `docs/WORKFLOW_SECURITY.md`):
 
-1. **Secrets Scan (gitleaks)** and **Detect .NET Projects** (project discovery + the protected-file guard) run first.
+1. **Secrets Scan (gitleaks)** and **Detect .NET Projects** (project discovery) run first; the **Protected Files Guard** classifies the PR's changed files from its own workflow.
 2. **Changelog Fragment Check** and **ReSharper InspectCode** run in parallel with the test stages.
-3. **Stage 1 Linux** (.NET 5.0–10.0, unit and integration test projects + coverage gate) → **Stage 2 Windows** (.NET Core 3.1, .NET 5.0–10.0, .NET Framework 4.6.2–4.8.1; integration tests; the full-TFM backstop) → **Stage 3 macOS** (.NET 6.0–10.0). Each stage discovers the projects' target frameworks at run time.
+3. **Stage 1 Linux** (.NET 5.0–10.0, unit and integration test projects + coverage gate) → **Stage 2 Windows** (.NET Core 3.1, .NET 5.0–10.0, .NET Framework 4.6.2–4.8.1; the full-TFM backstop) → **Stage 3 macOS** (.NET 6.0–10.0). Each stage discovers the projects' target frameworks at run time. A test project that sets `<RequiresLinuxContainers>true</RequiresLinuxContainers>` (it needs Linux containers) runs on Stage 1 only; every other project runs on all three.
 4. **Security Scan (DevSkim)**; CodeQL, actionlint/zizmor, license audit and SBOM run from their own workflows.
-5. **Required checks** (ruleset): Detect .NET Projects, the three stages, DevSkim, CodeQL, gitleaks, Changelog Fragment Check. InspectCode, actionlint/zizmor, license audit and SBOM are advisory.
+5. **Required checks** (ruleset): Protected Files Guard, Detect .NET Projects, the three stages, DevSkim, CodeQL, gitleaks, Changelog Fragment Check. InspectCode, actionlint/zizmor, license audit and SBOM are advisory.
 
 ### Branch Protection Configuration
 Branch protection rules are configured by running the local PowerShell script `scripts/Setup-BranchRuleset.ps1`. The script prompts you to choose repository settings during setup.
@@ -105,8 +105,8 @@ Branch protection rules are configured by running the local PowerShell script `s
 - Require branches to be up to date
 - Require conversation resolution before merging
 - Restrict deletions and block force pushes
-- Require code scanning (CodeQL, errors / High+ security), Copilot code review, code quality
-- Optional `-RequireLinearHistory` (squash/rebase only; stacked PRs use `scripts/restack.ps1`, see `docs/STACKED-PRS.md`)
+- Require code scanning (CodeQL, errors / High+ security) and code quality
+- Linear history by default (squash/rebase only; `-AllowMergeCommits` opts out; stacked PRs use `scripts/restack.ps1`, see `docs/STACKED-PRS.md`)
 
 **Branch Protection Setup Instructions:**
 1. Install GitHub CLI (gh) from https://cli.github.com/
@@ -128,8 +128,8 @@ Branch protection rules are configured by running the local PowerShell script `s
 - `.gitignore` - .NET-specific gitignore; `.gitattributes` - LF for every text file
 
 ### GitHub Directory (`.github/`)
-- `workflows/` - the 14 workflows listed above
-- `ISSUE_TEMPLATE/` - bug report, feature request, maintenance task (YAML forms)
+- `workflows/` - the workflows listed above
+- `ISSUE_TEMPLATE/` - bug report, feature request, maintenance task, upstream gap (YAML forms)
 - `pull_request_template.md` - PR template with checklists
 - `CODEOWNERS` - Code ownership rules
 - `dependabot.yml` - Dependency update configuration
@@ -186,7 +186,7 @@ When a new repo is created from this template:
 ## Agent Guidelines
 
 ### Trust These Instructions
-This information has been validated against the template structure and GitHub workflows (last checked 2026-09-16). **Only search for additional information if these instructions are incomplete or found to be incorrect.**
+This information has been validated against the template structure and GitHub workflows (last checked 2026-10-21). **Only search for additional information if these instructions are incomplete or found to be incorrect.**
 
 ### When Working with This Template
 1. **Creating New Projects**: Follow the structure outlined in `REPO-INSTRUCTIONS.md`
@@ -204,6 +204,6 @@ Before submitting changes:
 1. `pwsh ./scripts/build-pr.ps1` (or `dotnet restore && dotnet build --configuration Release` + `dotnet test --configuration Release` at minimum)
 2. Verify coverage meets the gates
 3. Add the changelog fragment if `src/` changed
-4. Ensure all GitHub Actions checks pass — a red `Detect .NET Projects` on a protected-file change is expected and needs a maintainer
+4. Ensure all GitHub Actions checks pass — a red `Protected Files Guard` means the PR mixes a protected-file change with other changes; split it
 
 This template provides a solid foundation for .NET projects with enterprise-grade CI/CD, security scanning, and development best practices built-in.
