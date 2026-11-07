@@ -531,7 +531,7 @@ The script provides interactive prompts to choose between single-developer or mu
 ✅ **Automated Documentation** - DocFX + versioned GitHub Pages
 ✅ **4 License Options** - MIT, Apache 2.0, MPL 2.0, or custom/TBD (pending selection)
 ✅ **Setup Automation** - PowerShell scripts (cross-platform, no bash)
-✅ **Repository Baseline** - 22 audited hardening items
+✅ **Repository Baseline** - the audited hardening checklist in `docs/repository-baseline.md`
 
 ---
 

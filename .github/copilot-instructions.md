@@ -74,8 +74,8 @@ root/
 - **`CONTRIBUTING.md`**, **`SECURITY.md`**, **`CODE_OF_CONDUCT.md`**: contribution guidelines, reporting channel + response timelines, Contributor Covenant.
 
 ### GitHub Integration
-- **Workflows** (`.github/workflows/`): `pr.yaml` (the gated PR pipeline), `release.yaml` (release → NuGet trusted publishing + attestation + docs), `docfx.yaml` (versioned docs deploy, called by release), `codeql.yaml`, `actions-audit.yaml` (actionlint + zizmor), `scorecard.yaml`, `semgrep.yaml`, `license-audit.yaml`, `sbom.yaml`, `sourcelink.yaml`, `security-alerts.yml` (nightly alert → issue triage), `stryker.yaml`, `benchmarks.yaml`, `build-all-versions.yaml`.
-- **Issue templates** (all YAML forms): bug report, feature request, maintenance task.
+- **Workflows** (`.github/workflows/`): `pr.yaml` (the gated PR pipeline), `release.yaml` (release → NuGet trusted publishing + attestation + docs), `docfx.yaml` (versioned docs deploy, called by release), `codeql.yaml`, `actions-audit.yaml` (actionlint + zizmor), `scorecard.yaml`, `semgrep.yaml`, `license-audit.yaml`, `sbom.yaml`, `sourcelink.yaml`, `security-alerts.yml` (nightly alert → issue triage), `stryker.yaml`, `benchmarks.yaml`, `build-all-versions.yaml`, `protected-files.yaml` (fails a PR that mixes protected and non-protected files), `copilot-code-review.yml`, `template-deps.yaml`.
+- **Issue templates** (all YAML forms): bug report, feature request, maintenance task, upstream gap.
 - **PR template**: structured checklist.
 - **CODEOWNERS**: default owner `@Chris-Wolfgang`, update as needed.
 - **Dependabot**: NuGet, GitHub Actions and the hash-pinned pip tooling under `.github/requirements/`, weekly, grouped, labelled `dependencies`.
@@ -128,8 +128,8 @@ Branch protection rules are configured by running the local PowerShell script `s
 - `.gitignore` - .NET-specific gitignore; `.gitattributes` - LF for every text file
 
 ### GitHub Directory (`.github/`)
-- `workflows/` - the 14 workflows listed above
-- `ISSUE_TEMPLATE/` - bug report, feature request, maintenance task (YAML forms)
+- `workflows/` - the workflows listed above
+- `ISSUE_TEMPLATE/` - bug report, feature request, maintenance task, upstream gap (YAML forms)
 - `pull_request_template.md` - PR template with checklists
 - `CODEOWNERS` - Code ownership rules
 - `dependabot.yml` - Dependency update configuration
@@ -186,7 +186,7 @@ When a new repo is created from this template:
 ## Agent Guidelines
 
 ### Trust These Instructions
-This information has been validated against the template structure and GitHub workflows (last checked 2026-09-16). **Only search for additional information if these instructions are incomplete or found to be incorrect.**
+This information has been validated against the template structure and GitHub workflows (last checked 2026-10-21). **Only search for additional information if these instructions are incomplete or found to be incorrect.**
 
 ### When Working with This Template
 1. **Creating New Projects**: Follow the structure outlined in `REPO-INSTRUCTIONS.md`
