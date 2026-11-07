@@ -16,6 +16,16 @@
 #   publish the score-history chart to gh-pages /dev/stryker and keep the single
 #   `kind:mutation-survives` tracking issue current.
 #
+# Jobs and token scopes - the mutation run never holds a write scope:
+# - detect: picks the configs and the runner (read-only).
+# - stryker: the mutation run and the gate, on EVERY event including pull_request.
+#   It holds only `contents: read`. A same-repository PR runs this file from its
+#   own head, so this job must have nothing a PR could redirect: it writes its
+#   scores and reports to an artifact and stops.
+# - publish: schedule / workflow_dispatch only (never pull_request). The only job
+#   with `contents: write` (gh-pages chart) and `issues: write` (survivors issue);
+#   it reads the stryker job's artifact and never builds or mutates anything.
+#
 # Configuration discovery - every config found is run, none is skipped:
 # - Root stryker-config.json (umbrella) AND every tests/**/stryker-config.json.
 #   A repo can have both (an umbrella for the main library plus per-suite configs).
@@ -143,17 +153,21 @@ jobs:
     if: needs.detect.outputs.run == 'true'
     runs-on: ${{ needs.detect.outputs.runner }}
     timeout-minutes: 120
-    # Non-PR runs push to gh-pages (the publish step below): share the `gh-pages` group
-    # with benchmarks.yaml and docfx.yaml so two publishers never race into a
-    # non-fast-forward push. The group is held for the whole job, as benchmarks.yaml
-    # holds it for its whole run; queued, never cancelled. PR runs publish nothing and
-    # keep a group of their own so they never queue behind a publisher.
+    # This job publishes nothing, so it never joins the `gh-pages` group (that is the
+    # publish job's): a per-ref group of its own means a mutation run never queues
+    # behind a benchmark or docs publisher. Queued, never cancelled, so the
+    # workflow-level cancel-in-progress stays the only thing that supersedes a PR run.
     concurrency:
-      group: ${{ github.event_name == 'pull_request' && format('stryker-run-{0}', github.ref) || 'gh-pages' }}
+      group: stryker-run-${{ github.ref }}
       cancel-in-progress: false
+    # Read-only on purpose: this job runs on pull_request from the PR's own copy of
+    # this file. Everything that needs a write scope lives in the publish job, which
+    # pull_request never reaches.
     permissions:
-      contents: write   # publish the score-history chart to gh-pages (non-PR runs only)
-      issues: write     # upsert the single survivors tracking issue (non-PR runs only)
+      contents: read
+    outputs:
+      runs: ${{ steps.run.outputs.runs }}
+      score: ${{ steps.score.outputs.score }}
     steps:
       - name: Check out repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -279,8 +293,9 @@ jobs:
 
       - name: Extract mutation scores
         id: score
-        # always(): publish/track even when the gate FAILED - a low score is exactly
-        # when the trend and the survivor list matter most.
+        # always(): extract (and, on non-PR events, publish/track in the publish job)
+        # even when the gate FAILED - a low score is exactly when the trend and the
+        # survivor list matter most.
         if: always() && steps.run.outputs.runs != ''
         shell: bash
         run: |
@@ -306,10 +321,74 @@ jobs:
           printf '%s\n' "${entries[@]}" | jq -s . > mutation-score.json
           echo "score=$lowest" >> "$GITHUB_OUTPUT"
 
+      - name: Upload Stryker report
+        if: always() && steps.run.outputs.runs != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: stryker-report-${{ github.run_id }}
+          path: |
+            **/StrykerOutput/**
+            stryker-logs/
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload publish inputs for the publish job
+        # Hand-off to the publish job (non-PR only): the chart data point and every
+        # mutation-report.json, nothing else. The paths are kept relative to the
+        # workspace so the publish job's globs find them where this job left them.
+        if: always() && steps.run.outputs.runs != '' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: stryker-publish-inputs-${{ github.run_id }}
+          path: |
+            mutation-score.json
+            **/StrykerOutput/**/reports/mutation-report.json
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish mutation score and survivors
+    needs:
+      - detect
+      - stryker
+    # schedule and workflow_dispatch only - pull_request never reaches this job, so
+    # its write scopes are never available to a workflow definition taken from a PR.
+    # always(): publish/track even when the gate FAILED - a low score is exactly
+    # when the trend and the survivor list matter most; the run-count guard keeps a
+    # stryker job that never got as far as running anything from publishing nothing.
+    if: >-
+      always()
+      && github.event_name != 'pull_request'
+      && needs.detect.outputs.run == 'true'
+      && needs.stryker.outputs.runs != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Pushes to gh-pages: share the `gh-pages` group with benchmarks.yaml and
+    # docfx.yaml so two publishers never race into a non-fast-forward push. Queued,
+    # never cancelled.
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
+    permissions:
+      contents: write   # publish the score-history chart to gh-pages
+      issues: write     # upsert the single survivors tracking issue
+    steps:
+      - name: Check out repo
+        # The chart action needs the repository checkout to push gh-pages, and the
+        # survivors step reads each stryker-config.json for its break floor.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download publish inputs from the stryker job
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: stryker-publish-inputs-${{ github.run_id }}
+          path: .
+
       - name: Publish mutation-score history to gh-pages
         # Trend chart under gh-pages /dev/stryker (same action and pin as the BDN
-        # benchmark charts). Non-PR only: one data point per scheduled/manual run.
-        if: always() && steps.run.outputs.runs != '' && github.event_name != 'pull_request'
+        # benchmark charts). One data point per scheduled/manual run.
         uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc  # v1.22.2
         with:
           name: Mutation score
@@ -328,10 +407,9 @@ jobs:
         # Writes the survivor worklist to the run summary and keeps ONE rolling
         # `kind:mutation-survives` issue up to date (deliberately not one issue per
         # survivor - there are dozens). Best-effort: never fails the run.
-        if: always() && steps.run.outputs.runs != '' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          STRYKER_SCORE: ${{ steps.score.outputs.score }}
+          STRYKER_SCORE: ${{ needs.stryker.outputs.score }}
         shell: bash
         run: |
           set -uo pipefail
@@ -375,14 +453,3 @@ jobs:
             gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body" \
               --label "kind:mutation-survives" || true
           fi
-
-      - name: Upload Stryker report
-        if: always() && steps.run.outputs.runs != ''
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
-        with:
-          name: stryker-report-${{ github.run_id }}
-          path: |
-            **/StrykerOutput/**
-            stryker-logs/
-          if-no-files-found: ignore
-          retention-days: 30
