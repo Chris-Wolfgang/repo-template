@@ -149,6 +149,12 @@ if (-not $SkipTests -and $failed.Count -eq 0) {
         }
     }
     else {
+        # Test projects that actually reached `dotnet test`. Every project under
+        # ./tests can be skipped by the checks in the loop (integration, no TFMs,
+        # fixture / smoke executable), and then nothing ran — reported below as a
+        # failure instead of "All tests passed".
+        $ranTestProjects = 0
+
         foreach ($testProj in $testProjects) {
             Write-Host ""
             Write-Host "Testing: $($testProj.FullName)" -ForegroundColor White
@@ -247,10 +253,15 @@ if (-not $SkipTests -and $failed.Count -eq 0) {
             }
 
             if ($failed.Count -gt 0) { break }
+            $ranTestProjects++
         }
 
-        if ($failed.Count -eq 0) {
-            Write-Pass "All tests passed"
+        if ($failed.Count -eq 0 -and $ranTestProjects -eq 0) {
+            Write-Fail "Zero test projects ran — every project under ./tests was skipped (integration, no compatible TFM, or not a test project), so no tests were executed and the coverage gate cannot be evaluated"
+            $failed += "Tests (zero projects ran)"
+        }
+        elseif ($failed.Count -eq 0) {
+            Write-Pass "All tests passed ($ranTestProjects test project(s))"
         }
     }
 }
