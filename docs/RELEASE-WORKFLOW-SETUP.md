@@ -13,7 +13,7 @@ The release workflow triggers when you **publish a GitHub Release** and implemen
 - ✅ Records a SLSA build-provenance attestation for every package (`gh attestation verify`)
 - ✅ Publishes to NuGet.org via OIDC trusted publishing — no stored API key
 - ✅ Deploys the versioned documentation to `gh-pages`
-- ✅ Attaches the packages, SBOM, provenance bundle and coverage report to the GitHub Release
+- ✅ Attaches the packages, SBOM and coverage report to the GitHub Release
 
 ## Required Configuration
 
@@ -50,16 +50,19 @@ Ensure the following settings are enabled:
 - ✅ **Require status checks to pass before merging**, with these contexts:
   - "Protected Files Guard"
   - "Detect .NET Projects"
-  - "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate"
-  - "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)"
-  - "Stage 3: macOS Tests (.NET 6.0-10.0)"
+  - "Stage 1: Linux Tests + Coverage Gate"
+  - "Stage 2: Windows Tests"
+  - "Stage 3: macOS Tests"
   - "Security Scan (DevSkim)"
   - "Security Scan (CodeQL) (csharp)"
   - "Secrets Scan (gitleaks)"
   - "Changelog Fragment Check"
+
+  A required check name says what is checked, never how: no TFM ranges, OS or tool versions, because a ruleset requires a check by exact name and renaming the job blocks every PR until the ruleset is edited. The TFMs each stage ran are listed in that job's step summary.
+
 - ✅ **Require conversation resolution before merging**
 - ✅ **Block force pushes** and **Restrict deletions**
-- ⬜ **Require linear history** — optional. `Setup-BranchRuleset.ps1 -RequireLinearHistory` adds it (and limits merges to squash/rebase); stacked PRs then use `scripts/restack.ps1` after each merge, see [STACKED-PRS.md](STACKED-PRS.md). It is being trialled per repo, not fleet-wide.
+- ✅ **Require linear history** — `Setup-BranchRuleset.ps1` adds it by default (and limits merges to squash/rebase; `-AllowMergeCommits` opts out); stacked PRs then use `scripts/restack.ps1` after each merge, see [STACKED-PRS.md](STACKED-PRS.md).
 
 **What this does:** Ensures all code merged to `main` has passed comprehensive validation, preventing broken releases. Keep the ruleset **active** — disable nothing to merge; a configuration-only PR passes the protected-file guard on review, and a mixed PR is split (baseline item 10).
 
@@ -100,7 +103,7 @@ Ensure the following settings are enabled:
 
 5. **trigger-docs** — calls `docfx.yaml` to build and deploy the versioned docs to `gh-pages`
 
-6. **update-release-artifacts** — attaches the `.nupkg` / `.snupkg` / `.bom.json` files, the `<repo>-<tag>.intoto.jsonl` provenance bundle (which Scorecard's Signed-Releases check reads) and the zipped coverage report to the GitHub Release with `gh release upload`
+6. **update-release-artifacts** — attaches the `.nupkg` / `.snupkg` / `.bom.json` files and the zipped coverage report to the GitHub Release with `gh release upload`
 
 ### Monitoring the Workflow
 
@@ -223,7 +226,7 @@ Before publishing a production GitHub Release (for example `v1.0.0`):
 ┌──────────────────────────────────────────────────────────────┐
 │  update-release-artifacts                                    │
 │  • gh release upload: *.nupkg, *.snupkg, *.bom.json,         │
-│    *.intoto.jsonl, release-coverage.zip                      │
+│    release-coverage.zip                                      │
 └──────────────────────────────────────────────────────────────┘
 ```
 

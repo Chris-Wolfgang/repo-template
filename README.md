@@ -118,7 +118,7 @@ Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn
 - **Multi-stage testing** across Linux, Windows, macOS
 - **Multi-framework testing** (.NET Core 3.1, .NET 5.0-10.0, .NET Framework 4.6.2-4.8.1) - every TFM of every test project, discovered at run time; a TFM that runs zero tests fails
 - **Code coverage gates** - 90 % line coverage for `src/`, 100 % for `tests/`
-- **Protected Files Guard** (`.github/workflows/protected-files.yaml`) - a PR that changes only protected files (workflows, `Directory.Build.props`, `.editorconfig`, `BannedSymbols.txt`, `*.DotSettings`, ...) passes with a notice and merges on review; a PR that mixes them with other changes fails the guard and is split ([docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md))
+- **Protected-file guard** - the workflow runs from `main` (`pull_request_target`) and re-fetches `.editorconfig`, `Directory.Build.props`, `BannedSymbols.txt`, `*.DotSettings`, workflows, ... from `main`; a PR that changes them is held for maintainer review ([docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md))
 - **Changelog fragment check** - a PR touching `src/` must add `changelog/unreleased/<name>.md` or carry the `no-changelog` label
 - **gitleaks** (check log), **DevSkim** (text artifact), **ReSharper InspectCode** (SARIF to the Security tab), **coverage reports** (artifact per stage)
 - **Local mirror** - `pwsh ./scripts/build-pr.ps1` reproduces the Windows stage on your machine
@@ -278,7 +278,6 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 
 ### Test Strategy
 - Every project under `tests/` is a test project, `*.Tests.Integration.*` included; Stage 1 (Linux, with Docker) runs them all and holds every test assembly to `CODECOV_TEST_MINIMUM`
-- A test project that needs Linux containers (Testcontainers, Docker) declares `<RequiresLinuxContainers>true</RequiresLinuxContainers>` in its csproj. Stage 2 (Windows), Stage 3 (macOS) and release validation skip it, and Stage 1 runs and coverage-gates it. The marker decides, not the project name: an integration project that needs no container runs on every stage, including its .NET Framework TFMs on Windows
 - A test assembly that ran but recorded no coverage fails the gate
 - Every `<TargetFrameworks>` entry is tested; a TFM on which zero tests ran fails the stage
 - Coverage collection with `XPlat Code Coverage` (`coverlet.runsettings`)
@@ -378,7 +377,6 @@ The script will prompt you to choose between single-developer or multi-developer
 - ✅ Require branches to be up to date
 - ✅ Require pull request reviews (recommended for multi-developer repos)
 - ✅ Require code owner review (recommended for multi-developer repos)
-- ✅ Require Copilot review
 - ✅ Restrict deletions
 - ✅ Block force pushes
 - ✅ Require code scanning
@@ -461,23 +459,25 @@ Configured by running the local PowerShell setup script (see "How It Works" belo
 
 - ✅ **Require pull requests** before merging
 - ✅ **Require these status checks to pass:**
-  - Protected Files Guard
   - Detect .NET Projects
-  - Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate
-  - Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)
-  - Stage 3: macOS Tests (.NET 6.0-10.0)
+  - Stage 1: Linux Tests + Coverage Gate
+  - Stage 2: Windows Tests
+  - Stage 3: macOS Tests
   - Security Scan (DevSkim)
   - Security Scan (CodeQL) (csharp)
   - Secrets Scan (gitleaks)
   - Changelog Fragment Check
+
+  A required check name says what is checked, never how: no TFM ranges, OS or tool versions, because a ruleset requires a check by exact name and renaming the job blocks every PR until the ruleset is edited. The TFMs each stage ran are listed in that job's step summary.
+
 - ✅ **Require branches to be up to date** before merging
 - ✅ **Require conversation resolution** before merging
 - ✅ **Dismiss stale reviews** when new commits are pushed
 - ✅ **Require code scanning** - CodeQL alerts at *errors* / security *high or higher* block the merge
-- ✅ **Require Copilot code review** and the **code quality** rule
+- ✅ **Code quality** rule (analyzer / formatter errors block the merge)
 - ✅ **Block force pushes** to main
 - ✅ **Prevent branch deletion**
-- ⬜ **Require linear history** - optional (`-RequireLinearHistory`), see [docs/STACKED-PRS.md](docs/STACKED-PRS.md)
+- ✅ **Require linear history** (squash and rebase merges only; `-AllowMergeCommits` opts out), see [docs/STACKED-PRS.md](docs/STACKED-PRS.md)
 - Nobody is in the bypass list. A PR that changes only protected files (workflows, `Directory.Build.props`, `.editorconfig`, …) passes the guard with a warning and merges on review; a PR that mixes them with other changes fails the guard and is split
 
 **Repository Type Options:**
@@ -531,7 +531,7 @@ The script provides interactive prompts to choose between single-developer or mu
 ✅ **Automated Documentation** - DocFX + versioned GitHub Pages
 ✅ **4 License Options** - MIT, Apache 2.0, MPL 2.0, or custom/TBD (pending selection)
 ✅ **Setup Automation** - PowerShell scripts (cross-platform, no bash)
-✅ **Repository Baseline** - the audited hardening checklist in `docs/repository-baseline.md`
+✅ **Repository Baseline** - 22 audited hardening items
 
 ---
 

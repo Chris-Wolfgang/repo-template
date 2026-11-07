@@ -14,9 +14,7 @@
     actually depends on.
 
     Packages the project references with PrivateAssets="all" (analyzers, SourceLink)
-    are build-time only and never distributed, so they are left out - but only when
-    every target framework that references the package marks it so; a package that is
-    private on one TFM and a runtime dependency on another is listed. The SourceLink
+    are build-time only and never distributed, so they are left out; the SourceLink
     build-task packages they pull in are left out for the same reason. Anything else
     in the closure is listed, which errs on the side of extra attribution.
 
@@ -92,28 +90,21 @@ function Get-Tfms([string]$Path) {
     return @($raw -split ';' | Where-Object { $_ })
 }
 
-# Direct references marked PrivateAssets="all" on every TFM that references them:
-# build-time only. A reference that is private on one TFM but a plain dependency
-# on another is distributed with that other TFM and stays in the notices.
+# Direct references marked PrivateAssets="all" on any TFM: build-time only.
 function Get-BuildOnlyPackages([string]$Path) {
     $ids = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    $public = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($tfm in (Get-Tfms $Path)) {
         $json = (Invoke-MsBuildEval $Path @('-getItem:PackageReference', "-p:TargetFramework=$tfm") | Out-String)
         if (-not $json.Trim()) { continue }
         foreach ($item in (ConvertFrom-Json $json).Items.PackageReference) {
             $private = "$($item.PrivateAssets)".Trim()
-            if ($private -ieq 'all') { [void]$ids.Add($item.Identity) } else { [void]$public.Add($item.Identity) }
+            if ($private -ieq 'all') { [void]$ids.Add($item.Identity) }
         }
     }
-    $ids.ExceptWith($public)
-    # The unary comma keeps the set in one piece: PowerShell would otherwise unroll
-    # it on output, so an empty set reaches the caller as $null and a single entry
-    # as a string, and the caller's .Contains() throws or answers wrongly.
-    return ,$ids
+    return $ids
 }
 
-function ConvertTo-EscapedCell([string]$Text) {
+function Escape-Cell([string]$Text) {
     return (("$Text" -replace '\|', '\|') -replace '\s+', ' ').Trim()
 }
 
@@ -123,11 +114,6 @@ foreach ($proj in $projects) {
     $name = [System.IO.Path]::GetFileNameWithoutExtension($proj.Name)
     $target = if ($OutputPath) { $OutputPath } else { Join-Path $projDir 'obj' 'THIRD-PARTY-NOTICES.md' }
     Write-Host "== $name =="
-
-    # A notice left by an earlier run must not outlive a failed one: pack would
-    # ship it as this build's attribution. Whatever happens below, the file at
-    # $target is either regenerated now or gone.
-    if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Force }
 
     $buildOnly = Get-BuildOnlyPackages $proj.FullName
 
@@ -182,7 +168,7 @@ foreach ($proj in $projects) {
         $lines.Add('|---|---|---|---|---|')
         foreach ($r in ($rows.Values | Sort-Object { $_.Package }, { $_.License })) {
             $url = if ($r.Url) { "<$($r.Url)>" } else { '' }
-            $lines.Add("| $(ConvertTo-EscapedCell $r.Package) | $(($r.Versions | ForEach-Object { ConvertTo-EscapedCell $_ }) -join ', ') | $(ConvertTo-EscapedCell $r.License) | $(ConvertTo-EscapedCell $r.Copyright) | $url |")
+            $lines.Add("| $(Escape-Cell $r.Package) | $(($r.Versions | ForEach-Object { Escape-Cell $_ }) -join ', ') | $(Escape-Cell $r.License) | $(Escape-Cell $r.Copyright) | $url |")
         }
     }
     $lines.Add('')

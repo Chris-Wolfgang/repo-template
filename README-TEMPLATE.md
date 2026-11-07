@@ -4,7 +4,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/{{PACKAGE_NAME}}.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/{{PACKAGE_NAME}}/)
 [![Downloads](https://img.shields.io/nuget/dt/{{PACKAGE_NAME}}.svg?logo=nuget&label=downloads)](https://www.nuget.org/packages/{{PACKAGE_NAME}}/)
-[![PR build](https://img.shields.io/github/actions/workflow/status/{{GITHUB_OWNER}}/{{REPO_NAME}}/pr.yaml?event=pull_request&label=PR%20build&logo=github)]({{GITHUB_REPO_URL}}/actions/workflows/pr.yaml)
+[![PR build](https://img.shields.io/github/actions/workflow/status/{{GITHUB_OWNER}}/{{REPO_NAME}}/pr.yaml?event=pull_request_target&label=PR%20build&logo=github)]({{GITHUB_REPO_URL}}/actions/workflows/pr.yaml)
 [![release](https://img.shields.io/github/actions/workflow/status/{{GITHUB_OWNER}}/{{REPO_NAME}}/release.yaml?event=release&label=release&logo=github)]({{GITHUB_REPO_URL}}/actions/workflows/release.yaml)
 [![License: {{LICENSE_TYPE}}](https://img.shields.io/badge/License-{{LICENSE_TYPE}}-blue.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-Multi--Targeted-purple.svg)](https://dotnet.microsoft.com/)
@@ -140,12 +140,13 @@ See [docs/README-FORMATTING.md](docs/README-FORMATTING.md) for detailed formatti
 This project uses [DocFX](https://dotnet.github.io/docfx/) to generate API documentation:
 
 ```bash
-# Restore the pinned tools from .config/dotnet-tools.json (one-time setup)
-dotnet tool restore
+# Install DocFX (one-time setup)
+dotnet tool install -g docfx
 
 # Generate API metadata and build documentation
-dotnet docfx metadata docfx_project/docfx.json  # Extract API metadata from source code
-dotnet docfx build docfx_project/docfx.json     # Build HTML documentation into docfx_project/_site/
+cd docfx_project
+docfx metadata  # Extract API metadata from source code
+docfx build     # Build HTML documentation into docfx_project/_site/
 ```
 
 The documentation is built and deployed to GitHub Pages by the release workflow: each release lands under `versions/<tag>/` (plus `versions/latest/`) with a version picker on every page, so earlier versions stay online.
@@ -153,7 +154,8 @@ The documentation is built and deployed to GitHub Pages by the release workflow:
 **Local Preview:**
 ```bash
 # Serve documentation locally (with live reload)
-dotnet docfx build docfx_project/docfx.json --serve
+cd docfx_project
+docfx build --serve
 
 # Open http://localhost:8080 in your browser
 ```
