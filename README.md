@@ -118,7 +118,7 @@ Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn
 - **Multi-stage testing** across Linux, Windows, macOS
 - **Multi-framework testing** (.NET Core 3.1, .NET 5.0-10.0, .NET Framework 4.6.2-4.8.1) - every TFM of every test project, discovered at run time; a TFM that runs zero tests fails
 - **Code coverage gates** - 90 % line coverage for `src/`, 100 % for `tests/`
-- **Protected-file guard** - the workflow runs from `main` (`pull_request_target`) and re-fetches `.editorconfig`, `Directory.Build.props`, `BannedSymbols.txt`, `*.DotSettings`, workflows, ... from `main`; a PR that changes them is held for maintainer review ([docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md))
+- **Protected Files Guard** (`.github/workflows/protected-files.yaml`) - a PR that changes only protected files (workflows, `Directory.Build.props`, `.editorconfig`, `BannedSymbols.txt`, `*.DotSettings`, ...) passes with a notice and merges on review; a PR that mixes them with other changes fails the guard and is split ([docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md))
 - **Changelog fragment check** - a PR touching `src/` must add `changelog/unreleased/<name>.md` or carry the `no-changelog` label
 - **gitleaks** (check log), **DevSkim** (text artifact), **ReSharper InspectCode** (SARIF to the Security tab), **coverage reports** (artifact per stage)
 - **Local mirror** - `pwsh ./scripts/build-pr.ps1` reproduces the Windows stage on your machine
@@ -461,6 +461,7 @@ Configured by running the local PowerShell setup script (see "How It Works" belo
 
 - ✅ **Require pull requests** before merging
 - ✅ **Require these status checks to pass:**
+  - Protected Files Guard
   - Detect .NET Projects
   - Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate
   - Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)

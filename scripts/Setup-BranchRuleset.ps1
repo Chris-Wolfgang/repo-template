@@ -345,6 +345,7 @@ try {
         Write-Host "      - Security Scan (DevSkim)" -ForegroundColor DarkGray
         Write-Host "      - Security Scan (CodeQL) (csharp)" -ForegroundColor DarkGray
         Write-Host "      - Secrets Scan (gitleaks)" -ForegroundColor DarkGray
+        Write-Host "      - Changelog Fragment Check" -ForegroundColor DarkGray
         Write-Host "   ✅ Branches must be up to date before merging" -ForegroundColor Gray
         Write-Host "   ✅ Conversation resolution required before merging" -ForegroundColor Gray
         Write-Host "   ✅ Stale reviews dismissed when new commits are pushed" -ForegroundColor Gray

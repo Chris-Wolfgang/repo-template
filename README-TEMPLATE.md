@@ -4,7 +4,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/{{PACKAGE_NAME}}.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/{{PACKAGE_NAME}}/)
 [![Downloads](https://img.shields.io/nuget/dt/{{PACKAGE_NAME}}.svg?logo=nuget&label=downloads)](https://www.nuget.org/packages/{{PACKAGE_NAME}}/)
-[![PR build](https://img.shields.io/github/actions/workflow/status/{{GITHUB_OWNER}}/{{REPO_NAME}}/pr.yaml?event=pull_request_target&label=PR%20build&logo=github)]({{GITHUB_REPO_URL}}/actions/workflows/pr.yaml)
+[![PR build](https://img.shields.io/github/actions/workflow/status/{{GITHUB_OWNER}}/{{REPO_NAME}}/pr.yaml?event=pull_request&label=PR%20build&logo=github)]({{GITHUB_REPO_URL}}/actions/workflows/pr.yaml)
 [![release](https://img.shields.io/github/actions/workflow/status/{{GITHUB_OWNER}}/{{REPO_NAME}}/release.yaml?event=release&label=release&logo=github)]({{GITHUB_REPO_URL}}/actions/workflows/release.yaml)
 [![License: {{LICENSE_TYPE}}](https://img.shields.io/badge/License-{{LICENSE_TYPE}}-blue.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-Multi--Targeted-purple.svg)](https://dotnet.microsoft.com/)
