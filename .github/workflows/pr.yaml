@@ -953,7 +953,14 @@ jobs:
     name: "Stage 2: Windows Tests"
     runs-on: windows-latest
     needs: [detect-projects, test-linux-core]
-    if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
+    # PR_PLATFORMS (repository variable, optional): the platforms Stage 2/3 run on, e.g.
+    # "linux,windows". Unset or empty means all three. Linux (Stage 1) always runs. A
+    # platform that is switched off skips its job, which still satisfies a ruleset that
+    # requires the check, so the required-check list need not change per repository.
+    if: >-
+      github.repository != 'Chris-Wolfgang/repo-template'
+      && needs.detect-projects.outputs.has-projects == 'true'
+      && (vars.PR_PLATFORMS == '' || contains(vars.PR_PLATFORMS, 'windows'))
     
     steps:
       - name: Checkout code
@@ -1402,7 +1409,11 @@ jobs:
     name: "Stage 3: macOS Tests"
     runs-on: macos-latest
     needs: [detect-projects, test-windows]
-    if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
+    # See PR_PLATFORMS on Stage 2. Stage 3 follows Stage 2, so "linux,macos" also skips it.
+    if: >-
+      github.repository != 'Chris-Wolfgang/repo-template'
+      && needs.detect-projects.outputs.has-projects == 'true'
+      && (vars.PR_PLATFORMS == '' || contains(vars.PR_PLATFORMS, 'macos'))
     
     steps:
       - name: Checkout code
