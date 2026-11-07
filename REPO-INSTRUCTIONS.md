@@ -70,6 +70,14 @@ the script).
    - Require code scanning results from CodeQL, errors threshold
 7. Save the ruleset.
 
+## Test Platforms
+
+`pr.yaml` tests on Linux (Stage 1, always), Windows (Stage 2) and macOS (Stage 3). A repository that
+does not ship for a platform sets the repository variable **`PR_PLATFORMS`** (Settings → Secrets and
+variables → Actions → Variables) to the ones it wants, e.g. `linux,windows`; unset means all three. A
+switched-off stage is skipped, which still satisfies the ruleset's required check, so the ruleset keeps
+the same check list in every repository.
+
 ## Security Settings
 
 Prevent Merging When Checks Fail
