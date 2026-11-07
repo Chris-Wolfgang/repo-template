@@ -99,14 +99,14 @@ jobs:
 
     - name: Upload empty CodeQL SARIF (no C# code)
       if: matrix.language == 'csharp' && steps.check-csharp.outputs.has-csharp == 'false'
-      uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+      uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       with:
         sarif_file: ${{ runner.temp }}/codeql-empty.sarif
         category: "/language:${{matrix.language}}"
 
     - name: Initialize CodeQL
       if: matrix.language == 'actions' || steps.check-csharp.outputs.has-csharp == 'true'
-      uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+      uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       with:
         languages: ${{ matrix.language }}
         # security-extended adds the broader security query pack on top of the
@@ -115,7 +115,7 @@ jobs:
 
     - name: Setup .NET
       if: matrix.language == 'csharp' && steps.check-csharp.outputs.has-csharp == 'true'
-      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
       with:
         dotnet-version: '10.0.x'
 
@@ -188,7 +188,7 @@ jobs:
     - name: Perform CodeQL Analysis
       id: perform-codeql-analysis
       if: matrix.language == 'actions' || steps.check-csharp.outputs.has-csharp == 'true'
-      uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+      uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       with:
         category: "/language:${{matrix.language}}"
 
