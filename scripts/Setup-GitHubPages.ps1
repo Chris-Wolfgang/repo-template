@@ -73,12 +73,12 @@ function Write-Info {
     Write-Host "ℹ️  $Message" -ForegroundColor Cyan
 }
 
-function Write-Warning-Custom {
+function Write-SetupWarning {
     param([string]$Message)
     Write-Host "⚠️  $Message" -ForegroundColor Yellow
 }
 
-function Write-Error-Custom {
+function Write-SetupError {
     param([string]$Message)
     Write-Host "❌ $Message" -ForegroundColor Red
 }
@@ -112,20 +112,20 @@ function Read-Input {
     
     do {
         Write-Host $displayPrompt -NoNewline -ForegroundColor Yellow
-        $input = Read-Host
+        $answer = Read-Host
         
-        if ([string]::IsNullOrWhiteSpace($input)) {
+        if ([string]::IsNullOrWhiteSpace($answer)) {
             if ($Default) {
                 return $Default
             }
             if ($Required) {
-                Write-Warning-Custom "This field is required. Please enter a value."
+                Write-SetupWarning "This field is required. Please enter a value."
                 continue
             }
             return ''
         }
         
-        return $input.Trim()
+        return $answer.Trim()
     } while ($true)
 }
 
@@ -166,7 +166,7 @@ try {
     $null = gh --version
     Write-Success "GitHub CLI (gh) is installed"
 } catch {
-    Write-Error-Custom "GitHub CLI (gh) is not installed or not in PATH."
+    Write-SetupError "GitHub CLI (gh) is not installed or not in PATH."
     Write-Host "Install from: https://cli.github.com/" -ForegroundColor Yellow
     exit 1
 }
@@ -176,7 +176,7 @@ try {
     $null = git --version
     Write-Success "Git is installed"
 } catch {
-    Write-Error-Custom "Git is not installed or not in PATH."
+    Write-SetupError "Git is not installed or not in PATH."
     Write-Host "Install from: https://git-scm.com/" -ForegroundColor Yellow
     exit 1
 }
@@ -185,13 +185,13 @@ try {
 try {
     $null = git rev-parse --git-dir 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Write-Error-Custom "Not in a git repository."
+        Write-SetupError "Not in a git repository."
         Write-Host "Please run this script from within a git repository." -ForegroundColor Yellow
         exit 1
     }
     Write-Success "Running in a git repository"
 } catch {
-    Write-Error-Custom "Not in a git repository."
+    Write-SetupError "Not in a git repository."
     Write-Host "Please run this script from within a git repository." -ForegroundColor Yellow
     exit 1
 }
@@ -200,13 +200,13 @@ try {
 try {
     $null = gh auth status 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Write-Error-Custom "Not authenticated with GitHub CLI."
+        Write-SetupError "Not authenticated with GitHub CLI."
         Write-Host "Run: gh auth login" -ForegroundColor Yellow
         exit 1
     }
     Write-Success "Authenticated with GitHub CLI"
 } catch {
-    Write-Error-Custom "Failed to check GitHub CLI authentication status."
+    Write-SetupError "Failed to check GitHub CLI authentication status."
     exit 1
 }
 
@@ -220,9 +220,9 @@ if ($Repository -eq "{{GITHUB_OWNER}}/{{REPO_NAME}}" -or -not $Repository) {
         Write-Success "Using repository: $Repository"
     } catch {
         if ($Repository -eq "{{GITHUB_OWNER}}/{{REPO_NAME}}") {
-            Write-Error-Custom "Could not detect repository. Please run the setup script (pwsh ./scripts/setup.ps1) first to replace placeholders, or specify -Repository parameter."
+            Write-SetupError "Could not detect repository. Please run the setup script (pwsh ./scripts/setup.ps1) first to replace placeholders, or specify -Repository parameter."
         } else {
-            Write-Error-Custom "Could not detect repository. Please run from within a git repository or specify -Repository parameter."
+            Write-SetupError "Could not detect repository. Please run from within a git repository or specify -Repository parameter."
         }
         exit 1
     }
@@ -248,7 +248,7 @@ if (Test-Path $docfxJsonPath) {
         Write-Success "DocFX configuration files are already configured"
     }
 } else {
-    Write-Warning-Custom "docfx.json not found at $docfxJsonPath"
+    Write-SetupWarning "docfx.json not found at $docfxJsonPath"
     Write-Info "Skipping DocFX configuration"
 }
 
@@ -315,7 +315,7 @@ if ($needsDocFxConfig) {
     
     $confirm = Read-Host "Proceed with this configuration? (Y/n)"
     if ($confirm -and $confirm -ne 'Y' -and $confirm -ne 'y') {
-        Write-Warning-Custom "Configuration cancelled."
+        Write-SetupWarning "Configuration cancelled."
         exit 0
     }
     
@@ -384,7 +384,7 @@ try {
     $branches = git ls-remote --heads origin gh-pages 2>&1
     
     if ($LASTEXITCODE -ne 0) {
-        Write-Error-Custom "Error checking for gh-pages branch. Git exited with code $LASTEXITCODE.`nOutput:`n$branches"
+        Write-SetupError "Error checking for gh-pages branch. Git exited with code $LASTEXITCODE.`nOutput:`n$branches"
         exit 1
     }
     
@@ -398,7 +398,7 @@ try {
         # Check for uncommitted changes before creating gh-pages branch
         $gitStatus = git status --porcelain 2>&1
         if (-not [string]::IsNullOrWhiteSpace($gitStatus)) {
-            Write-Warning-Custom "You have uncommitted changes in your working directory."
+            Write-SetupWarning "You have uncommitted changes in your working directory."
             Write-Info "Please commit or stash your changes before proceeding."
             Write-Info "Uncommitted changes:`n$gitStatus"
             $response = Read-Host "Do you want to continue anyway? This may cause data loss. (y/N)"
@@ -412,7 +412,7 @@ try {
         $originalBranch = git rev-parse --abbrev-ref HEAD 2>&1
         if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($originalBranch) -or 
             $originalBranch -match '(fatal|error|warning|usage:)') {
-            Write-Warning-Custom "Could not determine current branch name. Will attempt to return to 'main' after creating gh-pages."
+            Write-SetupWarning "Could not determine current branch name. Will attempt to return to 'main' after creating gh-pages."
             $originalBranch = "main"  # Default fallback
         }
         
@@ -422,14 +422,14 @@ try {
         # Create an orphan branch (no history)
         $checkoutOutput = git checkout --orphan gh-pages 2>&1
         if ($LASTEXITCODE -ne 0) {
-            Write-Error-Custom "Failed to create orphan gh-pages branch. Git output:`n$checkoutOutput"
+            Write-SetupError "Failed to create orphan gh-pages branch. Git output:`n$checkoutOutput"
             throw "Git checkout --orphan failed"
         }
         
         # Remove all files from staging
         $rmOutput = git rm -rf . 2>&1
         if ($LASTEXITCODE -ne 0) {
-            Write-Error-Custom "Failed to remove files from staging. Git output:`n$rmOutput"
+            Write-SetupError "Failed to remove files from staging. Git output:`n$rmOutput"
             throw "Git rm failed"
         }
         
@@ -453,19 +453,19 @@ try {
         # Commit and push
         $addOutput = git add index.html 2>&1
         if ($LASTEXITCODE -ne 0) {
-            Write-Error-Custom "Failed to stage index.html. Git output:`n$addOutput"
+            Write-SetupError "Failed to stage index.html. Git output:`n$addOutput"
             throw "Git add failed"
         }
         
         $commitOutput = git commit -m "Initialize gh-pages branch" 2>&1
         if ($LASTEXITCODE -ne 0) {
-            Write-Error-Custom "Failed to commit gh-pages branch. Git output:`n$commitOutput"
+            Write-SetupError "Failed to commit gh-pages branch. Git output:`n$commitOutput"
             throw "Git commit failed"
         }
         
         $pushOutput = git push origin gh-pages 2>&1
         if ($LASTEXITCODE -ne 0) {
-            Write-Error-Custom "Failed to push gh-pages branch. Git output:`n$pushOutput"
+            Write-SetupError "Failed to push gh-pages branch. Git output:`n$pushOutput"
             throw "Git push failed"
         }
         
@@ -473,7 +473,7 @@ try {
         try {
             $checkoutBackOutput = git checkout $originalBranch 2>&1
             if ($LASTEXITCODE -ne 0) {
-                Write-Warning-Custom "Failed to switch back to original branch '$originalBranch'. Git output:`n$checkoutBackOutput"
+                Write-SetupWarning "Failed to switch back to original branch '$originalBranch'. Git output:`n$checkoutBackOutput"
                 # Try to detect the default branch as fallback
                 $defaultBranchOutput = git symbolic-ref refs/remotes/origin/HEAD 2>&1
                 if ($LASTEXITCODE -eq 0 -and $defaultBranchOutput -and 
@@ -481,7 +481,7 @@ try {
                     $defaultBranch = $defaultBranchOutput | ForEach-Object { $_ -replace '^refs/remotes/origin/', '' }
                     $checkoutDefaultOutput = git checkout $defaultBranch 2>&1
                     if ($LASTEXITCODE -ne 0) {
-                        Write-Warning-Custom "Failed to checkout default branch '$defaultBranch'. Git output:`n$checkoutDefaultOutput"
+                        Write-SetupWarning "Failed to checkout default branch '$defaultBranch'. Git output:`n$checkoutDefaultOutput"
                     }
                 } else {
                     # Try main then master as last resort
@@ -489,19 +489,19 @@ try {
                     if ($LASTEXITCODE -ne 0) {
                         $checkoutMasterOutput = git checkout master 2>&1
                         if ($LASTEXITCODE -ne 0) {
-                            Write-Warning-Custom "Could not switch back to any default branch. You may need to manually switch branches."
+                            Write-SetupWarning "Could not switch back to any default branch. You may need to manually switch branches."
                         }
                     }
                 }
             }
         } catch {
-            Write-Warning-Custom "Could not switch back to original branch. You may need to manually switch branches."
+            Write-SetupWarning "Could not switch back to original branch. You may need to manually switch branches."
         }
         
         Write-Success "Created and pushed gh-pages branch"
     }
 } catch {
-    Write-Error-Custom "Failed to check or create gh-pages branch: $_"
+    Write-SetupError "Failed to check or create gh-pages branch: $_"
     Write-Host "You may need to create the gh-pages branch manually." -ForegroundColor Yellow
 }
 
@@ -521,7 +521,7 @@ try {
         
         # Check if it's configured to use gh-pages branch
         if ($pagesConfig.source.branch -ne "gh-pages") {
-            Write-Warning-Custom "GitHub Pages is not configured to use the gh-pages branch"
+            Write-SetupWarning "GitHub Pages is not configured to use the gh-pages branch"
             if (-not $EnablePages) {
                 $response = Read-Host "Would you like to update it to use gh-pages branch? (y/N)"
                 if ($response -ne 'y' -and $response -ne 'Y') {
@@ -546,12 +546,12 @@ try {
                 try {
                     $updateOutput = gh api --method PUT "/repos/$Repository/pages" --input $tempFile 2>&1
                     if ($LASTEXITCODE -ne 0) {
-                        Write-Error-Custom "Failed to update GitHub Pages configuration. GitHub CLI output:`n$updateOutput"
+                        Write-SetupError "Failed to update GitHub Pages configuration. GitHub CLI output:`n$updateOutput"
                     } else {
                         Write-Success "Updated GitHub Pages to use gh-pages branch"
                     }
                 } catch {
-                    Write-Error-Custom "Failed to update GitHub Pages configuration: $_"
+                    Write-SetupError "Failed to update GitHub Pages configuration: $_"
                 } finally {
                     if (Test-Path $tempFile) {
                         Remove-Item $tempFile -Force
@@ -588,7 +588,7 @@ try {
             try {
                 $enableOutput = gh api --method POST "/repos/$Repository/pages" --input $tempFile 2>&1
                 if ($LASTEXITCODE -ne 0) {
-                    Write-Error-Custom "Failed to enable GitHub Pages. GitHub CLI output:`n$enableOutput"
+                    Write-SetupError "Failed to enable GitHub Pages. GitHub CLI output:`n$enableOutput"
                     Write-Host "You may need to enable it manually in: Settings → Pages" -ForegroundColor Yellow
                 } else {
                     Write-Success "Enabled GitHub Pages with gh-pages branch"
@@ -604,7 +604,7 @@ try {
                     }
                 }
             } catch {
-                Write-Error-Custom "Failed to enable GitHub Pages: $_"
+                Write-SetupError "Failed to enable GitHub Pages: $_"
                 Write-Host "You may need to enable it manually in: Settings → Pages" -ForegroundColor Yellow
             } finally {
                 if (Test-Path $tempFile) {
@@ -614,7 +614,7 @@ try {
         }
     }
 } catch {
-    Write-Warning-Custom "Could not check GitHub Pages configuration"
+    Write-SetupWarning "Could not check GitHub Pages configuration"
     Write-Info "You may need to enable GitHub Pages manually in: Settings → Pages"
 }
 
@@ -632,7 +632,7 @@ if (Test-Path $workflowPath) {
     if ($hasWorkflowCall) {
         Write-Success "DocFX workflow is configured to be called via workflow_call from release.yaml"
     } else {
-        Write-Warning-Custom "DocFX workflow does not appear to be configured for workflow_call"
+        Write-SetupWarning "DocFX workflow does not appear to be configured for workflow_call"
         Write-Info "The DocFX workflow should be invoked by release.yaml via workflow_call"
         Write-Info "   after a GitHub Release is published."
         Write-Info ""
@@ -666,7 +666,7 @@ if (Test-Path $workflowPath) {
         Write-Info ""
     }
 } else {
-    Write-Warning-Custom "DocFX workflow not found at $workflowPath"
+    Write-SetupWarning "DocFX workflow not found at $workflowPath"
     Write-Info "Ensure you have a DocFX workflow configured"
 }
 
