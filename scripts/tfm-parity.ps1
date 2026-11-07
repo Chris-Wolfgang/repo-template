@@ -17,7 +17,10 @@
       - else the highest asset of the consumer's own family not newer than the
         consumer: net48 loads net472/net462, net9.0 loads net8.0/net6.0,
         netcoreapp3.1 loads netcoreapp3.0, net8.0-windows loads net8.0-windows
-        then net8.0 (a platform asset is never loaded by a neutral consumer);
+        then net8.0 (a platform asset is never loaded by a neutral consumer,
+        and a platform asset newer than the consumer's platform version -
+        net8.0-windows10.0.19041.0 for a net8.0-windows7.0 consumer - is
+        not loaded either; net8.0-windows means net8.0-windows7.0);
       - else, for net5.0+ consumers, the highest netcoreapp asset;
       - else the highest netstandard the consumer supports: 2.1 for
         netcoreapp3.0+ / net5.0+, 2.0 for net461+ / netcoreapp2.x, 1.x by the
@@ -88,22 +91,37 @@ function Get-ReferencedProjects([string]$Project, [string]$Tfm) {
     return @($items | ForEach-Object { [System.IO.Path]::GetFullPath((Join-Path $dir $_.Identity)) })
 }
 
-# Parses a TFM into family / version / platform. Families: netframework
-# (net462, net48, net481), netcoreapp (netcoreapp2.1, 3.1), netstandard,
-# net5plus (net6.0, net8.0-windows, net10.0-android35.0). Unknown monikers get
-# family 'other' and only ever match themselves exactly.
+# Parses a TFM into family / version / platform / platform version. Families:
+# netframework (net462, net48, net481), netcoreapp (netcoreapp2.1, 3.1),
+# netstandard, net5plus (net6.0, net8.0-windows, net10.0-android35.0). Unknown
+# monikers get family 'other' and only ever match themselves exactly.
+# PlatformVersion is $null for a neutral TFM and for an unversioned platform
+# TFM other than windows (the SDK fills in its bundled version, which this
+# script cannot know, so it matches any version of that platform); an
+# unversioned -windows is -windows7.0, as the SDK defines it.
 function ConvertTo-FrameworkInfo([string]$Tfm) {
     $t = $Tfm.Trim().ToLowerInvariant()
     if ($t -match '^net(\d)(\d)(\d)?$') {
         $v = if ($Matches[3]) { "$($Matches[1]).$($Matches[2]).$($Matches[3])" } else { "$($Matches[1]).$($Matches[2])" }
-        return @{ Family = 'netframework'; Version = [version]$v; Platform = '' }
+        return @{ Family = 'netframework'; Version = [version]$v; Platform = ''; PlatformVersion = $null }
     }
-    if ($t -match '^netcoreapp(\d+\.\d+)$')  { return @{ Family = 'netcoreapp';  Version = [version]$Matches[1]; Platform = '' } }
-    if ($t -match '^netstandard(\d+\.\d+)$') { return @{ Family = 'netstandard'; Version = [version]$Matches[1]; Platform = '' } }
-    if ($t -match '^net(\d+\.\d+)(?:-([a-z]+)[\d.]*)?$') {
-        return @{ Family = 'net5plus'; Version = [version]$Matches[1]; Platform = $(if ($Matches[2]) { $Matches[2] } else { '' }) }
+    if ($t -match '^netcoreapp(\d+\.\d+)$')  { return @{ Family = 'netcoreapp';  Version = [version]$Matches[1]; Platform = ''; PlatformVersion = $null } }
+    if ($t -match '^netstandard(\d+\.\d+)$') { return @{ Family = 'netstandard'; Version = [version]$Matches[1]; Platform = ''; PlatformVersion = $null } }
+    if ($t -match '^net(\d+\.\d+)(?:-([a-z]+)(\d+(?:\.\d+)*)?)?$') {
+        $version, $platform, $platformText = [version]$Matches[1], "$($Matches[2])", "$($Matches[3])"
+        $platformVersion = $null
+        if ($platformText) { $platformVersion = [version]$(if ($platformText.Contains('.')) { $platformText } else { "$platformText.0" }) }
+        elseif ($platform -eq 'windows') { $platformVersion = [version]'7.0' }
+        return @{ Family = 'net5plus'; Version = $version; Platform = $platform; PlatformVersion = $platformVersion }
     }
-    return @{ Family = 'other'; Version = [version]'0.0'; Platform = '' }
+    return @{ Family = 'other'; Version = [version]'0.0'; Platform = ''; PlatformVersion = $null }
+}
+
+# A candidate platform asset is loadable when its platform version is not newer
+# than the consumer's; an unknown version on either side (see above) matches.
+function Test-PlatformVersionCompatible($Consumer, $Candidate) {
+    if ($null -eq $Consumer.PlatformVersion -or $null -eq $Candidate.PlatformVersion) { return $true }
+    return $Candidate.PlatformVersion -le $Consumer.PlatformVersion
 }
 
 # The newest netstandard a consumer can reference (NuGet's .NET Standard
@@ -138,22 +156,26 @@ function Select-Asset([string]$ConsumerTfm, [string[]]$CandidateTfms) {
     if ($consumer.Family -eq 'other') { return $null }
 
     # Rank 0: same family, version <= consumer, platform neutral or the consumer's
-    # own. Rank 1: netcoreapp assets for a net5.0+ consumer. Rank 2: netstandard
-    # the consumer supports. Within a rank the highest version wins; at equal
-    # version a platform-specific asset beats the neutral one.
+    # own with a platform version <= the consumer's. Rank 1: netcoreapp assets for
+    # a net5.0+ consumer. Rank 2: netstandard the consumer supports. Within a rank
+    # the highest version wins; at equal version a platform-specific asset beats
+    # the neutral one, and the highest platform version wins among those.
     $maxNs = Get-MaxNetStandard $consumer
     $ranked = foreach ($candidateTfm in $CandidateTfms) {
         $c = ConvertTo-FrameworkInfo $candidateTfm
         $rank = $null
         if ($c.Family -eq $consumer.Family -and $c.Version -le $consumer.Version -and
-            ($c.Platform -eq '' -or $c.Platform -eq $consumer.Platform)) { $rank = 0 }
+            ($c.Platform -eq '' -or ($c.Platform -eq $consumer.Platform -and (Test-PlatformVersionCompatible $consumer $c)))) { $rank = 0 }
         elseif ($consumer.Family -eq 'net5plus' -and $c.Family -eq 'netcoreapp') { $rank = 1 }
         elseif ($c.Family -eq 'netstandard' -and $consumer.Family -ne 'netstandard' -and $maxNs -and $c.Version -le $maxNs) { $rank = 2 }
         if ($null -ne $rank) {
-            [pscustomobject]@{ Tfm = $candidateTfm; Rank = $rank; Version = $c.Version; PlatformMatch = [int]($c.Platform -ne '') }
+            [pscustomobject]@{
+                Tfm = $candidateTfm; Rank = $rank; Version = $c.Version; PlatformMatch = [int]($c.Platform -ne '')
+                PlatformVersion = $(if ($null -ne $c.PlatformVersion) { $c.PlatformVersion } else { [version]'0.0' })
+            }
         }
     }
-    $best = @($ranked | Sort-Object Rank, @{ Expression = 'Version'; Descending = $true }, @{ Expression = 'PlatformMatch'; Descending = $true }) | Select-Object -First 1
+    $best = @($ranked | Sort-Object Rank, @{ Expression = 'Version'; Descending = $true }, @{ Expression = 'PlatformMatch'; Descending = $true }, @{ Expression = 'PlatformVersion'; Descending = $true }) | Select-Object -First 1
     if ($best) { return $best.Tfm }
     return $null
 }
@@ -173,6 +195,15 @@ if ($SelfTest) {
         'net481|net48;net462'                  = 'net48'
         'netstandard2.1|netstandard2.0'        = 'netstandard2.0'
         'net462|netstandard2.1;net6.0'         = $null
+        # platform versions: an asset newer than the consumer's platform is skipped,
+        # the highest one not newer wins, and -windows means -windows7.0
+        'net8.0-windows7.0|net8.0-windows10.0.19041.0;net8.0'                            = 'net8.0'
+        'net8.0-windows|net8.0-windows10.0.19041.0;net8.0'                               = 'net8.0'
+        'net8.0-windows10.0.19041.0|net8.0-windows7.0;net8.0-windows10.0.17763.0;net8.0' = 'net8.0-windows10.0.17763.0'
+        'net8.0-windows10.0.19041.0|net8.0-windows10.0.22000.0;net8.0-windows7.0'        = 'net8.0-windows7.0'
+        'net8.0-windows10.0.19041.0|net8.0-windows;net8.0'                               = 'net8.0-windows'
+        'net9.0-windows10.0.19041.0|net8.0-windows10.0.22000.0;net8.0-windows7.0;net8.0' = 'net8.0-windows7.0'
+        'net10.0-android|net10.0-android35.0;net10.0'                                    = 'net10.0-android35.0'
     }
     $failures = 0
     foreach ($k in $expected.Keys) {
