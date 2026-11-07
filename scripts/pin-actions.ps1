@@ -36,8 +36,8 @@
 .EXAMPLE
     pwsh ./scripts/pin-actions.ps1 -PinTags -Apply
 .NOTES
-    Workflow files are protected by pr.yaml's Detect .NET Projects guard: the resulting PR needs
-    the admin bypass. Requires git; gh is not used.
+    Workflow files are protected (protected-files.yaml): keep the resulting change in a PR of its
+    own so the Protected Files Guard passes. Requires git; gh is not used.
 #>
 [CmdletBinding()]
 param
