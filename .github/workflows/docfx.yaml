@@ -50,6 +50,11 @@ on:
 permissions:
   contents: read  # Default to read-only; the build-and-deploy job overrides with write
 
+env:
+  # A busy runner can take longer than vstest's default 90 seconds to start a test
+  # host, and the run then aborts with no test having failed.
+  VSTEST_CONNECTION_TIMEOUT: 300
+
 jobs:
   build-and-deploy:
     name: Build & Deploy Documentation

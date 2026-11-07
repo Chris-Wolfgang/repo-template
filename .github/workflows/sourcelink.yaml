@@ -37,7 +37,8 @@ jobs:
   sourcelink:
     name: Verify SourceLink
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Room for the rate-limit retries below (up to 6 minutes of waiting).
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -100,13 +101,29 @@ jobs:
             echo "::notice::No src project targets net10.0 - no PDBs to verify; skipping."
             exit 0
           fi
+          # The tool fetches every source file from raw.githubusercontent.com, which can
+          # answer 429 under load. Only that is retried: a wrong checksum or a missing
+          # file is a real SourceLink failure and fails on the first attempt.
+          max_attempts=4
           failed=0
           for pdb in "${pdbs[@]}"; do
             echo "== sourcelink test $pdb =="
-            if ! dotnet sourcelink test "$pdb"; then
-              echo "::error::SourceLink verification failed for $pdb — a debugger would fall back to decompiled source."
-              failed=1
-            fi
+            for attempt in $(seq 1 "$max_attempts"); do
+              rc=0
+              output=$(dotnet sourcelink test "$pdb" 2>&1) || rc=$?
+              printf '%s\n' "$output"
+              if [ "$rc" -eq 0 ]; then
+                break
+              fi
+              if [ "$attempt" -eq "$max_attempts" ] || ! grep -q 'TooManyRequests' <<<"$output"; then
+                echo "::error::SourceLink verification failed for $pdb — a debugger would fall back to decompiled source."
+                failed=1
+                break
+              fi
+              delay=$((attempt * 60))
+              echo "::warning::Rate limited verifying $pdb (attempt $attempt of $max_attempts); retrying in ${delay}s."
+              sleep "$delay"
+            done
           done
           if [ "$failed" -ne 0 ]; then
             exit 1

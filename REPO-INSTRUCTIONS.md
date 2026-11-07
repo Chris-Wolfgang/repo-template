@@ -27,7 +27,7 @@ Below is a list of what needs to be done. Once you have completed the checklist 
 
 The fastest path is the bundled script. It provisions the full canonical
 ruleset (required status checks, code-scanning gate, force-push protection,
-conversation-resolution requirement, Copilot code review) in one command:
+conversation-resolution requirement, code-quality gate) in one command:
 
 ```powershell
 pwsh -File ./scripts/Setup-BranchRuleset.ps1
@@ -70,6 +70,14 @@ the script).
    - Require code scanning results from CodeQL, errors threshold
 7. Save the ruleset.
 
+## Test Platforms
+
+`pr.yaml` tests on Linux (Stage 1, always), Windows (Stage 2) and macOS (Stage 3). A repository that
+does not ship for a platform sets the repository variable **`PR_PLATFORMS`** (Settings → Secrets and
+variables → Actions → Variables) to the ones it wants, e.g. `linux,windows`; unset means all three. A
+switched-off stage is skipped, which still satisfies the ruleset's required check, so the ruleset keeps
+the same check list in every repository.
+
 ## Security Settings
 
 Prevent Merging When Checks Fail
@@ -81,11 +89,12 @@ These settings require that all checks in the pr.yaml file succeed before you ca
 2. Under “Branch protection rules,” edit the rule for main.
 3. Check “Require status checks to pass before merging.”
 4. In the "Status checks that are required" list, select the status check contexts produced by your PR workflow jobs. These options appear after the workflow has run at least once on `main`. For example:
-   - "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate"
-   - "Stage 2a: Windows Tests (.NET 5.0-10.0)"
-   - "Stage 2b: Windows .NET Framework Tests (4.6.2-4.8.1)"
-   - "Stage 3: macOS Tests (.NET 6.0-10.0)"
+   - "Stage 1: Linux Tests + Coverage Gate"
+   - "Stage 2: Windows Tests"
+   - "Stage 3: macOS Tests"
    - "Security Scan (DevSkim)"
+
+   A required check name says what is checked, never how: no TFM ranges, OS or tool versions, because a ruleset requires a check by exact name and renaming the job blocks every PR until the ruleset is edited. The TFMs each stage ran are listed in that job's step summary.
 
 5. Enable “Require branches to be up to date before merging.”
 6. Check `Restrict deletions`
@@ -295,7 +304,7 @@ because they are useful in steady-state:
 
 | Script | When to use |
 |---|---|
-| `scripts/Fix-BranchRuleset.ps1` | Replace the branch ruleset when the canonical definition changes upstream (a required check renamed or added) and the rule gets stuck waiting. Deletes "Protect main branch", disables any other active ruleset, then recreates it with `Setup-BranchRuleset.ps1` (pass `-RequireLinearHistory` to keep linear history). It does not patch rules in place. |
+| `scripts/Fix-BranchRuleset.ps1` | Replace the branch ruleset when the canonical definition changes upstream (a required check renamed or added) and the rule gets stuck waiting. Deletes "Protect main branch", disables any other active ruleset, then recreates it with `Setup-BranchRuleset.ps1` (pass `-AllowMergeCommits` to keep merge commits allowed). It does not patch rules in place. |
 | `scripts/Setup-Labels.ps1` | Re-run when new canonical labels are added (e.g. a new `maintenance - X` kind). Idempotent. |
 | `scripts/Validate-DocsDeploy.ps1` | Post-deploy validation of the `gh-pages` branch. See the **Setup GitHub Pages** section above. |
 | `scripts/build-pr.ps1` | Local dry-run of the PR workflow's Windows stage (build, every-TFM tests, coverage gates, DevSkim, gitleaks) on this machine; the Linux and macOS stages only run in CI. |
