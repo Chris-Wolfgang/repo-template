@@ -455,7 +455,7 @@ jobs:
   # STAGE 1: Linux - .NET Core/5+ Tests with Coverage Gate
   # ============================================================================
   test-linux-core: 
-    name: "Stage 1: Linux Tests (.NET 5.0-10.0) + Coverage Gate"
+    name: "Stage 1: Linux Tests + Coverage Gate"
     # Pinned to 24.04: on ubuntu-latest (26.04) the netcoreapp3.1 test host finds no ICU it can
     # load and aborts. Keep the pin until the netcoreapp3.1 slot is handled another way.
     runs-on: ubuntu-24.04
@@ -663,6 +663,15 @@ jobs:
           printf '%s\n' "${test_projects[@]}"
           echo ""
           
+          # The TFM list lives in the step summary, not the job name: a ruleset requires
+          # a check by exact name, so a name that encodes TFMs breaks on every TFM change.
+          {
+            echo "### Stage 1: Linux target frameworks tested"
+            echo ""
+            echo "| Test project | Target frameworks |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
           for test_proj in "${test_projects[@]}"; do
             echo "=========================================="
             echo "Testing project: $test_proj"
@@ -717,6 +726,7 @@ jobs:
             fi
 
             echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
+            echo "| $(basename "$test_proj") | $(echo "$frameworks" | tr '\n' ' ') |" >> "$GITHUB_STEP_SUMMARY"
             echo ""
             
             # Test each framework that the project actually targets
@@ -940,10 +950,17 @@ jobs:
   # STAGE 2: Windows - All .NET Tests (Gated by Stage 1)
   # ============================================================================
   test-windows:
-    name: "Stage 2: Windows Tests (.NET 5.0-10.0, Framework 4.6.2-4.8.1)"
+    name: "Stage 2: Windows Tests"
     runs-on: windows-latest
     needs: [detect-projects, test-linux-core]
-    if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
+    # PR_PLATFORMS (repository variable, optional): the platforms Stage 2/3 run on, e.g.
+    # "linux,windows". Unset or empty means all three. Linux (Stage 1) always runs. A
+    # platform that is switched off skips its job, which still satisfies a ruleset that
+    # requires the check, so the required-check list need not change per repository.
+    if: >-
+      github.repository != 'Chris-Wolfgang/repo-template'
+      && needs.detect-projects.outputs.has-projects == 'true'
+      && (vars.PR_PLATFORMS == '' || contains(vars.PR_PLATFORMS, 'windows'))
     
     steps:
       - name: Checkout code
@@ -1045,6 +1062,10 @@ jobs:
           # targeting only those must not be expected to have a coverage row.
           $ranAssemblies = @()
 
+          # The TFM list lives in the step summary, not the job name: a ruleset requires
+          # a check by exact name, so a name that encodes TFMs breaks on every TFM change.
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value @('### Stage 2: Windows target frameworks tested', '', '| Test project | Target frameworks |', '|---|---|')
+
           foreach ($testProj in $testProjects) {
             Write-Host "==========================================" -ForegroundColor Cyan
             Write-Host "Testing project: $($testProj.FullName)" -ForegroundColor Cyan
@@ -1129,6 +1150,7 @@ jobs:
             }
 
             Write-Host "Target frameworks: $($frameworks -join ', ')" -ForegroundColor White
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "| $($testProj.Name) | $($frameworks -join ' ') |"
             Write-Host ""
             
             # Test each framework; collect coverage only for .NET 5.0+ TFMs.
@@ -1384,10 +1406,14 @@ jobs:
   # STAGE 3: macOS Tests (Gated by Stage 2)
   # ============================================================================
   test-macos-core:
-    name: "Stage 3: macOS Tests (.NET 6.0-10.0)"
+    name: "Stage 3: macOS Tests"
     runs-on: macos-latest
     needs: [detect-projects, test-windows]
-    if: github.repository != 'Chris-Wolfgang/repo-template' && needs.detect-projects.outputs.has-projects == 'true'
+    # See PR_PLATFORMS on Stage 2. Stage 3 follows Stage 2, so "linux,macos" also skips it.
+    if: >-
+      github.repository != 'Chris-Wolfgang/repo-template'
+      && needs.detect-projects.outputs.has-projects == 'true'
+      && (vars.PR_PLATFORMS == '' || contains(vars.PR_PLATFORMS, 'macos'))
     
     steps:
       - name: Checkout code
@@ -1574,6 +1600,15 @@ jobs:
           printf '%s\n' "${test_projects[@]}"
           echo ""
           
+          # The TFM list lives in the step summary, not the job name: a ruleset requires
+          # a check by exact name, so a name that encodes TFMs breaks on every TFM change.
+          {
+            echo "### Stage 3: macOS target frameworks tested"
+            echo ""
+            echo "| Test project | Target frameworks |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
           for test_proj in "${test_projects[@]}"; do
             echo "=========================================="
             echo "Testing project: $test_proj"
@@ -1628,6 +1663,7 @@ jobs:
             fi
 
             echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
+            echo "| $(basename "$test_proj") | $(echo "$frameworks" | tr '\n' ' ') |" >> "$GITHUB_STEP_SUMMARY"
             echo ""
             
             # Test each framework that the project actually targets
