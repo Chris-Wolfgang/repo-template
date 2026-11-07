@@ -319,6 +319,22 @@ function Start-Setup {
     }
     Write-Host ""
     
+    # Ask for the repository kind. Some template files only make sense for a
+    # library that other repositories consume (the "upstream gap" issue form
+    # asks a consuming product to report what this library lacks); an
+    # application repository gets those removed in the setup steps below.
+    $repoKind = ''
+    while ($repoKind -ne 'library' -and $repoKind -ne 'application') {
+        $repoKind = (Read-Input `
+            -Prompt "Repository kind: 'library' (a NuGet package other repositories consume) or 'application' (a program nothing else consumes)" `
+            -Default 'library' `
+            -Example 'application').ToLowerInvariant()
+        if ($repoKind -ne 'library' -and $repoKind -ne 'application') {
+            Write-TemplateError "Please enter 'library' or 'application'."
+        }
+    }
+    Write-Host ""
+    
     $projectName = Read-Input `
         -Prompt "Project Name (e.g., Wolfgang.Extensions.IAsyncEnumerable)" `
         -Example "MyCompany.MyLibrary" `
@@ -512,6 +528,7 @@ function Start-Setup {
     Write-Host "  Copyright Holder:    $copyrightHolder"
     Write-Host "  Copyright Year:      $year"
     Write-Host "  NuGet Status:        $nugetStatus"
+    Write-Host "  Repository Kind:     $repoKind"
     Write-Host "  Template Owner:      $templateRepoOwner"
     Write-Host "  Template Name:       $templateRepoName"
     if ($solutionName) {
@@ -583,6 +600,21 @@ function Start-Setup {
     
     foreach ($file in $script:FilesToUpdate) {
         Update-Placeholders -FilePath $file -Replacements $replacements
+    }
+    
+    # Library-only files: an application repository has no consumers, so the
+    # "upstream gap" issue form (a consuming product reporting what this
+    # library lacks) would only mislead there.
+    if ($repoKind -eq 'application') {
+        $libraryOnlyFiles = @(
+            '.github/ISSUE_TEMPLATE/upstream_gap.yaml'
+        )
+        foreach ($libraryOnlyFile in $libraryOnlyFiles) {
+            if (Test-Path $libraryOnlyFile) {
+                Remove-Item $libraryOnlyFile -Force
+                Write-Success "Removed library-only file: $libraryOnlyFile"
+            }
+        }
     }
     
     # Step 3: Set up LICENSE
