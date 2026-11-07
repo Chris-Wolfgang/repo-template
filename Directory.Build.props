@@ -115,8 +115,8 @@
     <Company>Chris Wolfgang</Company>
     <!-- A literal year, never $([System.DateTime]::UtcNow.Year): that puts the BUILD year in
          AssemblyCopyrightAttribute, so a rebuild after 1 January no longer matches the
-         released binary - which reproducible-build.yaml exists to prevent. Keep it in step
-         with LICENSE. -->
+         released binary and the build is no longer reproducible. Keep it in step with
+         LICENSE. -->
     <Copyright>Copyright (c) 2026 Chris Wolfgang</Copyright>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

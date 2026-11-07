@@ -27,9 +27,9 @@ permissions:
 # updates. cancel-in-progress: false — every merge represents a meaningful
 # data point, so we queue rather than discard.
 #
-# NOTE: docfx.yaml and release.yaml currently have no `concurrency:` block,
-# so cross-workflow serialization is only partial today. Adding the same
-# `gh-pages` group to those workflows is tracked as a fleet-wide follow-up.
+# NOTE: docfx.yaml currently has no `concurrency:` block (release.yaml has
+# its own), so cross-workflow serialization is only partial today. Adding the
+# same `gh-pages` group to docfx.yaml is tracked as a fleet-wide follow-up.
 concurrency:
   group: gh-pages
   cancel-in-progress: false
@@ -124,7 +124,7 @@ jobs:
 
       - name: Publish chart to gh-pages
         if: steps.detect.outputs.exists == 'true'
-        # Pinned to v1.22.1 commit per repo convention (third-party actions
+        # Pinned to v1.22.2 commit per repo convention (third-party actions
         # publishing to gh-pages are pinned by SHA, not mutable tag).
         uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc  # v1.22.2
         with:
