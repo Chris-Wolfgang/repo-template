@@ -5,7 +5,7 @@
 .SYNOPSIS
     Changelog fragment tooling: check a PR for a fragment, or assemble fragments into CHANGELOG.md.
 .DESCRIPTION
-    Fragments live in changelog/unreleased/<name>.md. Line 1 is "type: <breaking|feature|fix|docs|internal>",
+    Fragments live in changelog/unreleased/<name>.md. Line 1 is "type: <breaking|feature|fix|docs|internal|dependencies>",
     the remaining non-empty lines are a one-sentence user-facing description. See changelog/unreleased/README.md.
 
     check     Fail (exit 1) when files under src/ changed relative to -BaseRef and no fragment was added,
@@ -15,9 +15,20 @@
     assemble  Insert a "## [<version>] - <date>" section under "## [Unreleased]" in CHANGELOG.md from the
               fragments, grouped by type, then delete the fragments. -Version defaults to the derived bump.
     bump      Print the derived next version (from the newest "## [x.y.z]" heading and the fragment types):
-              breaking -> major (0.x: minor), feature -> minor, fix/docs/internal -> patch.
+              breaking -> major (0.x: minor), feature -> minor, fix/docs/internal/dependencies -> patch.
+    dependabot
+              Write a "type: dependencies" fragment for every open Dependabot PR that has none, named
+              dependabot-<pr>.md and listing each bump from the PR body. Dry run by default: prints what it
+              would write. With -Apply, commits the fragment onto each PR branch and pushes it. Dependabot
+              stops rebasing a branch once someone else commits to it; comment "@dependabot rebase" if the
+              PR later needs updating. The fragment check never requires this: Dependabot PRs stay exempt,
+              and "assemble" lists any that merged without a fragment anyway (see below).
 .PARAMETER Command
-    check | assemble | bump
+    check | assemble | bump | dependabot
+.PARAMETER Apply
+    dependabot only: commit and push the fragments instead of printing them.
+.PARAMETER Repository
+    dependabot and assemble: owner/repo for the gh queries. Default: the current repository.
 .PARAMETER Version
     assemble only: the version to write. Derived when omitted.
 .PARAMETER BaseRef
@@ -38,8 +49,10 @@
 param
 (
     [Parameter(Position = 0, Mandatory)]
-    [ValidateSet('check', 'assemble', 'bump')]
+    [ValidateSet('check', 'assemble', 'bump', 'dependabot')]
     [string]$Command,
+    [switch]$Apply,
+    [string]$Repository,
 
     [string]$Version,
     [string]$BaseRef = 'origin/main',
@@ -57,6 +70,10 @@ $kinds = [ordered]@{
     fix      = 'Fixed'
     docs     = 'Documentation'
     internal = 'Internal'
+    # Dependency bumps. Dependabot PRs are exempt from the fragment check (they cannot write one), so these
+    # arrive two ways: "changelog.ps1 dependabot" writes them onto open Dependabot PRs on request, and
+    # "assemble" adds a line for every Dependabot PR merged since the previous release that has no fragment.
+    dependencies = 'Dependencies'
 }
 
 
@@ -73,7 +90,7 @@ function Get-Fragments
         $type = $null
         if ($lines.Count -eq 0 -or $lines[0] -notmatch '^type:\s*([a-z]+)\s*$')
         {
-            $errors += 'line 1 must be "type: <breaking|feature|fix|docs|internal>"'
+            $errors += 'line 1 must be "type: <breaking|feature|fix|docs|internal|dependencies>"'
         }
         else
         {
@@ -148,6 +165,151 @@ function Get-PrSuffix
         if ($s -match '#(\d+)') { return " (#$($Matches[1]))" }
     }
     return ''
+}
+
+
+
+function Get-RepositorySlug
+{
+    if ($Repository) { return $Repository }
+    $slug = & gh repo view --json nameWithOwner --jq .nameWithOwner 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $slug) { throw 'could not determine the repository; pass -Repository owner/repo' }
+    return $slug.Trim()
+}
+
+
+
+function Test-GhAvailable
+{
+    return [bool](Get-Command gh -ErrorAction SilentlyContinue)
+}
+
+
+
+function Get-DependabotPrs
+{
+    # Open Dependabot PRs, or the ones merged since -MergedSince (yyyy-MM-dd), oldest first.
+    param([string]$State = 'open', [string]$MergedSince)
+    $slug = Get-RepositorySlug
+    $search = "author:app/dependabot is:pr"
+    if ($State -eq 'merged') { $search += " is:merged merged:>=$MergedSince" } else { $search += ' is:open' }
+    $json = & gh pr list --repo $slug --state all --search $search --limit 200 --json number,title,body,headRefName,mergedAt,url 2>$null
+    if ($LASTEXITCODE -ne 0) { throw "gh pr list failed for $slug" }
+    $prs = @($json | ConvertFrom-Json)
+    return @($prs | Sort-Object number)
+}
+
+
+
+function Get-DependencyLines
+{
+    # One "- `package` a -> b" line per bump in a Dependabot PR. Grouped PRs list each update in the body
+    # ("Updates `x` from 1.2 to 1.3"); a single-package PR says it in the title ("Bump x from 1.2 to 1.3").
+    param($Pr)
+    $lines = @()
+    $body = [string]$Pr.body
+    foreach ($m in [regex]::Matches($body, 'Updates\s+`([^`]+)`\s+from\s+(\S+)\s+to\s+(\S+)'))
+    {
+        $lines += "``$($m.Groups[1].Value)`` $($m.Groups[2].Value) -> $($m.Groups[3].Value)"
+    }
+    if ($lines.Count -eq 0 -and $Pr.title -match '^Bump\s+(.+?)\s+from\s+(\S+)\s+to\s+(\S+)')
+    {
+        $lines += "``$($Matches[1])`` $($Matches[2]) -> $($Matches[3])"
+    }
+    if ($lines.Count -eq 0) { $lines += [string]$Pr.title }
+    return @($lines | Select-Object -Unique)
+}
+
+
+
+function Get-DependabotFragmentText
+{
+    param($Pr)
+    $bumps = Get-DependencyLines $Pr
+    $scope = if ($Pr.title -match '^Bump the (\S+) group') { "the $($Matches[1]) group: " } else { '' }
+    return "type: dependencies`n`n$scope$($bumps -join '; ')."
+}
+
+
+
+function Invoke-Dependabot
+{
+    if (-not (Test-GhAvailable)) { throw 'gh is required for the dependabot command' }
+    $prs = @(Get-DependabotPrs -State open)
+    if ($prs.Count -eq 0) { Write-Host 'No open Dependabot PRs.'; return }
+    $slug = Get-RepositorySlug
+    foreach ($pr in $prs)
+    {
+        $name = "dependabot-$($pr.number).md"
+        $text = Get-DependabotFragmentText $pr
+        # Already carries a fragment? (any file added under the fragment dir on that branch)
+        & git fetch --quiet origin "$($pr.headRefName)" 2>$null
+        $has = & git ls-tree --name-only "origin/$($pr.headRefName)" -- "$FragmentDir/$name" 2>$null
+        if ($has) { Write-Host "#$($pr.number): $name already present, skipping"; continue }
+        Write-Host "#$($pr.number) $($pr.title)"
+        Write-Host "  $FragmentDir/$name :"
+        foreach ($l in ($text -split "`n")) { Write-Host "    $l" }
+        if (-not $Apply) { continue }
+        $wt = Join-Path ([System.IO.Path]::GetTempPath()) "changelog-dependabot-$($pr.number)"
+        if (Test-Path $wt) { & git worktree remove --force $wt *> $null }
+        & git worktree add --quiet --detach $wt "origin/$($pr.headRefName)"
+        if ($LASTEXITCODE -ne 0) { throw "could not check out $($pr.headRefName)" }
+        try
+        {
+            $dir = Join-Path $wt $FragmentDir
+            New-Item -ItemType Directory -Force -Path $dir | Out-Null
+            Set-Content -Path (Join-Path $dir $name) -Value $text -Encoding utf8NoBOM -NoNewline
+            Add-Content -Path (Join-Path $dir $name) -Value ''
+            & git -C $wt add -- "$FragmentDir/$name"
+            & git -C $wt commit --quiet -m "docs: changelog fragment for the Dependabot update (#$($pr.number))"
+            if ($LASTEXITCODE -ne 0) { throw "commit failed for #$($pr.number)" }
+            & git -C $wt push --quiet origin "HEAD:refs/heads/$($pr.headRefName)"
+            if ($LASTEXITCODE -ne 0) { throw "push failed for #$($pr.number)" }
+            Write-Host "  pushed to $($pr.headRefName) ($slug#$($pr.number))"
+        }
+        finally
+        {
+            & git worktree remove --force $wt *> $null
+        }
+    }
+    if (-not $Apply) { Write-Host 'Dry run; pass -Apply to commit the fragments onto the PR branches.' }
+}
+
+
+
+function Get-PreviousReleaseDate
+{
+    # The date of the newest "## [x.y.z] - yyyy-MM-dd" heading; the Dependabot backstop lists merges after it.
+    if (-not (Test-Path $ChangelogPath)) { return $null }
+    foreach ($line in Get-Content $ChangelogPath)
+    {
+        if ($line -match '^## \[\d+\.\d+\.\d+[^\]]*\]\s*-\s*(\d{4}-\d{2}-\d{2})') { return $Matches[1] }
+    }
+    return $null
+}
+
+
+
+function Get-DependabotBackstopLines
+{
+    # Dependabot PRs merged since the previous release that no fragment mentions: Dependabot cannot write a
+    # fragment and is exempt from the check, so the release lists them from the merge history instead.
+    param([object[]]$Fragments)
+    if (-not (Test-GhAvailable)) { Write-Warning 'gh not available; Dependabot merges without a fragment are not listed'; return @() }
+    $since = Get-PreviousReleaseDate
+    if (-not $since) { return @() }
+    $prs = @()
+    try { $prs = @(Get-DependabotPrs -State merged -MergedSince $since) }
+    catch { Write-Warning "could not list merged Dependabot PRs: $_"; return @() }
+    $covered = @($Fragments | Where-Object { $_.Name -match '^dependabot-(\d+)\.md$' } | ForEach-Object { [int]$Matches[1] })
+    $lines = @()
+    foreach ($pr in $prs)
+    {
+        if ($covered -contains [int]$pr.number) { continue }
+        $text = (Get-DependabotFragmentText $pr) -split "`n" | Select-Object -Skip 2
+        $lines += "- $(($text -join ' ').Trim()) (#$($pr.number))"
+    }
+    return $lines
 }
 
 
@@ -239,14 +401,17 @@ function Invoke-Assemble
 
     $sb = [System.Text.StringBuilder]::new()
     [void]$sb.AppendLine("## [$Version] - $(Get-Date -Format 'yyyy-MM-dd')")
+    $backstop = @(Get-DependabotBackstopLines $fragments)
     foreach ($kind in $kinds.Keys)
     {
         $group = @($fragments | Where-Object { $_.Type -eq $kind })
-        if ($group.Count -eq 0) { continue }
+        $extra = @(if ($kind -eq 'dependencies') { $backstop } else { @() })
+        if ($group.Count -eq 0 -and $extra.Count -eq 0) { continue }
         [void]$sb.AppendLine()
         [void]$sb.AppendLine("### $($kinds[$kind])")
         [void]$sb.AppendLine()
         foreach ($g in $group) { [void]$sb.AppendLine("- $($g.Description)$(Get-PrSuffix $g.RelPath)") }
+        foreach ($e in $extra) { [void]$sb.AppendLine($e) }
     }
     $section = $sb.ToString().TrimEnd()
 
@@ -271,4 +436,5 @@ switch ($Command)
     'check'    { Invoke-Check }
     'bump'     { Invoke-Bump }
     'assemble' { Invoke-Assemble }
+    'dependabot' { Invoke-Dependabot }
 }
