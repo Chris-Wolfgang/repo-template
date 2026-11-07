@@ -22,7 +22,8 @@ Add `IsDryRun` to every loader options record so pipelines can be rehearsed with
   | `feature` | New public surface or behaviour | Added |
   | `fix` | Bug fix with no new surface | Fixed |
   | `docs` | User-facing documentation only | Documentation |
-  | `internal` | Refactors, CI, tests, dependencies with no user-visible effect | Internal |
+  | `internal` | Refactors, CI, tests with no user-visible effect | Internal |
+  | `dependencies` | Package, action and tool version bumps | Dependencies |
 
 - **The rest** is a one-sentence, user-facing description. Say what changed for the consumer, not how.
   Markdown inline code is fine. The PR number is appended automatically at assembly time when it can be
@@ -34,6 +35,17 @@ One fragment per PR is the norm. A PR that makes two independently notable chang
 
 Add the `no-changelog` label to the PR. Use it for changes under `src/` that have no user-visible effect
 and are not worth an `internal` entry (typo in a comment, formatting). Dependabot PRs are exempt automatically.
+
+## Dependabot
+
+Dependabot cannot write a fragment, so its PRs are never blocked by the check. Their bumps still reach the
+changelog, under **Dependencies**, in two ways:
+
+- On request, `pwsh ./scripts/changelog.ps1 dependabot -Apply` writes `dependabot-<pr>.md` onto every open
+  Dependabot PR that lacks one (dry run without `-Apply`). Dependabot stops rebasing a branch once someone
+  else commits to it; comment `@dependabot rebase` if that PR later needs updating.
+- At release, `assemble` adds a line for every Dependabot PR merged since the previous release that has
+  no fragment, from the merge history (`gh` required; a warning if it is missing).
 
 The CI check reads labels at the time the PR event fires, and **re-running the check replays that
 original event payload** rather than reading current state. A label added after the check failed
