@@ -21,16 +21,58 @@
     cd scripts
     pwsh ./setup.ps1
     
+.EXAMPLE
+    # Print the files the script substitutes placeholders in, then exit
+    # (the manual-setup list in TEMPLATE-PLACEHOLDERS.md is derived from this)
+    pwsh ./scripts/setup.ps1 -ListFiles
+    
+.PARAMETER ListFiles
+    Print the relative paths of the files the script replaces placeholders in
+    (one per line) and exit without running setup.
+    
 .NOTES
     Requires PowerShell Core 7.0 or later (cross-platform)
 #>
 
 [CmdletBinding()]
-param()
+param(
+    [Parameter()]
+    [switch]$ListFiles
+)
 
 # Enable strict mode
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# Files whose {{PLACEHOLDER}} tokens the script substitutes (Step 2) and then
+# validates. This is the single source of truth for that list: the manual
+# "Files to search" and validation lists in TEMPLATE-PLACEHOLDERS.md are
+# derived from it (print it with `pwsh ./scripts/setup.ps1 -ListFiles`).
+# README.md is the renamed README-TEMPLATE.md. LICENSE-*.txt are handled
+# separately during license selection and are intentionally not listed.
+$script:FilesToUpdate = @(
+    'README.md',
+    'CONTRIBUTING.md',
+    'SECURITY.md',
+    '.github/CODEOWNERS',
+    'REPO-INSTRUCTIONS.md',
+    'scripts/Setup-BranchRuleset.ps1',
+    'docfx_project/docfx.json',
+    'docfx_project/index.md',
+    'docfx_project/api/index.md',
+    'docfx_project/api/README.md',
+    'docfx_project/docs/toc.yml',
+    'docfx_project/docs/index.md',
+    'docfx_project/docs/introduction.md',
+    'docfx_project/docs/getting-started.md',
+    'BannedSymbols.txt',
+    '.github/workflows/benchmarks.yaml'
+)
+
+if ($ListFiles) {
+    $script:FilesToUpdate | ForEach-Object { Write-Output $_ }
+    exit 0
+}
 
 # Color output functions
 function Write-Success {
@@ -539,25 +581,7 @@ function Start-Setup {
     # Step 2: Replace placeholders
     Write-Info "Step 2/${totalSteps}: Replacing placeholders in files..."
     
-    $filesToUpdate = @(
-        'README.md',
-        'CONTRIBUTING.md',
-        'SECURITY.md',
-        '.github/CODEOWNERS',
-        'REPO-INSTRUCTIONS.md',
-        'scripts/Setup-BranchRuleset.ps1',
-        'docfx_project/docfx.json',
-        'docfx_project/index.md',
-        'docfx_project/api/index.md',
-        'docfx_project/api/README.md',
-        'docfx_project/docs/toc.yml',
-        'docfx_project/docs/introduction.md',
-        'docfx_project/docs/getting-started.md',
-        'BannedSymbols.txt',
-        '.github/workflows/benchmarks.yaml'
-    )
-    
-    foreach ($file in $filesToUpdate) {
+    foreach ($file in $script:FilesToUpdate) {
         Replace-Placeholders -FilePath $file -Replacements $replacements
     }
     
@@ -869,7 +893,7 @@ if ($solutionName) {
     Write-Info "Step ${totalSteps}/${totalSteps}: Validating changes..."
     
     # Core placeholders that should have been replaced by the script
-    # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in FILES_TO_UPDATE
+    # Note: YEAR and COPYRIGHT_HOLDER are handled in LICENSE file generation, not in $script:FilesToUpdate
     $corePlaceholders = @(
         'PROJECT_NAME', 'PROJECT_DESCRIPTION', 'PACKAGE_NAME',
         'GITHUB_REPO_URL', 'REPO_NAME', 'GITHUB_USERNAME', 'GITHUB_OWNER',
@@ -890,7 +914,7 @@ if ($solutionName) {
     $corePlaceholdersByName = @{}
     $optionalPlaceholdersByName = @{}
     
-    foreach ($file in $filesToUpdate) {
+    foreach ($file in $script:FilesToUpdate) {
         if (Test-Path $file) {
             $content = Get-Content $file -Raw
             $placeholderMatches = [regex]::Matches($content, '\{\{([A-Z_]+)\}\}')
