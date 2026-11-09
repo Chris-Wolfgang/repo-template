@@ -87,8 +87,8 @@ jobs:
       #
       # The published scorecard.dev score (README badge) is unaffected — this
       # only trims the Code Scanning tab and the issues security-alerts.yml
-      # opens from it. Every rule NOT listed here (BranchProtectionID,
-      # TokenPermissionsID, gitHubAction pins, ...) still fires.
+      # opens from it. Every rule NOT listed here (TokenPermissionsID,
+      # gitHubAction pins, ...) still fires.
       #
       # Suppressed whole rules:
       #   (DangerousWorkflowID is NOT suppressed: pr.yaml runs on pull_request
@@ -98,6 +98,12 @@ jobs:
       #                          the old shape must fire.)
       #   CodeReviewID         — solo-maintainer repository; requiring a second
       #                          approver would force admin-bypass on every PR.
+      #   BranchProtectionID   — same reason. main IS protected (the
+      #                          "Protect main branch" ruleset), but the
+      #                          remaining points need required approvers,
+      #                          code-owner review and last-push approval, which
+      #                          a solo maintainer can only meet with an admin
+      #                          bypass, and that waives every rule.
       #   CIIBestPracticesID   — bestpractices.dev badge is an external
       #                          registration, not something CI can earn.
       #   PinnedDependenciesID / nugetCommand, RESTORE commands only —
@@ -134,7 +140,7 @@ jobs:
       - name: Filter suppressed findings from SARIF
         shell: bash
         env:
-          SUPPRESSED_RULES: 'CodeReviewID CIIBestPracticesID'
+          SUPPRESSED_RULES: 'CodeReviewID BranchProtectionID CIIBestPracticesID'
           # PinnedDependenciesID message substrings suppressed everywhere, but
           # only when the finding's snippet is a restore command (see the
           # comment block above).
