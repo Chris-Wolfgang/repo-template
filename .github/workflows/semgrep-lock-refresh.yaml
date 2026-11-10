@@ -1,0 +1,297 @@
+name: Semgrep lock refresh
+# Keeps .github/requirements/semgrep.txt current.
+#
+# WHY THIS EXISTS: semgrep.txt is compiled by uv with the overrides file named in its own header
+# (semgrep-overrides.txt). The overrides force the OpenTelemetry family past GHSA-xcq7-p3pf-p88h
+# (opentelemetry-api <= 1.45.0, fixed in 1.45.1) and keep mcp on the 1.x line semgrep can import,
+# while semgrep's own metadata declares older, exact pins. Dependabot resolves with pip-compile,
+# which has no notion of an override, so every attempt it makes to bump semgrep, mcp or an
+# OpenTelemetry pin ends in dependency_file_not_resolvable; dependabot.yml therefore ignores those
+# names, and without this workflow the semgrep pin would only move when someone re-ran uv by hand.
+#
+# WHAT IT DOES: once a week it re-runs the exact command recorded in the header of semgrep.txt,
+# plus --upgrade, and when the file changes it opens (or refreshes) ONE pull request on a fixed
+# branch. The body lists the version changes and says whether the overrides are still needed,
+# judged by compiling semgrep.in once more WITHOUT the overrides. It never force-pushes over a
+# commit it did not author: if the refresh branch carries someone else's work the run fails and
+# says so.
+#
+# TOKEN: the pull-request path needs the repository secret SEMGREP_LOCK_TOKEN, a fine-grained PAT
+# with Contents: read and write, Pull requests: read and write, Metadata: read, and nothing else
+# (it may be scoped to all your repositories; one value pasted into each repo that runs this). The
+# default GITHUB_TOKEN cannot do this job: "Allow GitHub Actions to create and approve pull
+# requests" is off in these repositories, and a branch pushed with GITHUB_TOKEN starts no workflow
+# runs, so a pull request opened that way would never get its required checks. Without the secret
+# the workflow falls back to ONE tracking issue carrying the same table and the command to run.
+on:
+  schedule:
+    # Tuesdays 06:30 UTC: the weekly Dependabot pip run and template-deps.yaml are on Mondays.
+    - cron: '30 6 * * 2'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Recompile and report only: open no pull request and no issue'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: semgrep-lock-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Recompile semgrep.txt
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    env:
+      PUBLISH_TOKEN: ${{ secrets.SEMGREP_LOCK_TOKEN }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      REFRESH_BRANCH: deps/semgrep-lock-refresh
+      REQUIREMENTS_DIR: .github/requirements
+      BOT_NAME: github-actions[bot]
+      BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+      # GHSA-xcq7-p3pf-p88h: opentelemetry-api <= 1.45.0 parses tracestate without bound.
+      OTEL_API_PATCHED: '1.45.1'
+    steps:
+      - name: Checkout the default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Always the default branch: a workflow_dispatch from another ref must not publish
+          # that ref's pins as the repository's.
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: '0.13.7'
+
+      - name: Recompile the lock with the command recorded in its header
+        id: compile
+        shell: bash
+        working-directory: ${{ env.REQUIREMENTS_DIR }}
+        run: |
+          set -euo pipefail
+          # Line 2 of a uv-generated lock is "#    uv pip compile <args>". Re-running exactly that
+          # (plus --upgrade, which uv does not record) keeps every repo's own flags, including the
+          # name of its overrides file, without this workflow having to know them.
+          header=$(sed -n '2p' semgrep.txt)
+          cmd=${header#\#}
+          read -ra parts <<< "$cmd"
+          if [ "${parts[0]:-} ${parts[1]:-} ${parts[2]:-}" != "uv pip compile" ]; then
+            echo "::error file=$REQUIREMENTS_DIR/semgrep.txt,line=2::semgrep.txt does not start with a uv 'pip compile' header; regenerate it by hand once so this workflow can follow it."
+            exit 1
+          fi
+          args=()
+          for p in "${parts[@]:3}"; do
+            case "$p" in --upgrade|-U) ;; *) args+=("$p") ;; esac
+          done
+          cp semgrep.txt "$RUNNER_TEMP/semgrep.before.txt"
+          echo "Running: uv pip compile ${args[*]} --upgrade"
+          # --quiet: with -o, uv still echoes the whole lock to stdout; the file is the record.
+          uv pip compile "${args[@]}" --upgrade --quiet
+
+          if git diff --quiet -- semgrep.txt; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "semgrep.txt is already current." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+          # Version table: the "name==version" lines before and after, hashes ignored.
+          python3 - "$RUNNER_TEMP/semgrep.before.txt" semgrep.txt > "$RUNNER_TEMP/changes.md" <<'PY'
+          import re, sys
+          def pins(path):
+              out = {}
+              for line in open(path, encoding="utf-8"):
+                  m = re.match(r'^([A-Za-z0-9][A-Za-z0-9._-]*)==([^\s\\]+)', line)
+                  if m:
+                      out[m.group(1).lower()] = m.group(2)
+              return out
+          before, after = pins(sys.argv[1]), pins(sys.argv[2])
+          rows = []
+          for name in sorted(set(before) | set(after)):
+              b, a = before.get(name, "-"), after.get(name, "-")
+              if b != a:
+                  rows.append(f"| `{name}` | {b} | **{a}** |")
+          print("| Package | Before | After |")
+          print("|---|---|---|")
+          print("\n".join(rows) if rows else "| _(hashes only)_ | | |")
+          PY
+          semgrep_before=$(grep -oE '^semgrep==[^ \\]+' "$RUNNER_TEMP/semgrep.before.txt" | cut -d= -f3 || true)
+          semgrep_after=$(grep -oE '^semgrep==[^ \\]+' semgrep.txt | cut -d= -f3 || true)
+          {
+            echo "semgrep_before=${semgrep_before}"
+            echo "semgrep_after=${semgrep_after}"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "## semgrep.txt recompiled"
+            echo ""
+            cat "$RUNNER_TEMP/changes.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Judge whether the overrides are still needed
+        if: steps.compile.outputs.changed == 'true'
+        id: judge
+        shell: bash
+        working-directory: ${{ env.REQUIREMENTS_DIR }}
+        run: |
+          set -euo pipefail
+          # semgrep's own resolution, with no override: what the tool would pull by itself.
+          uv pip compile --universal --quiet semgrep.in -o "$RUNNER_TEMP/plain.txt"
+          pin() { grep -oE "^$2==[^ \\]+" "$1" | cut -d= -f3 || true; }
+          own_otel=$(pin "$RUNNER_TEMP/plain.txt" opentelemetry-api)
+          own_mcp=$(pin "$RUNNER_TEMP/plain.txt" mcp)
+          lock_otel=$(pin semgrep.txt opentelemetry-api)
+          lock_mcp=$(pin semgrep.txt mcp)
+          semgrep=$(pin semgrep.txt semgrep)
+          {
+            echo "Compiled without the overrides, semgrep ${semgrep} resolves \`opentelemetry-api==${own_otel:-?}\` and \`mcp==${own_mcp:-?}\`; the lock carries \`opentelemetry-api==${lock_otel:-?}\` and \`mcp==${lock_mcp:-?}\`."
+            if [ -n "$own_otel" ] && [ "$(printf '%s\n%s\n' "$OTEL_API_PATCHED" "$own_otel" | sort -V | head -1)" = "$OTEL_API_PATCHED" ]; then
+              echo "**The OpenTelemetry override lines are no longer needed:** semgrep's own resolution is at or above ${OTEL_API_PATCHED}, the fix for GHSA-xcq7-p3pf-p88h. Consider dropping them from the overrides file in this PR."
+            else
+              echo "The OpenTelemetry override lines are still required: ${own_otel:-?} is below ${OTEL_API_PATCHED}, the fix for GHSA-xcq7-p3pf-p88h."
+            fi
+            if [ -n "$own_mcp" ] && [ -n "$lock_mcp" ] && [ "$own_mcp" != "$lock_mcp" ]; then
+              echo "The mcp override is in force (semgrep declares \`mcp==${own_mcp}\`); keep it on the line semgrep imports."
+            fi
+          } > "$RUNNER_TEMP/assessment.md"
+          cat "$RUNNER_TEMP/assessment.md" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Write the pull request body
+        if: steps.compile.outputs.changed == 'true'
+        id: body
+        shell: bash
+        env:
+          SEMGREP_BEFORE: ${{ steps.compile.outputs.semgrep_before }}
+          SEMGREP_AFTER: ${{ steps.compile.outputs.semgrep_after }}
+        run: |
+          set -euo pipefail
+          header=$(sed -n '2p' "$REQUIREMENTS_DIR/semgrep.txt")
+          {
+            echo "Weekly refresh of \`$REQUIREMENTS_DIR/semgrep.txt\` by the **Semgrep lock refresh** workflow (run $GITHUB_RUN_ID): the command in the file's header was re-run with \`--upgrade\`."
+            echo ""
+            echo "## Version changes"
+            echo ""
+            cat "$RUNNER_TEMP/changes.md"
+            echo ""
+            echo "## Overrides"
+            echo ""
+            cat "$RUNNER_TEMP/assessment.md"
+            echo ""
+            echo "## Verified"
+            echo ""
+            echo "- Lock regenerated with:"
+            echo ""
+            echo '```'
+            echo "${header#\#    } --upgrade"
+            echo '```'
+            echo "- Hashes present for every pin (\`--generate-hashes\` is part of the recorded command), so \`pip install --no-deps --require-hashes\` in semgrep.yaml keeps working."
+            echo "- Not verified here: the Semgrep scan itself. This PR's own \`SAST (Semgrep)\` run is that check."
+            echo ""
+            echo "_Opened automatically; the next refresh updates this branch in place as long as it carries only this workflow's commits._"
+          } > "$RUNNER_TEMP/body.md"
+          echo "title=deps(semgrep): refresh the hash-pinned lock (semgrep ${SEMGREP_BEFORE:-?} -> ${SEMGREP_AFTER:-?})" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the refresh pull request
+        if: steps.compile.outputs.changed == 'true' && inputs.dry_run != true && env.PUBLISH_TOKEN != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ env.PUBLISH_TOKEN }}
+          PR_TITLE: ${{ steps.body.outputs.title }}
+        run: |
+          set -euo pipefail
+          git config user.name "$BOT_NAME"
+          git config user.email "$BOT_EMAIL"
+          # Authenticate the push through an http.extraheader rather than a token in the URL, and
+          # drop it again whatever happens.
+          basic=$(printf 'x-access-token:%s' "$PUBLISH_TOKEN" | base64 -w0)
+          git config http."https://github.com/".extraheader "AUTHORIZATION: basic $basic"
+          trap 'git config --unset-all http."https://github.com/".extraheader || true' EXIT
+
+          lease=()
+          if git fetch --no-tags --quiet origin "+refs/heads/$REFRESH_BRANCH:refs/remotes/origin/$REFRESH_BRANCH" 2>/dev/null; then
+            # Only ever replace commits this workflow made itself.
+            foreign=$(git log --format='%ae' "HEAD..origin/$REFRESH_BRANCH" | grep -v -F -x "$BOT_EMAIL" | head -1 || true)
+            if [ -n "$foreign" ]; then
+              echo "::error::$REFRESH_BRANCH carries commits by $foreign; refusing to rewrite it. Merge or delete that branch, then re-run."
+              exit 1
+            fi
+            lease=("--force-with-lease=refs/heads/$REFRESH_BRANCH:$(git rev-parse "origin/$REFRESH_BRANCH")")
+          fi
+
+          git checkout --quiet -B "$REFRESH_BRANCH"
+          git add "$REQUIREMENTS_DIR/semgrep.txt"
+          git commit --quiet -m "$PR_TITLE" -m "Automated by the Semgrep lock refresh workflow (run $GITHUB_RUN_ID). See the pull request body for the version table."
+          git push --quiet "${lease[@]}" origin "HEAD:refs/heads/$REFRESH_BRANCH"
+
+          gh label create "dependencies" --repo "$GITHUB_REPOSITORY" \
+            --color 0366d6 --description "Pull requests that update a dependency file" 2>/dev/null || true
+          existing=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$REFRESH_BRANCH" --state open \
+                       --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --repo "$GITHUB_REPOSITORY" --title "$PR_TITLE" --body-file "$RUNNER_TEMP/body.md"
+            echo "Updated pull request #$existing." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(gh pr create --repo "$GITHUB_REPOSITORY" --base "$DEFAULT_BRANCH" --head "$REFRESH_BRANCH" \
+                    --title "$PR_TITLE" --body-file "$RUNNER_TEMP/body.md" --label dependencies)
+            echo "Opened $url." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Without SEMGREP_LOCK_TOKEN, keep one tracking issue instead
+        if: steps.compile.outputs.changed == 'true' && inputs.dry_run != true && env.PUBLISH_TOKEN == ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_TITLE: ${{ steps.body.outputs.title }}
+        run: |
+          set -euo pipefail
+          header=$(sed -n '2p' "$REQUIREMENTS_DIR/semgrep.txt")
+          {
+            echo "_Auto-updated by the Semgrep lock refresh workflow (run $GITHUB_RUN_ID)._"
+            echo ""
+            echo "The lock is behind, and this repository has no \`SEMGREP_LOCK_TOKEN\` secret, so the workflow cannot open the pull request itself (see the comment at the top of \`.github/workflows/semgrep-lock-refresh.yaml\` for the token it needs). To refresh by hand, in \`$REQUIREMENTS_DIR\`:"
+            echo ""
+            echo '```'
+            echo "${header#\#    } --upgrade"
+            echo '```'
+            echo ""
+            echo "## Version changes"
+            echo ""
+            cat "$RUNNER_TEMP/changes.md"
+            echo ""
+            echo "## Overrides"
+            echo ""
+            cat "$RUNNER_TEMP/assessment.md"
+          } > "$RUNNER_TEMP/issue.md"
+          gh label create "kind:semgrep-lock" --repo "$GITHUB_REPOSITORY" \
+            --color 0366d6 --description "The hash-pinned semgrep lock has fallen behind" 2>/dev/null || true
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "kind:semgrep-lock" \
+                       --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --repo "$GITHUB_REPOSITORY" --title "$ISSUE_TITLE" --body-file "$RUNNER_TEMP/issue.md"
+            echo "Updated issue #$existing." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(gh issue create --repo "$GITHUB_REPOSITORY" --title "$ISSUE_TITLE" --body-file "$RUNNER_TEMP/issue.md" --label "kind:semgrep-lock")
+            echo "Opened $url." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Close the tracking issue when the lock is current
+        if: steps.compile.outputs.changed == 'false' && inputs.dry_run != true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "kind:semgrep-lock" \
+                       --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" --repo "$GITHUB_REPOSITORY" \
+              --comment "semgrep.txt is current again. Reopened automatically if it falls behind." || true
+          fi
