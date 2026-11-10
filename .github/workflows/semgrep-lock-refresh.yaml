@@ -153,12 +153,14 @@ jobs:
           semgrep=$(pin semgrep.txt semgrep)
           {
             echo "Compiled without the overrides, semgrep ${semgrep} resolves \`opentelemetry-api==${own_otel:-?}\` and \`mcp==${own_mcp:-?}\`; the lock carries \`opentelemetry-api==${lock_otel:-?}\` and \`mcp==${lock_mcp:-?}\`."
+            echo ""
             if [ -n "$own_otel" ] && [ "$(printf '%s\n%s\n' "$OTEL_API_PATCHED" "$own_otel" | sort -V | head -1)" = "$OTEL_API_PATCHED" ]; then
               echo "**The OpenTelemetry override lines are no longer needed:** semgrep's own resolution is at or above ${OTEL_API_PATCHED}, the fix for GHSA-xcq7-p3pf-p88h. Consider dropping them from the overrides file in this PR."
             else
               echo "The OpenTelemetry override lines are still required: ${own_otel:-?} is below ${OTEL_API_PATCHED}, the fix for GHSA-xcq7-p3pf-p88h."
             fi
             if [ -n "$own_mcp" ] && [ -n "$lock_mcp" ] && [ "$own_mcp" != "$lock_mcp" ]; then
+              echo ""
               echo "The mcp override is in force (semgrep declares \`mcp==${own_mcp}\`); keep it on the line semgrep imports."
             fi
           } > "$RUNNER_TEMP/assessment.md"
