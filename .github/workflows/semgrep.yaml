@@ -75,6 +75,13 @@ jobs:
             1) echo "semgrep: findings reported (see the Security tab after upload)" ;;
             *) echo "::error::semgrep failed with exit code $rc (not a findings result)"; exit "$rc" ;;
           esac
+          # Exit code 1 is also what a crash before the scan returns (a bad import, for
+          # example): then no SARIF exists and the upload step fails with "Path does not
+          # exist". Require the file so a crash fails here, named for what it is.
+          if [ ! -s semgrep.sarif ]; then
+            echo "::error::semgrep exited $rc but wrote no semgrep.sarif - a crash, not a findings result"
+            exit 1
+          fi
 
       - name: Upload Semgrep SARIF
         # A fork's pull_request token cannot write Code Scanning (security-events: write is
