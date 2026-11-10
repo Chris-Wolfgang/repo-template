@@ -17,7 +17,7 @@
       "rollForward": true
     },
     "jetbrains.resharper.globaltools": {
-      "version": "2026.2.4.1",
+      "version": "2026.3.0",
       "commands": [
         "jb"
       ],
@@ -52,7 +52,7 @@
       "rollForward": true
     },
     "dotnet-stryker": {
-      "version": "5.0.0",
+      "version": "5.1.0",
       "commands": [
         "dotnet-stryker"
       ],
