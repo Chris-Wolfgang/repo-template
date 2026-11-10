@@ -51,3 +51,8 @@ updates:
       - dependency-name: "semgrep"
       - dependency-name: "opentelemetry-instrumentation-requests"
       - dependency-name: "opentelemetry-instrumentation-threading"
+      # semgrep imports mcp.server.fastmcp, which mcp 2.x removed: with mcp 2.3.0 in
+      # semgrep-overrides.txt (Dependabot bump) semgrep crashes at import and the scan
+      # writes no SARIF. Keep the override on the 1.x line; semgrep itself pins mcp 1.x.
+      - dependency-name: "mcp"
+        update-types: ["version-update:semver-major"]
