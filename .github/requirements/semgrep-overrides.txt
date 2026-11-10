@@ -4,7 +4,7 @@
 # semgrep imports mcp only for its MCP server, never for `semgrep scan`. semgrep.yaml installs
 # the lock with --no-deps, so semgrep's own pin is not re-applied at install time.
 # Drop this override once a semgrep release depends on mcp >= 1.30.0.
-mcp==2.3.0
+mcp==1.30.0
 
 # semgrep pins the OpenTelemetry family to ~=1.37.0 / ~=0.58b0, but opentelemetry-api <= 1.45.0 is
 # affected by GHSA-xcq7-p3pf-p88h (unbounded tracestate parsing). The whole family is moved in
