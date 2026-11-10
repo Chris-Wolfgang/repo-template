@@ -55,6 +55,8 @@ Wildcards are matched case-insensitively (Windows and ReSharper resolve `foo.dot
 
 The guard's check is **`Protected Files Guard`** and must be a required status check in the ruleset (`scripts/Setup-BranchRuleset.ps1` adds it). Dependabot PRs are exempt: its bumps to `Directory.Build.props` are legitimate and its identity is GitHub-controlled.
 
+**Public repositories need an Actions event policy for it.** GitHub's default Actions policy blocks `pull_request_target` in public repositories (enforced from 2026-12-02). A blocked run is a `startup_failure` with no jobs: the required check never reports, the PR is stuck, and the run cannot be re-run. Create a repository-level policy that allows the event for `.github/workflows/protected-files.yaml` only — never an unscoped one, which would block every other event — as described in [repository-baseline.md, item 25](repository-baseline.md#25-actions-policy-allows-pull_request_target-for-the-protected-files-guard). It is a repository setting and must be created once per repository.
+
 ### 3. Credential Protection
 
 **Mechanism**: `persist-credentials: false`

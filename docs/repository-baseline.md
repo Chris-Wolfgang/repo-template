@@ -179,6 +179,30 @@ Scope rules:
 - **Fix:** `gh api -X PUT repos/{owner}/{repo}/actions/workflows/{file}/enable`, then push a commit (or re-run) so the PR gets a fresh run — a workflow without `workflow_dispatch` cannot be triggered by hand. Any commit to the default branch resets the 60-day clock for the whole repository.
 - **Label:** `process`
 
+### 25. Actions policy allows `pull_request_target` for the protected-files guard
+
+- **Verify:** For a public repository with a workflow whose trigger is `pull_request_target` (the template's `.github/workflows/protected-files.yaml`; comments that merely mention the event do not count), `gh api -H "X-GitHub-Api-Version: 2026-03-10" repos/{owner}/{repo}/actions/policies` lists a policy that, read by id, has `enforcement: active`, a `restrict_action_events` rule whose `allowed_events` contains `pull_request_target`, and `conditions.workflow_path.include` naming that workflow file (or `~ALL`). A repository with no such workflow is `na`; private repositories are `na` (the default policy does not apply to them).
+- **Why:** GitHub's default Actions event policy blocks `pull_request_target` in public repositories: evaluate mode since November 2026, enforced from **2026-12-02** for repositories still on the default. A blocked run is a `startup_failure` with zero jobs — `Protected Files Guard` never reports, every PR sits BLOCKED on a required check, and the run cannot be re-run (a brownout on 2026-11-09 did exactly this to ETL-FixedWidth#666). The guard is the one workflow that must stay on this event — it runs from `main` so a PR cannot edit it, and it never checks out PR code — so the event is allowed for that file only. The policy is a repository *setting*, not a file: creating a repository from the template does not carry it over, and `scripts/Setup-BranchRuleset.ps1` does not create it.
+- **Fix:** Create the policy scoped to the guard. An unscoped allow-list of one event blocks every other event in the repository, so keep `workflow_path.include` to the guard:
+
+  `policy.json`:
+
+  ```json
+  {
+    "name": "Allow pull_request_target for the protected-files guard",
+    "enforcement": "active",
+    "conditions": { "workflow_path": { "include": [".github/workflows/protected-files.yaml"], "exclude": [] } },
+    "rules": [ { "type": "restrict_action_events", "parameters": { "allowed_events": ["pull_request_target"] } } ]
+  }
+  ```
+
+  ```bash
+  gh api -X POST -H "X-GitHub-Api-Version: 2026-03-10" repos/{owner}/{repo}/actions/policies --input policy.json
+  ```
+
+  Fleet maintainers: `Allow-PullRequestTarget.ps1 -Repo <repo> -Apply` in the fleet tooling discovers the file(s), creates the policy and verifies it by reading it back.
+- **Label:** `security`
+
 ## Account-level settings
 
 These are not per-repository and are not checked by the script. Verify on the account settings pages and record the state; the audit report lists them under "manual checks".
