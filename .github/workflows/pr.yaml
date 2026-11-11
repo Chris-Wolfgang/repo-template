@@ -472,17 +472,36 @@ jobs:
           persist-credentials: false
 
       - name: Install OpenSSL 1.1 for .NET 5.0
+        env:
+          # .NET 5.0 loads OpenSSL 1.x only and ubuntu-24.04 ships 3.x, so the focal-security
+          # libssl1.1 build is installed directly. It is pinned by version and SHA-256: every
+          # mirror below serves the same verified bytes, which replaces the apt signature check,
+          # and no apt index refresh runs, so the runner's default apt mirrors are never needed.
+          # Bump both values together when focal-security publishes a newer libssl1.1.
+          LIBSSL_DEB: libssl1.1_1.1.1f-1ubuntu2.24_amd64.deb
+          LIBSSL_SHA256: 7cf39d70a639017d1dd7c8d36daa2258063608688e449fddf40ffdd46f992a78
         run: |
-          # signed-by= points apt at the Canonical archive keyring that ships on all
-          # GitHub-hosted Ubuntu runners. It contains the same signing key Canonical
-          # uses across releases (focal, jammy, noble), so it can verify focal-security
-          # packages from a non-focal runner without disabling signature checking.
-          # Earlier iteration used [trusted=yes] (skipping verification) as a quick
-          # unblock; this restores end-to-end signature verification.
-          echo "deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://security.ubuntu.com/ubuntu focal-security main" | sudo tee /etc/apt/sources.list.d/focal-security.list
-          sudo apt-get update -q
-          sudo apt-get install --yes libssl1.1
-          sudo rm /etc/apt/sources.list.d/focal-security.list
+          deb="${RUNNER_TEMP:?}/${LIBSSL_DEB:?}"
+          # Mirrors in different DNS zones, so one unreachable host or zone does not fail the stage.
+          for base in \
+            https://security.ubuntu.com/ubuntu \
+            https://archive.ubuntu.com/ubuntu \
+            https://mirrors.edge.kernel.org/ubuntu \
+            https://mirror.math.princeton.edu/pub/ubuntu; do
+            if curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 --max-time 120 \
+                 -o "$deb" "$base/pool/main/o/openssl/$LIBSSL_DEB" \
+               && echo "$LIBSSL_SHA256  $deb" | sha256sum -c --status -; then
+              echo "libssl1.1 fetched from $base"
+              break
+            fi
+            echo "::warning::libssl1.1 not fetched (or hash mismatch) from $base; trying the next mirror"
+            rm -f "$deb"
+          done
+          if [ ! -f "$deb" ]; then
+            echo "::error::libssl1.1 could not be fetched from any mirror"
+            exit 1
+          fi
+          sudo DEBIAN_FRONTEND=noninteractive dpkg -i "$deb"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73  # v6.1.0
