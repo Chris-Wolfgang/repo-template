@@ -14,7 +14,7 @@
 #   run leaves the check "Expected" forever (repository baseline, required checks).
 # - schedule (weekly Sunday 06:00 UTC) + workflow_dispatch: full runs that also
 #   publish the score-history chart to gh-pages /dev/stryker and keep the single
-#   `kind:mutation-survives` tracking issue current.
+#   `kind:mutation-survives` tracking issue current (closed when nothing survives).
 #
 # Jobs and token scopes - the mutation run never holds a write scope:
 # - detect: picks the configs and the runner (read-only).
@@ -189,6 +189,7 @@ jobs:
             8.0.x
             9.0.x
             10.0.x
+            11.0.x
 
       - name: Restore CI tools (dotnet-stryker)
         # Pinned in .config/dotnet-tools.json; never installed unversioned. The
@@ -447,6 +448,16 @@ jobs:
                    "$GITHUB_RUN_ID" "$score" "${floors:-none}" "$survivors")
           existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "kind:mutation-survives" \
                        --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ "$count" -eq 0 ]; then
+            # Nothing survived: close the tracking issue instead of keeping a
+            # "Mutation survivors (0)" issue open. The next run with survivors opens a new one.
+            if [ -n "$existing" ]; then
+              comment=$(printf 'No surviving mutants in run %s (lowest mutation score **%s %%**, break floor: %s). Closing; the next run with survivors opens a new issue.' \
+                          "$GITHUB_RUN_ID" "$score" "${floors:-none}")
+              gh issue close "$existing" --repo "$GITHUB_REPOSITORY" --comment "$comment" || true
+            fi
+            exit 0
+          fi
           if [ -n "$existing" ]; then
             gh issue edit "$existing" --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body" || true
           else
