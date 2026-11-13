@@ -102,6 +102,7 @@ jobs:
             8.0.x
             9.0.x
             10.0.x
+            11.0.x
 
       - name: Restore dependencies
         run: dotnet restore
@@ -402,6 +403,7 @@ jobs:
             8.0.x
             9.0.x
             10.0.x
+            11.0.x
 
       - name: Restore and build
         run: |
@@ -646,7 +648,7 @@ jobs:
         with:
           # Same SDK set as validate-release, for parity with the runner that
           # tested the tag - not because the docs build needs it. One SDK compiles
-          # every TFM (codeql.yaml builds the whole solution with 10.0.x alone;
+          # every TFM (codeql.yaml builds the whole solution with 10.0.x + 11.0.x only;
           # docfx.yaml and build-all-versions.yaml build without 3.1.x); only
           # RUNNING a netcoreapp3.1 test suite needs the 3.1 runtime. Kept so this
           # job never diverges from validate-release.
@@ -658,6 +660,7 @@ jobs:
             8.0.x
             9.0.x
             10.0.x
+            11.0.x
 
       - name: Restore .NET workloads
         # Same gated probe as pr.yaml — only run dotnet workload restore when
@@ -735,6 +738,7 @@ jobs:
             8.0.x
             9.0.x
             10.0.x
+            11.0.x
 
       - name: Download packages
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
