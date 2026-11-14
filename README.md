@@ -128,7 +128,7 @@ Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn
 ### 📦 CI/CD Workflows
 
 #### Pull Request Workflow (`.github/workflows/pr.yaml`)
-- **Multi-stage testing** across Linux, Windows, macOS
+- **Multi-stage testing** across Linux, Windows, macOS, plus two ARM64 gates: `Stage 4: Linux ARM64 Tests` (`ubuntu-24.04-arm`) and `Stage 5: Windows ARM64 Tests` (`windows-11-arm`), net6.0 and later, in parallel with Stages 1-3, public repositories only
 - **Multi-framework testing** (.NET Core 3.1, .NET 5.0-10.0, .NET Framework 4.6.2-4.8.1) - every TFM of every test project, discovered at run time; a TFM that runs zero tests fails
 - **Code coverage gates** - 90 % line coverage for `src/`, 100 % for `tests/`
 - **Protected Files Guard** (`.github/workflows/protected-files.yaml`) - a PR that changes only protected files (workflows, `Directory.Build.props`, `.editorconfig`, `BannedSymbols.txt`, `*.DotSettings`, ...) passes with a notice and merges on review; a PR that mixes them with other changes fails the guard and is split ([docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md))
@@ -292,7 +292,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 
 ### Test Strategy
 - Every project under `tests/` is a test project, `*.Tests.Integration.*` included; Stage 1 (Linux, with Docker) runs them all and holds every test assembly to `CODECOV_TEST_MINIMUM`
-- A test project that needs Linux containers (Testcontainers, Docker) declares `<RequiresLinuxContainers>true</RequiresLinuxContainers>` in its csproj. Stage 2 (Windows), Stage 3 (macOS) and release validation skip it, and Stage 1 runs and coverage-gates it. The marker decides, not the project name: an integration project that needs no container runs on every stage, including its .NET Framework TFMs on Windows
+- A test project that needs Linux containers (Testcontainers, Docker) declares `<RequiresLinuxContainers>true</RequiresLinuxContainers>` in its csproj. Stage 2 (Windows), Stage 3 (macOS), Stages 4/5 (ARM64) and release validation skip it, and Stage 1 runs and coverage-gates it. The marker decides, not the project name: an integration project that needs no container runs on every stage, including its .NET Framework TFMs on Windows
 - A test assembly that ran but recorded no coverage fails the gate
 - Every `<TargetFrameworks>` entry is tested; a TFM on which zero tests ran fails the stage
 - Coverage collection with `XPlat Code Coverage` (`coverlet.runsettings`)
