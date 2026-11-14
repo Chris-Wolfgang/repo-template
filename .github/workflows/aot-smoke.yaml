@@ -1,0 +1,251 @@
+# Native AOT smoke test (canonical; fleet standards: claude-sessions standards/aot-smoke.md,
+# decided 2026-10-30, and standards/test-matrix.md item 4, decided 2026-11-07).
+#
+# Publishes EVERY project under src/ or tests/ whose MSBuild-evaluated PublishAot is true (a
+# library's tests/<PackageId>.Tests.Aot suite, any AOT app) as a native binary and runs it.
+# Any publish error, any trim/AOT (IL2xxx/IL3xxx) warning - warnings are errors in Release
+# through Directory.Build.props - or a non-zero exit of a binary fails the job. Zero matches
+# pass with a notice, so the file ships unchanged to every repository (repo-template itself has
+# no project). No per-repo values: PublishAot is the discovery signal.
+#
+# Two legs, each its own job so each is its own required check:
+#   AOT smoke (linux-x64)    ubuntu-latest       the original required-check string
+#   AOT smoke (linux-arm64)  ubuntu-24.04-arm    the native binary is per-architecture, so the
+#                                                managed ARM64 stages in pr.yaml do not cover it
+# The arm64 runner is free on public repositories only; a private repository skips that leg by
+# condition (a known deviation in the standard). win-arm64 is deferred by the standard.
+#
+# No `paths:` filter: a required check must report on every pull request. No push trigger:
+# before the check is made required, run it once on main with workflow_dispatch.
+#
+# PublishAot / PublishTrimmed belong in the project (or the Directory.Build.props block for
+# *.Tests.Aot), never on the `dotnet publish` command line: a -p: property is global and reaches
+# every referenced project, including a net462 library target, where AOT is unsupported
+# (NETSDK1207).
+name: AOT smoke
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  # Lets release.yaml gate publishing on this same workflow (`uses: ./.github/workflows/aot-smoke.yaml`)
+  # from the tagged commit.
+  workflow_call:
+
+concurrency:
+  # The event name keeps a release's workflow_call run out of a pull request's group.
+  group: aot-smoke-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  aot-smoke:
+    name: AOT smoke (linux-x64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RID: linux-x64
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: |
+            10.0.x
+            11.0.x
+
+      - name: Discover PublishAot projects
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+          list="$RUNNER_TEMP/aot-projects.txt"
+          : > "$list"
+          # Evaluated through MSBuild so a PublishAot set by Directory.Build.props (the
+          # *.Tests.Aot block) counts. A failed evaluation fails the step; it never reads as "skip".
+          while IFS= read -r proj; do
+            if ! value=$(dotnet msbuild "$proj" -noLogo -getProperty:PublishAot 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$proj::MSBuild evaluation of PublishAot failed for $proj"
+              cat "$RUNNER_TEMP/msbuild-eval.err"
+              exit 1
+            fi
+            value=$(printf '%s' "$value" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+            if [ "$value" = "true" ]; then
+              echo "PublishAot: $proj"
+              printf '%s\n' "$proj" >> "$list"
+            fi
+          done < <(git ls-files 'src/*.csproj' 'src/**/*.csproj' 'tests/*.csproj' 'tests/**/*.csproj')
+          if [ -s "$list" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No project under src/ or tests/ sets PublishAot=true - nothing to publish; passing."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The runner image normally ships clang and zlib1g-dev, so apt is skipped when both are
+      # present. apt runs only as a fallback, with retries, because a single `apt-get update`
+      # fails the job whenever the runner cannot resolve the Ubuntu mirrors.
+      - name: Install Native AOT prerequisites
+        if: steps.discover.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          if command -v clang >/dev/null 2>&1 \
+            && dpkg-query -W -f='${Status}' zlib1g-dev 2>/dev/null | grep -q 'install ok installed'; then
+            echo "clang ($(clang --version | head -n 1)) and zlib1g-dev are on the runner image; apt not needed."
+            exit 0
+          fi
+          for attempt in 1 2 3; do
+            if sudo apt-get -o Acquire::Retries=3 update \
+              && sudo apt-get -o Acquire::Retries=3 install -y clang zlib1g-dev; then
+              exit 0
+            fi
+            echo "::warning::apt attempt $attempt of 3 failed; retrying in $((attempt * 30)) s."
+            sleep $((attempt * 30))
+          done
+          echo "::error::clang and zlib1g-dev could not be installed after 3 apt attempts."
+          exit 1
+
+      - name: Publish and run each native binary
+        if: steps.discover.outputs.found == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          failed=0
+          while IFS= read -r proj; do
+            name=$(dotnet msbuild "$proj" -noLogo -p:Configuration=Release -getProperty:AssemblyName | tr -d '[:space:]')
+            out="$RUNNER_TEMP/aot/$RID/$name"
+            echo "::group::publish $proj ($RID)"
+            if ! dotnet publish "$proj" -c Release -r "$RID" -o "$out"; then
+              echo "::endgroup::"
+              echo "::error file=$proj::Native AOT publish failed for $proj on $RID"
+              failed=1
+              continue
+            fi
+            echo "::endgroup::"
+            bin="$out/$name"
+            if [ ! -x "$bin" ]; then
+              echo "::error file=$proj::No native binary at $bin (is OutputType Exe?)"
+              failed=1
+              continue
+            fi
+            echo "== run $bin =="
+            if "$bin" < /dev/null; then
+              echo "$proj: native binary exited 0 on $RID."
+            else
+              rc=$?
+              echo "::error file=$proj::Native binary exited $rc on $RID"
+              failed=1
+            fi
+          done < "$RUNNER_TEMP/aot-projects.txt"
+          exit "$failed"
+
+  aot-smoke-arm64:
+    name: AOT smoke (linux-arm64)
+    runs-on: ubuntu-24.04-arm
+    if: ${{ !github.event.repository.private }}
+    timeout-minutes: 30
+    env:
+      RID: linux-arm64
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: |
+            10.0.x
+            11.0.x
+
+      # Same three steps as the linux-x64 job above; keep them identical.
+      - name: Discover PublishAot projects
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+          list="$RUNNER_TEMP/aot-projects.txt"
+          : > "$list"
+          while IFS= read -r proj; do
+            if ! value=$(dotnet msbuild "$proj" -noLogo -getProperty:PublishAot 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$proj::MSBuild evaluation of PublishAot failed for $proj"
+              cat "$RUNNER_TEMP/msbuild-eval.err"
+              exit 1
+            fi
+            value=$(printf '%s' "$value" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+            if [ "$value" = "true" ]; then
+              echo "PublishAot: $proj"
+              printf '%s\n' "$proj" >> "$list"
+            fi
+          done < <(git ls-files 'src/*.csproj' 'src/**/*.csproj' 'tests/*.csproj' 'tests/**/*.csproj')
+          if [ -s "$list" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No project under src/ or tests/ sets PublishAot=true - nothing to publish; passing."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Native AOT prerequisites
+        if: steps.discover.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          if command -v clang >/dev/null 2>&1 \
+            && dpkg-query -W -f='${Status}' zlib1g-dev 2>/dev/null | grep -q 'install ok installed'; then
+            echo "clang ($(clang --version | head -n 1)) and zlib1g-dev are on the runner image; apt not needed."
+            exit 0
+          fi
+          for attempt in 1 2 3; do
+            if sudo apt-get -o Acquire::Retries=3 update \
+              && sudo apt-get -o Acquire::Retries=3 install -y clang zlib1g-dev; then
+              exit 0
+            fi
+            echo "::warning::apt attempt $attempt of 3 failed; retrying in $((attempt * 30)) s."
+            sleep $((attempt * 30))
+          done
+          echo "::error::clang and zlib1g-dev could not be installed after 3 apt attempts."
+          exit 1
+
+      - name: Publish and run each native binary
+        if: steps.discover.outputs.found == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          failed=0
+          while IFS= read -r proj; do
+            name=$(dotnet msbuild "$proj" -noLogo -p:Configuration=Release -getProperty:AssemblyName | tr -d '[:space:]')
+            out="$RUNNER_TEMP/aot/$RID/$name"
+            echo "::group::publish $proj ($RID)"
+            if ! dotnet publish "$proj" -c Release -r "$RID" -o "$out"; then
+              echo "::endgroup::"
+              echo "::error file=$proj::Native AOT publish failed for $proj on $RID"
+              failed=1
+              continue
+            fi
+            echo "::endgroup::"
+            bin="$out/$name"
+            if [ ! -x "$bin" ]; then
+              echo "::error file=$proj::No native binary at $bin (is OutputType Exe?)"
+              failed=1
+              continue
+            fi
+            echo "== run $bin =="
+            if "$bin" < /dev/null; then
+              echo "$proj: native binary exited 0 on $RID."
+            else
+              rc=$?
+              echo "::error file=$proj::Native binary exited $rc on $RID"
+              failed=1
+            fi
+          done < "$RUNNER_TEMP/aot-projects.txt"
+          exit "$failed"
