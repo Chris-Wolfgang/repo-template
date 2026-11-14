@@ -464,6 +464,53 @@ jobs:
           Write-Host "✅ NuGet packages created successfully" -ForegroundColor Green
           "has-packages=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
+      # Reproducible-builds standard (claude-sessions standards/reproducible-builds.md, item 4):
+      # every release publishes the hashes of what it built and the environment it built in.
+      # SHA256SUMS.txt: "<sha256>  <tfm>/<file>" for each .dll/.pdb directly in a src project's
+      # bin/Release/<tfm>/ (the files packed above, --no-build), and "<sha256>  <package-file>"
+      # for each .nupkg/.snupkg. Written into nuget-packages/ so the SAME bytes travel in the
+      # artifact to publish-nuget (attested, pushed) and update-release-artifacts (attached).
+      # docs/REPRODUCIBLE-BUILD.md tells a consumer how to rebuild the tag and compare.
+      - name: Write SHA256SUMS.txt and BUILD-MANIFEST.txt
+        if: steps.check-packages.outputs.has-packages == 'true'
+        shell: bash
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          sums="nuget-packages/SHA256SUMS.txt"
+          : > "$sums.tmp"
+          while IFS= read -r proj; do
+            bin="$(dirname "$proj")/bin/Release"
+            [ -d "$bin" ] || continue
+            (cd "$bin" && find . -mindepth 2 -maxdepth 2 -type f \( -iname '*.dll' -o -iname '*.pdb' \) | sed 's|^\./||' | while IFS= read -r f; do
+              printf '%s  %s\n' "$(sha256sum "$f" | cut -d' ' -f1)" "$f"
+            done) >> "$sums.tmp"
+          done < <(git ls-files 'src/*.csproj' 'src/**/*.csproj')
+          (cd nuget-packages && for f in *.nupkg *.snupkg; do
+            [ -f "$f" ] && printf '%s  %s\n' "$(sha256sum "$f" | cut -d' ' -f1)" "$f"
+          done; true) >> "$sums.tmp"
+          if ! grep -qE '\.(dll|pdb)$' "$sums.tmp"; then
+            echo "::error::No .dll/.pdb found under src/*/bin/Release/<tfm>/ - SHA256SUMS.txt would not cover the assemblies"
+            exit 1
+          fi
+          sort -u -k2 "$sums.tmp" > "$sums"
+          rm "$sums.tmp"
+          cat > nuget-packages/BUILD-MANIFEST.txt <<EOF
+          tag: ${TAG_NAME}
+          commit: ${GITHUB_SHA}
+          repository: ${GITHUB_REPOSITORY}
+          workflow-run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}
+          dotnet-sdk: $(dotnet --version)
+          runner-os: ${RUNNER_OS} ${RUNNER_ARCH}
+          runner-image: ${ImageOS:-unknown} ${ImageVersion:-unknown}
+          CI: ${CI:-}
+          ContinuousIntegrationBuild: $(dotnet msbuild "$(git ls-files 'src/*.csproj' 'src/**/*.csproj' | head -n1)" -noLogo -getProperty:ContinuousIntegrationBuild -p:Configuration=Release | tr -d '[:space:]')
+          Deterministic: $(dotnet msbuild "$(git ls-files 'src/*.csproj' 'src/**/*.csproj' | head -n1)" -noLogo -getProperty:Deterministic -p:Configuration=Release | tr -d '[:space:]')
+          EOF
+          echo "--- SHA256SUMS.txt"; cat "$sums"
+          echo "--- BUILD-MANIFEST.txt"; cat nuget-packages/BUILD-MANIFEST.txt
+
       - name: Smoke test NuGet package installation
         shell: pwsh
         run: |
@@ -759,7 +806,12 @@ jobs:
         id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
-          subject-path: './packages/*.nupkg'
+          # The two reproducible-build assets are subjects too, so `gh attestation verify`
+          # covers the published hashes and build environment as well as the packages.
+          subject-path: |
+            ./packages/*.nupkg
+            ./packages/SHA256SUMS.txt
+            ./packages/BUILD-MANIFEST.txt
 
       # The attestation above is recorded in GitHub's attestation store, which is what
       # `gh attestation verify` reads. Tooling that audits the RELEASE PAGE - OpenSSF
@@ -892,7 +944,7 @@ jobs:
           TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
           shopt -s nullglob
-          files=(./nuget-packages/*.nupkg ./nuget-packages/*.snupkg ./nuget-packages/*.bom.json ./provenance/*.intoto.jsonl)
+          files=(./nuget-packages/*.nupkg ./nuget-packages/*.snupkg ./nuget-packages/*.bom.json ./nuget-packages/SHA256SUMS.txt ./nuget-packages/BUILD-MANIFEST.txt ./provenance/*.intoto.jsonl)
           # nullglob only drops unmatched *patterns*; a literal name stays and would make
           # `gh release upload` fail, so add the coverage zip only when it exists.
           if [ -f release-coverage.zip ]; then files+=(release-coverage.zip); fi

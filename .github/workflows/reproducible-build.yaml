@@ -1,0 +1,274 @@
+name: Reproducible Build
+
+# Fleet standard: claude-sessions standards/reproducible-builds.md (decided 2026-11-07), item 3.
+# One canonical copy, synced down byte-identical; the per-repo project list comes from discovery
+# (every packable project under src/), never a hard-coded name. See docs/REPRODUCIBLE-BUILD.md.
+#
+# Gate (job "Reproducible build", ubuntu-latest): pack the same commit twice with CI=true, with a
+# full `git clean` in between, and fail unless
+#   - every .dll and .pdb in each packable project's bin/Release/<tfm>/ is byte-identical, and
+#   - every .nupkg/.snupkg matches ENTRY BY ENTRY.
+# The package files themselves are never compared: NuGet stamps each zip entry with the pack time,
+# so the same commit gives a different .nupkg file on every run, even on one OS.
+#
+# Report (job "Reproducible build (Windows report)", windows-latest): one pack of the same commit,
+# whose hashes are diffed against the Ubuntu manifest and printed in the job summary. Cross-OS
+# identity is reported, not gated (the standard's bar), and this job never fails the workflow.
+#
+# A repository with no packable project under src/ (repo-template itself, apps) passes the gate
+# with a notice, so the check always reports and can be required. Same-OS identity does not
+# depend on Directory.Build.targets, the RefAsm pin or global.json, so the gate is green for a
+# repo that has not synced those yet; the Windows report is what shows their effect.
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reproducible-build:
+    name: Reproducible build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      has-packable: ${{ steps.discover.outputs.has-packable }}
+    env:
+      # Turns on ContinuousIntegrationBuild in Directory.Build.props (deterministic source paths).
+      CI: 'true'
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The SDK the release builds with: global.json when the repo has one (the standard's
+      # recorded SDK), else the current major.
+      - name: Setup .NET (global.json)
+        if: hashFiles('global.json') != ''
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Setup .NET (no global.json)
+        if: hashFiles('global.json') == ''
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Discover packable projects
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+          list="$RUNNER_TEMP/repro-projects.txt"
+          : > "$list"
+          # Evaluated through MSBuild so an IsPackable inherited from Directory.Build.props or set
+          # conditionally counts. A failed evaluation fails the step; it never reads as "skip".
+          while IFS= read -r proj; do
+            if ! packable=$(dotnet msbuild "$proj" -noLogo -getProperty:IsPackable 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$proj::MSBuild evaluation of IsPackable failed for $proj"
+              cat "$RUNNER_TEMP/msbuild-eval.err"
+              exit 1
+            fi
+            packable=$(printf '%s' "$packable" | tr -d '[:space:]')
+            if [ "${packable,,}" = "true" ]; then
+              echo "packable: $proj"
+              printf '%s\n' "$proj" >> "$list"
+            else
+              echo "not packable (IsPackable=${packable:-<empty>}): $proj"
+            fi
+          done < <(git ls-files 'src/*.csproj' 'src/**/*.csproj')
+          if [ -s "$list" ]; then
+            echo "has-packable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No packable project under src/ - nothing to reproduce; passing."
+            echo "has-packable=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write the hash helper
+        if: steps.discover.outputs.has-packable == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/repro-hash.py" <<'PY'
+          # Usage: repro-hash.py <project-list> <pack-dir> <manifest-out>
+          # Lines: "<sha256>  <key>", sorted by key. Keys: "<tfm>/<file>" for the .dll/.pdb directly in
+          # each project's bin/Release/<tfm>/, and "<package-file>!<entry>" for every zip entry.
+          import hashlib, pathlib, sys, zipfile
+          projects, pack_dir, out = sys.argv[1:4]
+          lines = set()
+          for proj in pathlib.Path(projects).read_text(encoding="utf-8").split():
+              rel = pathlib.Path(proj).parent / "bin" / "Release"
+              if not rel.is_dir():
+                  sys.exit(f"no {rel.as_posix()} after pack of {proj}")
+              for tfm in sorted(p for p in rel.iterdir() if p.is_dir()):
+                  for f in sorted(tfm.iterdir()):
+                      if f.is_file() and f.suffix.lower() in (".dll", ".pdb"):
+                          lines.add(f"{hashlib.sha256(f.read_bytes()).hexdigest()}  {tfm.name}/{f.name}")
+          pkgs = sorted(p for p in pathlib.Path(pack_dir).iterdir() if p.suffix in (".nupkg", ".snupkg"))
+          if not pkgs:
+              sys.exit(f"no .nupkg in {pack_dir}")
+          for pkg in pkgs:
+              with zipfile.ZipFile(pkg) as z:
+                  for e in z.infolist():
+                      if not e.is_dir():
+                          lines.add(f"{hashlib.sha256(z.read(e)).hexdigest()}  {pkg.name}!{e.filename}")
+          pathlib.Path(out).write_text("".join(l + "\n" for l in sorted(lines, key=lambda l: (l.split("  ", 1)[1], l))), encoding="utf-8", newline="\n")
+          print(f"{len(lines)} hashes -> {out}")
+          PY
+
+      - name: Pack (first build)
+        if: steps.discover.outputs.has-packable == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet --version
+          while IFS= read -r proj; do
+            dotnet pack "$proj" -c Release -p:ContinuousIntegrationBuild=true -p:Deterministic=true -o "$RUNNER_TEMP/pack-1"
+          done < "$RUNNER_TEMP/repro-projects.txt"
+          python3 "$RUNNER_TEMP/repro-hash.py" "$RUNNER_TEMP/repro-projects.txt" "$RUNNER_TEMP/pack-1" "$RUNNER_TEMP/manifest-1.txt"
+
+      # Everything untracked goes (bin/, obj/, restore output), so the second pack starts cold.
+      - name: Clean the working tree
+        if: steps.discover.outputs.has-packable == 'true'
+        run: git clean -xffd
+
+      - name: Pack (second build)
+        if: steps.discover.outputs.has-packable == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r proj; do
+            dotnet pack "$proj" -c Release -p:ContinuousIntegrationBuild=true -p:Deterministic=true -o "$RUNNER_TEMP/pack-2"
+          done < "$RUNNER_TEMP/repro-projects.txt"
+          python3 "$RUNNER_TEMP/repro-hash.py" "$RUNNER_TEMP/repro-projects.txt" "$RUNNER_TEMP/pack-2" "$RUNNER_TEMP/manifest-2.txt"
+
+      - name: Compare the two builds
+        if: steps.discover.outputs.has-packable == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$RUNNER_TEMP/manifest-1.txt" manifest-ubuntu.txt
+          {
+            echo "### Reproducible build (Ubuntu, same commit packed twice)"
+            echo
+            echo "SDK: \`$(dotnet --version)\`, $(wc -l < manifest-ubuntu.txt) hashed files and package entries."
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+          if diff -u "$RUNNER_TEMP/manifest-1.txt" "$RUNNER_TEMP/manifest-2.txt" > "$RUNNER_TEMP/repro.diff"; then
+            echo "Identical: every .dll/.pdb per TFM and every package entry." >> "$GITHUB_STEP_SUMMARY"
+            echo "Reproducible: two packs of the same commit are byte-identical."
+          else
+            cat "$RUNNER_TEMP/repro.diff"
+            {
+              echo "**Not reproducible** - these differ between the two packs:"
+              echo
+              echo '```diff'
+              cat "$RUNNER_TEMP/repro.diff"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Two packs of the same commit on the same runner differ - the build is not deterministic."
+            exit 1
+          fi
+
+      - name: Upload the Ubuntu manifest
+        if: steps.discover.outputs.has-packable == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: repro-manifest-ubuntu
+          path: manifest-ubuntu.txt
+          if-no-files-found: error
+
+  windows-report:
+    name: Reproducible build (Windows report)
+    needs: reproducible-build
+    if: needs.reproducible-build.outputs.has-packable == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    # Cross-OS identity is reported, never gated.
+    continue-on-error: true
+    env:
+      CI: 'true'
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET (global.json)
+        if: hashFiles('global.json') != ''
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Setup .NET (no global.json)
+        if: hashFiles('global.json') == ''
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Download the Ubuntu manifest
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: repro-manifest-ubuntu
+          path: ${{ runner.temp }}/ubuntu
+
+      - name: Pack and compare with Ubuntu
+        shell: bash
+        run: |
+          set -euo pipefail
+          list="$RUNNER_TEMP/repro-projects.txt"
+          git ls-files 'src/*.csproj' 'src/**/*.csproj' | while IFS= read -r proj; do
+            packable=$(dotnet msbuild "$proj" -noLogo -getProperty:IsPackable | tr -d '[:space:]')
+            if [ "${packable,,}" = "true" ]; then printf '%s\n' "$proj"; fi
+          done > "$list"
+          while IFS= read -r proj; do
+            dotnet pack "$proj" -c Release -p:ContinuousIntegrationBuild=true -p:Deterministic=true -o "$RUNNER_TEMP/pack-win"
+          done < "$list"
+          python - "$list" "$RUNNER_TEMP/pack-win" "$RUNNER_TEMP/manifest-windows.txt" <<'PY'
+          import hashlib, pathlib, sys, zipfile
+          projects, pack_dir, out = sys.argv[1:4]
+          lines = set()
+          for proj in pathlib.Path(projects).read_text(encoding="utf-8").split():
+              rel = pathlib.Path(proj).parent / "bin" / "Release"
+              for tfm in sorted(p for p in rel.iterdir() if p.is_dir()):
+                  for f in sorted(tfm.iterdir()):
+                      if f.is_file() and f.suffix.lower() in (".dll", ".pdb"):
+                          lines.add(f"{hashlib.sha256(f.read_bytes()).hexdigest()}  {tfm.name}/{f.name}")
+          for pkg in sorted(p for p in pathlib.Path(pack_dir).iterdir() if p.suffix in (".nupkg", ".snupkg")):
+              with zipfile.ZipFile(pkg) as z:
+                  for e in z.infolist():
+                      if not e.is_dir():
+                          lines.add(f"{hashlib.sha256(z.read(e)).hexdigest()}  {pkg.name}!{e.filename}")
+          pathlib.Path(out).write_text("".join(l + "\n" for l in sorted(lines, key=lambda l: (l.split("  ", 1)[1], l))), encoding="utf-8", newline="\n")
+          PY
+          {
+            echo "### Cross-OS report (Windows vs Ubuntu) - information only, never gates"
+            echo
+            echo "Windows SDK: \`$(dotnet --version)\`."
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+          if diff -u "$RUNNER_TEMP/ubuntu/manifest-ubuntu.txt" "$RUNNER_TEMP/manifest-windows.txt" > "$RUNNER_TEMP/cross-os.diff"; then
+            echo "Byte-identical across operating systems: every .dll/.pdb per TFM and every package entry." >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "Differs across operating systems (expected until Directory.Build.targets and the RefAsm pin are synced):"
+              echo
+              echo '```diff'
+              cat "$RUNNER_TEMP/cross-os.diff"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::Windows and Ubuntu outputs differ; see the job summary. Reported, not gated."
+          fi
