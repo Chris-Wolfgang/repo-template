@@ -71,7 +71,7 @@
     </PackageReference>
     
     <!-- Meziantou - Comprehensive code quality -->
-    <PackageReference Include="Meziantou.Analyzer" Version="3.0.320">
+    <PackageReference Include="Meziantou.Analyzer" Version="3.0.339">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
