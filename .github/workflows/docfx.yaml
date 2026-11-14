@@ -56,8 +56,36 @@ env:
   VSTEST_CONNECTION_TIMEOUT: 300
 
 jobs:
+  # Skip cleanly (green) when there is nothing to document: no docfx_project/docfx.json,
+  # or no src/**/*.csproj for `docfx metadata` to read (docfx.json globs src/**/*.csproj).
+  # Without a project, `dotnet restore` fails with MSB1003 at the repo root, or docfx
+  # build fails with InvalidTocInclude because api/toc.yml is never generated.
+  detect-docfx-src:
+    name: Detect docs sources
+    runs-on: ubuntu-latest
+    outputs:
+      found: ${{ steps.check.outputs.found }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Detect docfx project and source projects
+        id: check
+        shell: bash
+        run: |
+          if [ -f docfx_project/docfx.json ] && [ -n "$(find src -name '*.csproj' -print -quit 2>/dev/null)" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No docfx_project/docfx.json or no src/**/*.csproj - skipping docs build."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build-and-deploy:
     name: Build & Deploy Documentation
+    needs: detect-docfx-src
+    if: needs.detect-docfx-src.outputs.found == 'true'
     runs-on: windows-latest
 
     permissions:
