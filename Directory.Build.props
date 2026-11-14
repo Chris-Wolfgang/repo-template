@@ -113,10 +113,13 @@
          Change these three lines when forking the template for another owner. -->
     <Authors>Chris Wolfgang</Authors>
     <Company>Chris Wolfgang</Company>
-    <!-- A literal year, never $([System.DateTime]::UtcNow.Year): that puts the BUILD year in
-         AssemblyCopyrightAttribute, so a rebuild after 1 January no longer matches the
-         released binary and the build is no longer reproducible. Keep it in step with
-         LICENSE. -->
+    <!-- A literal year range, never $([System.DateTime]::UtcNow.Year): that puts the BUILD year
+         in AssemblyCopyrightAttribute, so a rebuild after 1 January no longer matches the
+         released binary and the build is no longer reproducible (fleet standard:
+         reproducible-builds, item 2). Form: <first-year>-<release-year>, a single year while
+         the two are equal. scripts/setup.ps1 writes the creation year here; the first release
+         PR of each new calendar year bumps the second year, next to the <Version> bump. Keep
+         it in step with LICENSE. -->
     <Copyright>Copyright (c) 2026 Chris Wolfgang</Copyright>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -125,6 +128,17 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
+
+  <ItemGroup Condition="$(_RelativeProjectDir.StartsWith('src/')) and $(TargetFramework.StartsWith('net4'))">
+    <!-- Byte-identical output across operating systems (fleet standard: reproducible-builds,
+         item 2). The portable PDB records every referenced assembly's timestamp and MVID. For
+         .NET Framework TFMs the SDK uses the machine's installed targeting pack when there is
+         one (Windows) and this NuGet package when there is not (Linux). They are different
+         builds of the same reference assemblies, so the same commit produced different PDBs,
+         and therefore different DLLs, per OS. Referencing the package explicitly makes every
+         OS compile against it. src/ only: tests and tools are never compared across OSes. -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+  </ItemGroup>
 
   <ItemGroup Condition="$(_RelativeProjectDir.StartsWith('src/')) and Exists('$(MSBuildProjectDirectory)/obj/THIRD-PARTY-NOTICES.md')">
     <!-- Third-party attribution: scripts/third-party-notices.ps1 renders the
