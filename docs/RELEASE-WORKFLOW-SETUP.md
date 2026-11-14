@@ -175,6 +175,7 @@ Before publishing a production GitHub Release (for example `v1.0.0`):
 - [ ] Every `src/` change since the last release has a changelog fragment (or the `no-changelog` label)
 - [ ] `pwsh ./scripts/changelog.ps1 assemble -Version X.Y.Z` run and merged
 - [ ] `<Version>X.Y.Z</Version>` set in the `src/` csproj(s) (the tag must match one of them) and merged
+- [ ] First release of a new calendar year: `<Copyright>` in `Directory.Build.props` bumped to `<first-year>-<this-year>` in the same PR (a literal year, never the build clock, so the tag rebuilds byte-identical; `LICENSE` kept in step)
 - [ ] Local dry run passes: `pwsh ./scripts/build-pr.ps1`
 - [ ] Security tab shows no open High/Critical alerts
 
