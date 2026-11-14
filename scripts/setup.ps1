@@ -65,6 +65,7 @@ $script:FilesToUpdate = @(
     'docfx_project/docs/index.md',
     'docfx_project/docs/introduction.md',
     'docfx_project/docs/getting-started.md',
+    'docs/REPRODUCIBLE-BUILD.md',
     'BannedSymbols.txt',
     '.github/workflows/benchmarks.yaml'
 )
