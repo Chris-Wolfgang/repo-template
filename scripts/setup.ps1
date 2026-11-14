@@ -65,6 +65,7 @@ $script:FilesToUpdate = @(
     'docfx_project/docs/index.md',
     'docfx_project/docs/introduction.md',
     'docfx_project/docs/getting-started.md',
+    'docs/REPRODUCIBLE-BUILD.md',
     'BannedSymbols.txt',
     '.github/workflows/benchmarks.yaml'
 )
@@ -639,6 +640,27 @@ function Start-Setup {
         # Save as LICENSE
         Set-Content -Path 'LICENSE' -Value $licenseContent -Encoding utf8NoBOM -NoNewline
         Write-Success "Created LICENSE file ($licenseType)"
+
+        # Directory.Build.props carries a literal copyright year (never the build clock, so a
+        # rebuild of a tag stays byte-identical). Stamp it with this repository's first year;
+        # the first release PR of each later year turns it into <first-year>-<release-year>.
+        # Only the year is rewritten: the holder in the props is owner-specific by design.
+        if (Test-Path 'Directory.Build.props') {
+            $props = Get-Content 'Directory.Build.props' -Raw
+            $copyrightPattern = '(<Copyright>Copyright \(c\) )\d{4}(?:-\d{4})?( [^<]*</Copyright>)'
+            if ($props -match $copyrightPattern) {
+                $props = [regex]::Replace(
+                    $props,
+                    $copyrightPattern,
+                    [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $m.Groups[1].Value + $year + $m.Groups[2].Value }
+                )
+                Set-Content -Path 'Directory.Build.props' -Value $props -Encoding utf8NoBOM -NoNewline
+                Write-Success "Set the Directory.Build.props copyright year to $year"
+            }
+            else {
+                Write-Warning "No literal <Copyright> year found in Directory.Build.props; set it by hand to $year"
+            }
+        }
         
         # Delete all license templates
         Remove-Item 'LICENSE-MIT.txt' -Force -ErrorAction SilentlyContinue

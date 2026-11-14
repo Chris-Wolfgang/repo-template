@@ -2,6 +2,8 @@
 # Stage 1: Linux tests with 90% coverage requirement
 # Stage 2: Windows .NET (5.0-10.0) and .NET Framework (4.6.2-4.8.1) tests (only if Linux passes)
 # Stage 3: macOS tests (only if Stage 2 passes)
+# Stage 4: Linux ARM64 tests and Stage 5: Windows ARM64 tests (net6.0+, in parallel with
+#   Stages 1-3, public repositories only; fleet standard test-matrix)
 #
 # SECURITY NOTE:
 # - Runs on `pull_request` (and on push to main): the PR's own code AND its own copies of this
@@ -2025,6 +2027,712 @@ jobs:
   # ============================================================================
   # Security Scan (Runs in parallel, independently of .NET jobs)
   # ============================================================================
+  # ============================================================================
+  # ARM64 STAGES (fleet standard: claude-sessions standards/test-matrix.md, decided 2026-11-07)
+  # ============================================================================
+  # ARM64 is a gate. Both stages run on every pull request IN PARALLEL with Stages 1-3
+  # (needs: detect-projects only) and run the test suite over the TFMs that runtime supports
+  # on that architecture. The TFM exclusion table, quoted from the standard; it is encoded
+  # once, in the "net(6.0|...|11.0)" filter these stages share with Stage 3:
+  #
+  #   | Leg           | Runs                          | Skips                                  |
+  #   |---------------|-------------------------------|----------------------------------------|
+  #   | linux-x64     | netcoreapp3.1 and net5.0+     | .NET Framework                         |
+  #   | linux-arm64   | net6.0 and later              | netcoreapp3.1, net5.0, .NET Framework  |
+  #   | windows-x64   | every TFM, net462 to net11.0  | none                                   |
+  #   | windows-arm64 | net6.0 and later              | .NET Framework, netcoreapp3.1, net5.0  |
+  #   | macos-arm64   | net6.0 and later              | netcoreapp3.1, net5.0, .NET Framework  |
+  #
+  # linux-arm64: the EOL runtimes need OpenSSL 1.1, absent on ubuntu-24.04-arm. windows-arm64:
+  # .NET Framework runs only under x64 emulation there (Stage 2 covers it). The arm64 hosted
+  # runners are free on public repositories only, so a private repository skips both stages
+  # by condition (a known deviation: it does not require them in its ruleset until public).
+  # PR_PLATFORMS does not switch these stages off: the standard makes them a gate.
+  # Coverage is gated once, on Stage 1; these stages prove the tests PASS on ARM64.
+  test-linux-arm64:
+    name: "Stage 4: Linux ARM64 Tests"
+    runs-on: ubuntu-24.04-arm
+    needs: detect-projects
+    if: >-
+      github.repository != 'Chris-Wolfgang/repo-template'
+      && needs.detect-projects.outputs.has-projects == 'true'
+      && !github.event.repository.private
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73  # v6.1.0
+        with:
+          dotnet-version: |
+            6.0.x
+            7.0.x
+            8.0.x
+            9.0.x
+            10.0.x
+            11.0.x
+
+      - name: Restore .NET workloads
+        # Some projects (MAUI / MauiHybrid / Android / iOS / WPF) declare workloads via
+        # their TFMs (e.g. net10.0-android). For workload-bearing repos this installs them
+        # before restore; for pure-library repos with no workload TFMs, skip entirely to
+        # avoid ~5-15s of network-dependent setup and an extra failure mode.
+        shell: bash
+        run: |
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' {} \; | grep -q .; then
+            echo "Workload-bearing TFMs detected — running dotnet workload restore"
+            dotnet workload restore
+          else
+            echo "No workload-bearing TFMs in any csproj — skipping dotnet workload restore"
+          fi
+
+      - name: Restore and build (exclude .NET Framework-only projects)
+        run: |
+          echo "Enumerating tracked .NET project files (git ls-files)..."
+          
+          # Filter out projects that ONLY target .NET Framework 4.x
+          # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
+          projects=()
+          project_found=false
+          
+          while IFS= read -r -d '' proj; do
+            project_found=true
+            # Check if project has any .NET 6+ target framework (linux-arm64)
+            # Look for: net6.0, net7.0, net8.0, net9.0, net10.0, net11.0
+            # Normalize newlines to spaces so multi-line <TargetFrameworks> elements are matched correctly
+            if tr $'\n' ' ' < "$proj" | grep -qE '<TargetFramework[s]?>[^<]*net(6\.0|7\.0|8\.0|9\.0|10\.0|11\.0)'; then
+              projects+=("$proj")
+              echo "✓ Including: $proj (has .NET 6+ target)"
+            else
+              echo "⊘ Excluding: $proj (no .NET 6+ target, no linux-arm64 runtime)"
+            fi
+          done < <(git ls-files -z -- '*.csproj' '*.vbproj' '*.fsproj')
+          
+          if [ "$project_found" = false ]; then
+            echo "❌ No .NET projects found."
+            echo "This should not occur as detect-projects already verified project existence."
+            exit 1
+          fi
+          
+          if [ ${#projects[@]} -eq 0 ]; then
+            echo "❌ No compatible .NET projects found."
+            echo "All projects lack .NET 6+ targets, the only ones Stage 4 runs."
+            exit 1
+          fi
+          
+          echo ""
+          echo "=========================================="
+          echo "Projects to build (excluding .NET Framework-only projects):"
+          echo "=========================================="
+          printf '%s\n' "${projects[@]}"
+          echo ""
+          
+          # Restore each project
+          echo "Restoring projects..."
+          for proj in "${projects[@]}"; do
+            echo "Restoring: $proj"
+            dotnet restore "$proj" || exit 1
+          done
+          
+          echo ""
+          echo "Building projects..."
+          # Build each project, handling multi-targeting projects
+          # For multi-targeting projects, build only linux-arm64 frameworks (net6.0-10.0)
+          for proj in "${projects[@]}"; do
+            echo "Building: $proj"
+            
+            # Extract target frameworks via MSBuild property evaluation (handles multi-line XML
+            # and Directory.Build.props inheritance). Filter to .NET 6+ for linux-arm64.
+            # Falls back from <TargetFrameworks> (multiple) to <TargetFramework> (single).
+            # Evaluate first, filter second. A failed evaluation (broken csproj, missing SDK)
+            # must fail the step. A single-TFM project sets <TargetFramework>, not
+            # <TargetFrameworks>, so the first query legitimately prints nothing; grep -v then
+            # selects no lines and exits 1, which under this step's `bash -eo pipefail` would
+            # kill the step before the <TargetFramework> fallback runs. The `|| true` therefore
+            # covers only the text filter, never the msbuild call.
+            if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$proj::MSBuild evaluation of TargetFrameworks failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+            fi
+            tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            if [ -z "$tfm_raw" ]; then
+              if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFramework 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$proj::MSBuild evaluation of TargetFramework failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            fi
+            frameworks=$(printf '%s' "$tfm_raw" | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0|11\.0)$' || true)
+            
+            if [ -z "$frameworks" ]; then
+              echo "⚠️  No linux-arm64 frameworks found in $proj"
+              continue
+            fi
+            
+            # Check if this is a multi-targeting project
+            framework_count=$(echo "$frameworks" | wc -l)
+            
+            if [ "$framework_count" -eq 1 ]; then
+              # Single target framework - build normally
+              echo "  Target framework: $frameworks"
+              dotnet build "$proj" --no-restore --configuration Release || exit 1
+            else
+              # Multi-targeting project - build each compatible framework separately
+              echo "  Target frameworks (multi-targeting): $(echo "$frameworks" | tr '\n' ' ')"
+              while IFS= read -r fw; do
+                [ -z "$fw" ] && continue
+                echo "  Building framework: $fw"
+                dotnet build "$proj" --no-restore --configuration Release --framework "$fw" || exit 1
+              done <<< "$frameworks"
+            fi
+          done
+          
+          echo ""
+          echo "✅ All compatible projects built successfully"
+
+      - name: Run tests (.NET 6.0 and later)
+        # Explicit bash for pipefail — see Stage 1.
+        shell: bash
+        run: |
+          # Find all test projects (C#, VB.NET, F#).
+          # Gracefully skip if there is no ./tests directory (e.g. template-publishing
+          # repos or library repos in early development that have no tests yet).
+          # Fail loudly if the repo HAS src/ projects — this stage exists to
+          # prove shipping code passes its tests on ARM64, so silently
+          # passing when tests are missing is the wrong default. Skip only
+          # for template-pack / in-dev repos with no source projects yet.
+          if [ ! -d ./tests ]; then
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ ./tests directory is missing but ./src contains projects — refusing to silently skip the test stage."
+              exit 1
+            fi
+            echo "ℹ️  No ./tests directory and no ./src projects — skipping test stage (template-pack / in-dev shape)."
+            exit 0
+          fi
+
+          # Assemblies that actually ran tests in this job, recorded as Stage 3 does. This step is
+          # Stage 3's test step minus the coverage collection (Stage 1 gates coverage), kept
+          # line for line so a fix to one is easy to carry to the others.
+          ran_assemblies_file="$RUNNER_TEMP/stage4-ran-test-assemblies.txt"
+          : > "$ran_assemblies_file"
+
+          # Assembly names of EVERY project under tests/ (ran here or not), as MSBuild
+          # evaluates them per TFM; a failed or empty evaluation fails the step (see Stage 1).
+          test_assemblies_file="$RUNNER_TEMP/stage4-test-assembly-names.txt"
+          : > "$test_assemblies_file"
+
+          # while-read rather than mapfile: macOS runners ship bash 3.2, which has no
+          # mapfile (the step would die with exit 127 before running a single test).
+          test_projects=()
+          while IFS= read -r -d '' file; do
+            test_projects+=("$file")
+          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
+
+          if [ ${#test_projects[@]} -eq 0 ]; then
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the test stage."
+              exit 1
+            fi
+            echo "ℹ️  No test projects found under ./tests and no ./src projects — skipping test stage (template-pack / in-dev shape)."
+            exit 0
+          fi
+          
+          echo "=========================================="
+          echo "Found test projects:"
+          echo "=========================================="
+          printf '%s\n' "${test_projects[@]}"
+          echo ""
+          
+          # The TFM list lives in the step summary, not the job name: a ruleset requires
+          # a check by exact name, so a name that encodes TFMs breaks on every TFM change.
+          {
+            echo "### Stage 4: Linux ARM64 target frameworks tested"
+            echo ""
+            echo "| Test project | Target frameworks |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for test_proj in "${test_projects[@]}"; do
+            echo "=========================================="
+            echo "Testing project: $test_proj"
+            echo "=========================================="
+            
+            # Projects that set <RequiresLinuxContainers>true</RequiresLinuxContainers> are skipped
+            # here, as on Stages 2 and 3: the containers those suites start are x64 images
+            # (SQL Server has no arm64 image). Stage 1 (Linux x64) runs and coverage-gates them. The marker decides, not
+            # the project name. A failed evaluation fails the step, and so does any value other
+            # than true, false or empty.
+            if ! rlc_out=$(dotnet msbuild "$test_proj" -noLogo -getProperty:RequiresLinuxContainers 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$test_proj::MSBuild evaluation of RequiresLinuxContainers failed for $test_proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+            fi
+            rlc=$(printf '%s\n' "$rlc_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^RequiresLinuxContainers[=:][[:space:]]*//' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]' || true)
+            case "$rlc" in
+              true)
+                echo "::notice file=$test_proj::RequiresLinuxContainers=true: skipped on Stage 4 (its Linux containers are x64 images); it runs and is coverage-gated in Stage 1."
+                echo ""
+                continue
+                ;;
+              ''|false) ;;
+              *)
+                echo "::error file=$test_proj::RequiresLinuxContainers must be true or false, not '$rlc'"
+                exit 1
+                ;;
+            esac
+
+            # Extract target frameworks via MSBuild property evaluation (handles multi-line XML
+            # and Directory.Build.props inheritance). Filter to .NET 6+ for linux-arm64.
+            # Falls back from <TargetFrameworks> (multiple) to <TargetFramework> (single).
+            # Evaluate first, filter second. A failed evaluation (broken csproj, missing SDK)
+            # must fail the step. A single-TFM project sets <TargetFramework>, not
+            # <TargetFrameworks>, so the first query legitimately prints nothing; grep -v then
+            # selects no lines and exits 1, which under this step's `bash -eo pipefail` would
+            # kill the step before the <TargetFramework> fallback runs. The `|| true` therefore
+            # covers only the text filter, never the msbuild call.
+            if ! tfm_out=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$test_proj::MSBuild evaluation of TargetFrameworks failed for $test_proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+            fi
+            tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            if [ -z "$tfm_raw" ]; then
+              if ! tfm_out=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFramework 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$test_proj::MSBuild evaluation of TargetFramework failed for $test_proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            fi
+            frameworks=$(printf '%s' "$tfm_raw" | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0|11\.0)$' || true)
+
+            # Evaluate the assembly name per TFM through MSBuild, like TargetFrameworks
+            # above (see Stage 1 for why a raw <AssemblyName> grep is not enough).
+            # Every TFM is evaluated, not only the ones this stage runs. A failed or
+            # empty evaluation fails the step.
+            asm_by_fw=""
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
+              if ! asm_out=$(dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:AssemblyName 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$test_proj::MSBuild evaluation of AssemblyName failed for $test_proj ($fw)"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              asm=$(printf '%s\n' "$asm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^AssemblyName[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+              if [ -z "$asm" ]; then
+                echo "::error file=$test_proj::MSBuild evaluated an empty AssemblyName for $test_proj ($fw)"; exit 1
+              fi
+              asm_by_fw="${asm_by_fw}${fw} ${asm}"$'\n'
+              echo "$asm" >> "$test_assemblies_file"
+            done < <(printf '%s' "$tfm_raw" | tr ';' '\n')
+            
+            if [ -z "$frameworks" ]; then
+              echo "⊘ Skipping: No compatible .NET 6.0-10.0 target frameworks found (ARM64 required)"
+              echo ""
+              continue
+            fi
+            
+            # Only projects that really run tests: an AOT smoke executable or a fixture
+            # under tests/ has nothing for the adapter to execute and would trip the
+            # zero-tests guard below. IsTestProject comes from Microsoft.NET.Test.Sdk's
+            # props (imported per TFM after restore); fall back to the PackageReference
+            # itself. A project under tests/ is skipped ONLY on an explicit opt-out:
+            # `<IsTestProject>false</IsTestProject>` in its project file (Test.Sdk sets
+            # the property only when it is still empty, so the opt-out always wins).
+            # A project with neither Test.Sdk nor the opt-out FAILS the step: a test
+            # project that lost its Microsoft.NET.Test.Sdk reference used to drop out
+            # of the gate silently, before the zero-tests guard could see it.
+            # Mirrors scripts/build-pr.ps1 and scripts/tfm-parity.ps1 (which still skip).
+            is_test_project=false
+            opted_out=false
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
+              is_test_value=$(dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:IsTestProject 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+              if [ "$is_test_value" = "true" ]; then
+                is_test_project=true; break
+              fi
+              if [ "$is_test_value" = "false" ]; then
+                opted_out=true; break
+              fi
+              if dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getItem:PackageReference 2>/dev/null | grep -qi '"Identity": *"Microsoft.NET.Test.Sdk"'; then
+                is_test_project=true; break
+              fi
+            done <<< "$frameworks"
+            if [ "$opted_out" = true ]; then
+              echo "⊘ Skipping: opted out of dotnet test (<IsTestProject>false</IsTestProject> is set explicitly)"
+              echo ""
+              continue
+            fi
+            if [ "$is_test_project" = false ]; then
+              echo "::error file=$test_proj::Not a test project (no IsTestProject / Microsoft.NET.Test.Sdk) and no explicit opt-out — a project under ./tests must either reference Microsoft.NET.Test.Sdk or set <IsTestProject>false</IsTestProject>. Skipping it silently would hide a test project that lost its Test.Sdk reference from the zero-tests guard, so this guard fails the job instead."
+              exit 1
+            fi
+
+            echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
+            echo "| $(basename "$test_proj") | $(echo "$frameworks" | tr '\n' ' ') |" >> "$GITHUB_STEP_SUMMARY"
+            echo ""
+            
+            # Test each framework that the project actually targets
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
+              echo "Testing framework: $fw"
+
+              # Zero-tests-ran guard — see Stage 1 for the rationale.
+              test_log=$(mktemp)
+              dotnet test "$test_proj" \
+                --configuration Release \
+                --framework "$fw" \
+                --no-build --no-restore \
+                --results-directory "./TestResults" \
+                --logger "console;verbosity=normal" 2>&1 | tee "$test_log" || exit 1
+              if grep -q "No test is available" "$test_log" || ! grep -qiE "total( tests)?:[[:space:]]*[1-9][0-9]*" "$test_log"; then
+                echo "::error file=$test_proj::Zero tests ran for $fw — the test adapter found nothing to execute (missing/incompatible xunit.runner.visualstudio for this TFM?). dotnet test exits 0 in this case, so this guard fails the job instead."
+                exit 1
+              fi
+              rm -f "$test_log"
+              # Record the evaluated name for THIS TFM (it can differ per TFM); the
+              # row check de-duplicates.
+              printf '%s' "$asm_by_fw" | awk -v fw="$fw" '$1 == fw { print $2 }' >> "$ran_assemblies_file"
+            done <<< "$frameworks"
+            echo ""
+          done
+
+  test-windows-arm64:
+    name: "Stage 5: Windows ARM64 Tests"
+    runs-on: windows-11-arm
+    needs: detect-projects
+    if: >-
+      github.repository != 'Chris-Wolfgang/repo-template'
+      && needs.detect-projects.outputs.has-projects == 'true'
+      && !github.event.repository.private
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73  # v6.1.0
+        with:
+          dotnet-version: |
+            6.0.x
+            7.0.x
+            8.0.x
+            9.0.x
+            10.0.x
+            11.0.x
+
+      - name: Restore .NET workloads
+        # Some projects (MAUI / MauiHybrid / Android / iOS / WPF) declare workloads via
+        # their TFMs (e.g. net10.0-android). For workload-bearing repos this installs them
+        # before restore; for pure-library repos with no workload TFMs, skip entirely to
+        # avoid ~5-15s of network-dependent setup and an extra failure mode.
+        shell: bash
+        run: |
+          if find . -name '*.csproj' -type f -exec grep -lE 'net[0-9]+\.[0-9]+-(android|ios|maccatalyst|maui|tvos|tizen|browser)' {} \; | grep -q .; then
+            echo "Workload-bearing TFMs detected — running dotnet workload restore"
+            dotnet workload restore
+          else
+            echo "No workload-bearing TFMs in any csproj — skipping dotnet workload restore"
+          fi
+
+      - name: Restore and build (exclude .NET Framework-only projects)
+        shell: bash
+        run: |
+          echo "Enumerating tracked .NET project files (git ls-files)..."
+          
+          # Filter out projects that ONLY target .NET Framework 4.x
+          # Multi-targeting projects (e.g., net8.0;net48) will be INCLUDED
+          projects=()
+          project_found=false
+          
+          while IFS= read -r -d '' proj; do
+            project_found=true
+            # Check if project has any .NET 6+ target framework (windows-arm64)
+            # Look for: net6.0, net7.0, net8.0, net9.0, net10.0, net11.0
+            # Normalize newlines to spaces so multi-line <TargetFrameworks> elements are matched correctly
+            if tr $'\n' ' ' < "$proj" | grep -qE '<TargetFramework[s]?>[^<]*net(6\.0|7\.0|8\.0|9\.0|10\.0|11\.0)'; then
+              projects+=("$proj")
+              echo "✓ Including: $proj (has .NET 6+ target)"
+            else
+              echo "⊘ Excluding: $proj (no .NET 6+ target, no windows-arm64 runtime)"
+            fi
+          done < <(git ls-files -z -- '*.csproj' '*.vbproj' '*.fsproj')
+          
+          if [ "$project_found" = false ]; then
+            echo "❌ No .NET projects found."
+            echo "This should not occur as detect-projects already verified project existence."
+            exit 1
+          fi
+          
+          if [ ${#projects[@]} -eq 0 ]; then
+            echo "❌ No compatible .NET projects found."
+            echo "All projects lack .NET 6+ targets, the only ones Stage 5 runs."
+            exit 1
+          fi
+          
+          echo ""
+          echo "=========================================="
+          echo "Projects to build (excluding .NET Framework-only projects):"
+          echo "=========================================="
+          printf '%s\n' "${projects[@]}"
+          echo ""
+          
+          # Restore each project
+          echo "Restoring projects..."
+          for proj in "${projects[@]}"; do
+            echo "Restoring: $proj"
+            dotnet restore "$proj" || exit 1
+          done
+          
+          echo ""
+          echo "Building projects..."
+          # Build each project, handling multi-targeting projects
+          # For multi-targeting projects, build only windows-arm64 frameworks (net6.0-10.0)
+          for proj in "${projects[@]}"; do
+            echo "Building: $proj"
+            
+            # Extract target frameworks via MSBuild property evaluation (handles multi-line XML
+            # and Directory.Build.props inheritance). Filter to .NET 6+ for windows-arm64.
+            # Falls back from <TargetFrameworks> (multiple) to <TargetFramework> (single).
+            # Evaluate first, filter second. A failed evaluation (broken csproj, missing SDK)
+            # must fail the step. A single-TFM project sets <TargetFramework>, not
+            # <TargetFrameworks>, so the first query legitimately prints nothing; grep -v then
+            # selects no lines and exits 1, which under this step's `bash -eo pipefail` would
+            # kill the step before the <TargetFramework> fallback runs. The `|| true` therefore
+            # covers only the text filter, never the msbuild call.
+            if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$proj::MSBuild evaluation of TargetFrameworks failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+            fi
+            tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            if [ -z "$tfm_raw" ]; then
+              if ! tfm_out=$(dotnet msbuild "$proj" -noLogo -getProperty:TargetFramework 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$proj::MSBuild evaluation of TargetFramework failed for $proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            fi
+            frameworks=$(printf '%s' "$tfm_raw" | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0|11\.0)$' || true)
+            
+            if [ -z "$frameworks" ]; then
+              echo "⚠️  No windows-arm64 frameworks found in $proj"
+              continue
+            fi
+            
+            # Check if this is a multi-targeting project
+            framework_count=$(echo "$frameworks" | wc -l)
+            
+            if [ "$framework_count" -eq 1 ]; then
+              # Single target framework - build normally
+              echo "  Target framework: $frameworks"
+              dotnet build "$proj" --no-restore --configuration Release || exit 1
+            else
+              # Multi-targeting project - build each compatible framework separately
+              echo "  Target frameworks (multi-targeting): $(echo "$frameworks" | tr '\n' ' ')"
+              while IFS= read -r fw; do
+                [ -z "$fw" ] && continue
+                echo "  Building framework: $fw"
+                dotnet build "$proj" --no-restore --configuration Release --framework "$fw" || exit 1
+              done <<< "$frameworks"
+            fi
+          done
+          
+          echo ""
+          echo "✅ All compatible projects built successfully"
+
+      - name: Run tests (.NET 6.0 and later)
+        # Explicit bash for pipefail — see Stage 1.
+        shell: bash
+        run: |
+          # Find all test projects (C#, VB.NET, F#).
+          # Gracefully skip if there is no ./tests directory (e.g. template-publishing
+          # repos or library repos in early development that have no tests yet).
+          # Fail loudly if the repo HAS src/ projects — this stage exists to
+          # prove shipping code passes its tests on ARM64, so silently
+          # passing when tests are missing is the wrong default. Skip only
+          # for template-pack / in-dev repos with no source projects yet.
+          if [ ! -d ./tests ]; then
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ ./tests directory is missing but ./src contains projects — refusing to silently skip the test stage."
+              exit 1
+            fi
+            echo "ℹ️  No ./tests directory and no ./src projects — skipping test stage (template-pack / in-dev shape)."
+            exit 0
+          fi
+
+          # Assemblies that actually ran tests in this job, recorded as Stage 3 does. This step is
+          # Stage 3's test step minus the coverage collection (Stage 1 gates coverage), kept
+          # line for line so a fix to one is easy to carry to the others.
+          ran_assemblies_file="$RUNNER_TEMP/stage5-ran-test-assemblies.txt"
+          : > "$ran_assemblies_file"
+
+          # Assembly names of EVERY project under tests/ (ran here or not), as MSBuild
+          # evaluates them per TFM; a failed or empty evaluation fails the step (see Stage 1).
+          test_assemblies_file="$RUNNER_TEMP/stage5-test-assembly-names.txt"
+          : > "$test_assemblies_file"
+
+          # while-read rather than mapfile: macOS runners ship bash 3.2, which has no
+          # mapfile (the step would die with exit 127 before running a single test).
+          test_projects=()
+          while IFS= read -r -d '' file; do
+            test_projects+=("$file")
+          done < <(find ./tests -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print0)
+
+          if [ ${#test_projects[@]} -eq 0 ]; then
+            if find ./src -type f \( -name "*.csproj" -o -name "*.vbproj" -o -name "*.fsproj" \) -print -quit 2>/dev/null | grep -q .; then
+              echo "❌ No test projects under ./tests but ./src contains projects — refusing to silently skip the test stage."
+              exit 1
+            fi
+            echo "ℹ️  No test projects found under ./tests and no ./src projects — skipping test stage (template-pack / in-dev shape)."
+            exit 0
+          fi
+          
+          echo "=========================================="
+          echo "Found test projects:"
+          echo "=========================================="
+          printf '%s\n' "${test_projects[@]}"
+          echo ""
+          
+          # The TFM list lives in the step summary, not the job name: a ruleset requires
+          # a check by exact name, so a name that encodes TFMs breaks on every TFM change.
+          {
+            echo "### Stage 5: Windows ARM64 target frameworks tested"
+            echo ""
+            echo "| Test project | Target frameworks |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for test_proj in "${test_projects[@]}"; do
+            echo "=========================================="
+            echo "Testing project: $test_proj"
+            echo "=========================================="
+            
+            # Projects that set <RequiresLinuxContainers>true</RequiresLinuxContainers> are skipped
+            # here, as on Stages 2 and 3: the containers those suites start are x64 images
+            # (SQL Server has no arm64 image). Stage 1 (Linux x64) runs and coverage-gates them. The marker decides, not
+            # the project name. A failed evaluation fails the step, and so does any value other
+            # than true, false or empty.
+            if ! rlc_out=$(dotnet msbuild "$test_proj" -noLogo -getProperty:RequiresLinuxContainers 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$test_proj::MSBuild evaluation of RequiresLinuxContainers failed for $test_proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+            fi
+            rlc=$(printf '%s\n' "$rlc_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^RequiresLinuxContainers[=:][[:space:]]*//' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]' || true)
+            case "$rlc" in
+              true)
+                echo "::notice file=$test_proj::RequiresLinuxContainers=true: skipped on Stage 5 (Windows runners cannot run Linux containers); it runs and is coverage-gated in Stage 1."
+                echo ""
+                continue
+                ;;
+              ''|false) ;;
+              *)
+                echo "::error file=$test_proj::RequiresLinuxContainers must be true or false, not '$rlc'"
+                exit 1
+                ;;
+            esac
+
+            # Extract target frameworks via MSBuild property evaluation (handles multi-line XML
+            # and Directory.Build.props inheritance). Filter to .NET 6+ for windows-arm64.
+            # Falls back from <TargetFrameworks> (multiple) to <TargetFramework> (single).
+            # Evaluate first, filter second. A failed evaluation (broken csproj, missing SDK)
+            # must fail the step. A single-TFM project sets <TargetFramework>, not
+            # <TargetFrameworks>, so the first query legitimately prints nothing; grep -v then
+            # selects no lines and exits 1, which under this step's `bash -eo pipefail` would
+            # kill the step before the <TargetFramework> fallback runs. The `|| true` therefore
+            # covers only the text filter, never the msbuild call.
+            if ! tfm_out=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFrameworks 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+              echo "::error file=$test_proj::MSBuild evaluation of TargetFrameworks failed for $test_proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+            fi
+            tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFrameworks[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            if [ -z "$tfm_raw" ]; then
+              if ! tfm_out=$(dotnet msbuild "$test_proj" -noLogo -getProperty:TargetFramework 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$test_proj::MSBuild evaluation of TargetFramework failed for $test_proj"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              tfm_raw=$(printf '%s\n' "$tfm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^TargetFramework[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+            fi
+            frameworks=$(printf '%s' "$tfm_raw" | tr ';' '\n' | grep -E '^net(6\.0|7\.0|8\.0|9\.0|10\.0|11\.0)$' || true)
+
+            # Evaluate the assembly name per TFM through MSBuild, like TargetFrameworks
+            # above (see Stage 1 for why a raw <AssemblyName> grep is not enough).
+            # Every TFM is evaluated, not only the ones this stage runs. A failed or
+            # empty evaluation fails the step.
+            asm_by_fw=""
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
+              if ! asm_out=$(dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:AssemblyName 2>"$RUNNER_TEMP/msbuild-eval.err"); then
+                echo "::error file=$test_proj::MSBuild evaluation of AssemblyName failed for $test_proj ($fw)"; cat "$RUNNER_TEMP/msbuild-eval.err"; exit 1
+              fi
+              asm=$(printf '%s\n' "$asm_out" | grep -v '^[[:space:]]*$' | tail -n1 | sed 's/^AssemblyName[=:][[:space:]]*//' | tr -d '[:space:]' || true)
+              if [ -z "$asm" ]; then
+                echo "::error file=$test_proj::MSBuild evaluated an empty AssemblyName for $test_proj ($fw)"; exit 1
+              fi
+              asm_by_fw="${asm_by_fw}${fw} ${asm}"$'\n'
+              echo "$asm" >> "$test_assemblies_file"
+            done < <(printf '%s' "$tfm_raw" | tr ';' '\n')
+            
+            if [ -z "$frameworks" ]; then
+              echo "⊘ Skipping: No compatible .NET 6.0-10.0 target frameworks found (ARM64 required)"
+              echo ""
+              continue
+            fi
+            
+            # Only projects that really run tests: an AOT smoke executable or a fixture
+            # under tests/ has nothing for the adapter to execute and would trip the
+            # zero-tests guard below. IsTestProject comes from Microsoft.NET.Test.Sdk's
+            # props (imported per TFM after restore); fall back to the PackageReference
+            # itself. A project under tests/ is skipped ONLY on an explicit opt-out:
+            # `<IsTestProject>false</IsTestProject>` in its project file (Test.Sdk sets
+            # the property only when it is still empty, so the opt-out always wins).
+            # A project with neither Test.Sdk nor the opt-out FAILS the step: a test
+            # project that lost its Microsoft.NET.Test.Sdk reference used to drop out
+            # of the gate silently, before the zero-tests guard could see it.
+            # Mirrors scripts/build-pr.ps1 and scripts/tfm-parity.ps1 (which still skip).
+            is_test_project=false
+            opted_out=false
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
+              is_test_value=$(dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getProperty:IsTestProject 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+              if [ "$is_test_value" = "true" ]; then
+                is_test_project=true; break
+              fi
+              if [ "$is_test_value" = "false" ]; then
+                opted_out=true; break
+              fi
+              if dotnet msbuild "$test_proj" -noLogo -p:Configuration=Release "-p:TargetFramework=$fw" -getItem:PackageReference 2>/dev/null | grep -qi '"Identity": *"Microsoft.NET.Test.Sdk"'; then
+                is_test_project=true; break
+              fi
+            done <<< "$frameworks"
+            if [ "$opted_out" = true ]; then
+              echo "⊘ Skipping: opted out of dotnet test (<IsTestProject>false</IsTestProject> is set explicitly)"
+              echo ""
+              continue
+            fi
+            if [ "$is_test_project" = false ]; then
+              echo "::error file=$test_proj::Not a test project (no IsTestProject / Microsoft.NET.Test.Sdk) and no explicit opt-out — a project under ./tests must either reference Microsoft.NET.Test.Sdk or set <IsTestProject>false</IsTestProject>. Skipping it silently would hide a test project that lost its Test.Sdk reference from the zero-tests guard, so this guard fails the job instead."
+              exit 1
+            fi
+
+            echo "Target frameworks: $(echo "$frameworks" | tr '\n' ' ')"
+            echo "| $(basename "$test_proj") | $(echo "$frameworks" | tr '\n' ' ') |" >> "$GITHUB_STEP_SUMMARY"
+            echo ""
+            
+            # Test each framework that the project actually targets
+            while IFS= read -r fw; do
+              [ -z "$fw" ] && continue
+              echo "Testing framework: $fw"
+
+              # Zero-tests-ran guard — see Stage 1 for the rationale.
+              test_log=$(mktemp)
+              dotnet test "$test_proj" \
+                --configuration Release \
+                --framework "$fw" \
+                --no-build --no-restore \
+                --results-directory "./TestResults" \
+                --logger "console;verbosity=normal" 2>&1 | tee "$test_log" || exit 1
+              if grep -q "No test is available" "$test_log" || ! grep -qiE "total( tests)?:[[:space:]]*[1-9][0-9]*" "$test_log"; then
+                echo "::error file=$test_proj::Zero tests ran for $fw — the test adapter found nothing to execute (missing/incompatible xunit.runner.visualstudio for this TFM?). dotnet test exits 0 in this case, so this guard fails the job instead."
+                exit 1
+              fi
+              rm -f "$test_log"
+              # Record the evaluated name for THIS TFM (it can differ per TFM); the
+              # row check de-duplicates.
+              printf '%s' "$asm_by_fw" | awk -v fw="$fw" '$1 == fw { print $2 }' >> "$ran_assemblies_file"
+            done <<< "$frameworks"
+            echo ""
+          done
+
+
   security-scan:
     name: "Security Scan (DevSkim)"
     runs-on: ubuntu-latest
