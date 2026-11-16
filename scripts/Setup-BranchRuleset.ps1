@@ -19,6 +19,9 @@
     - Required status checks (tests, security scans)
     - Force push and deletion protection
 
+    After the ruleset it creates the Actions policy that allows pull_request_target for the
+    protected-files guard (see -PullRequestTargetPolicyOnly).
+
 .PARAMETER Repository
     The repository in owner/repo format. If not provided, uses the current repository.
 
@@ -49,6 +52,16 @@
 .PARAMETER MultiDeveloper
     With -Emit, emit the multi-developer variant (1 approving review, code owner review).
 
+.PARAMETER PullRequestTargetPolicyOnly
+    Create only the Actions policy that allows pull_request_target for
+    .github/workflows/protected-files.yaml (baseline item 25), then exit: no ruleset, no prompt,
+    no self-delete. Use it on a repository whose ruleset already exists. Without this switch the
+    policy is created right after the ruleset. GitHub's default Actions policy blocks
+    pull_request_target in public repositories from 2026-12-02, so without the policy the required
+    "Protected Files Guard" check never reports. The policy is created on private repositories
+    too, so it is in place when the repository goes public. Skipped (success) when the guard
+    workflow does not exist; an existing policy that already allows the event is left alone.
+
 .EXAMPLE
     .\Setup-BranchRuleset.ps1
     Creates the ruleset for the current repository with interactive prompts
@@ -56,6 +69,10 @@
 .EXAMPLE
     .\Setup-BranchRuleset.ps1 -Repository "Chris-Wolfgang/my-repo"
     Creates the ruleset for a specific repository
+
+.EXAMPLE
+    .\Setup-BranchRuleset.ps1 -PullRequestTargetPolicyOnly
+    Creates only the pull_request_target policy for the protected-files guard
 
 .EXAMPLE
     .\Setup-BranchRuleset.ps1 -Emit > canonical-ruleset.json
@@ -90,8 +107,77 @@ param(
     [switch]$Emit,
 
     [Parameter()]
-    [switch]$MultiDeveloper
+    [switch]$MultiDeveloper,
+
+    [Parameter()]
+    [switch]$PullRequestTargetPolicyOnly
 )
+
+function Set-PullRequestTargetPolicy {
+    # Creates the Actions policy that allows pull_request_target for the protected-files guard
+    # (baseline item 25). Returns $true when the policy exists afterwards or is not needed.
+    param([string]$Repository)
+
+    $apiVersion = 'X-GitHub-Api-Version: 2026-03-10'
+    $guard = '.github/workflows/protected-files.yaml'
+    $policyName = 'Allow pull_request_target for the protected-files guard'
+
+    Write-Host "`n🔍 Checking the Actions policy for pull_request_target ($guard)..." -ForegroundColor Yellow
+    $null = gh api "/repos/$Repository/contents/$guard" --jq '.path' 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "ℹ️  $guard not found on the default branch - no pull_request_target policy needed." -ForegroundColor Gray
+        return $true
+    }
+
+    $listing = gh api -H $apiVersion "/repos/$Repository/actions/policies" 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "⚠️  Could not list Actions policies: $listing"
+        Write-Host "   Create it later with: pwsh ./scripts/Setup-BranchRuleset.ps1 -PullRequestTargetPolicyOnly" -ForegroundColor Yellow
+        return $false
+    }
+    foreach ($p in @(($listing | ConvertFrom-Json).policies)) {
+        $full = gh api -H $apiVersion "/repos/$Repository/actions/policies/$($p.id)" | ConvertFrom-Json
+        $rule = @($full.rules) | Where-Object type -eq 'restrict_action_events'
+        $include = @($full.conditions.workflow_path.include)
+        if ($full.enforcement -eq 'active' -and $rule -and
+            @($rule.parameters.allowed_events) -contains 'pull_request_target' -and
+            ($include -contains $guard -or $include -contains '~ALL')) {
+            Write-Host "✅ pull_request_target already allowed by policy #$($full.id) '$($full.name)'" -ForegroundColor Green
+            return $true
+        }
+    }
+
+    # Scoped to the guard: an unscoped allow-list of one event would block every other event.
+    $policy = [ordered]@{
+        name        = $policyName
+        enforcement = 'active'
+        conditions  = [ordered]@{ workflow_path = [ordered]@{ include = @($guard); exclude = @() } }
+        rules       = @([ordered]@{ type = 'restrict_action_events'; parameters = [ordered]@{ allowed_events = @('pull_request_target') } })
+    }
+    $policyFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $policy | ConvertTo-Json -Depth 6 | Out-File -FilePath $policyFile -Encoding utf8NoBOM
+        $created = gh api --method POST -H $apiVersion "/repos/$Repository/actions/policies" --input $policyFile 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "⚠️  Could not create the pull_request_target policy: $created"
+            Write-Host "   Create it later with: pwsh ./scripts/Setup-BranchRuleset.ps1 -PullRequestTargetPolicyOnly" -ForegroundColor Yellow
+            return $false
+        }
+        $id = ($created | ConvertFrom-Json).id
+        $back = gh api -H $apiVersion "/repos/$Repository/actions/policies/$id" | ConvertFrom-Json
+        $rule = @($back.rules) | Where-Object type -eq 'restrict_action_events'
+        if ($back.enforcement -eq 'active' -and $rule -and
+            @($rule.parameters.allowed_events) -contains 'pull_request_target' -and
+            @($back.conditions.workflow_path.include) -contains $guard) {
+            Write-Host "✅ Created policy #$id '$policyName' (pull_request_target for $guard only)" -ForegroundColor Green
+            return $true
+        }
+        Write-Warning "⚠️  Policy #$id was created but reads back differently: $($back | ConvertTo-Json -Depth 6 -Compress)"
+        return $false
+    } finally {
+        Remove-Item -LiteralPath $policyFile -Force -ErrorAction SilentlyContinue
+    }
+}
 
 $requireLinearHistory = -not $AllowMergeCommits.IsPresent
 
@@ -142,6 +228,11 @@ if ($Repository -eq "{{GITHUB_OWNER}}/{{REPO_NAME}}" -or -not $Repository) {
     }
 } else {
     Write-Host "✅ Using specified repository: $Repository" -ForegroundColor Green
+}
+
+if ($PullRequestTargetPolicyOnly) {
+    # Policy only: for a repository whose ruleset already exists. The script is not self-deleted.
+    if (Set-PullRequestTargetPolicy -Repository $Repository) { exit 0 } else { exit 1 }
 }
 
 Write-Host "`n🛡️  Setting up branch protection ruleset for: $Repository" -ForegroundColor Cyan
@@ -399,11 +490,22 @@ try {
         
         Write-Host "`n🔗 View ruleset at:" -ForegroundColor Cyan
         Write-Host "   https://github.com/$Repository/settings/rules" -ForegroundColor Blue
+
+        # Baseline item 25: the required "Protected Files Guard" check runs on pull_request_target,
+        # which GitHub's default Actions policy blocks in public repositories from 2026-12-02. The
+        # policy is a repository setting (not copied with the template), so create it here, scoped
+        # to the guard file only. Created on private repositories too, so it is already in place
+        # when the repository goes public.
+        $policyOk = Set-PullRequestTargetPolicy -Repository $Repository
+
         # Self-delete: this is a one-time bootstrap script. After a successful
         # ruleset creation, remove the script. Re-run by restoring it from the
-        # template if you need to re-create the ruleset later.
+        # template if you need to re-create the ruleset later. Kept when the
+        # pull_request_target policy step failed, so the script can be re-run.
         $selfPath = $PSCommandPath
-        if ($selfPath -and (Test-Path -LiteralPath $selfPath)) {
+        if (-not $policyOk) {
+            Write-Host "`nKept $selfPath : the pull_request_target policy still needs creating (see above)." -ForegroundColor Yellow
+        } elseif ($selfPath -and (Test-Path -LiteralPath $selfPath)) {
             try {
                 Remove-Item -LiteralPath $selfPath -Force
                 Write-Host ""

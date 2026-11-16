@@ -46,18 +46,7 @@ Before using this template, ensure you have the following installed:
    - **Single Developer**: No PR approvals required (you can merge your own PRs)
    - **Multi-Developer**: Requires 1+ approval and code owner review
 
-   If the repository is **public**, also allow the `pull_request_target` event for the protected-files guard. The required `Protected Files Guard` check runs on that event, and GitHub's default Actions policy blocks it in public repositories from 2026-12-02 — without this policy every pull request stays blocked on a check that never reports. The policy is a repository setting, so it is not copied with the template. Save this as `policy.json` and create it (details: [baseline item 25](docs/repository-baseline.md#25-actions-policy-allows-pull_request_target-for-the-protected-files-guard)):
-   ```json
-   {
-     "name": "Allow pull_request_target for the protected-files guard",
-     "enforcement": "active",
-     "conditions": { "workflow_path": { "include": [".github/workflows/protected-files.yaml"], "exclude": [] } },
-     "rules": [ { "type": "restrict_action_events", "parameters": { "allowed_events": ["pull_request_target"] } } ]
-   }
-   ```
-   ```bash
-   gh api -X POST -H "X-GitHub-Api-Version: 2026-03-10" repos/<owner>/<repo>/actions/policies --input policy.json
-   ```
+   The script then creates the Actions policy that allows the `pull_request_target` event for the protected-files guard. The required `Protected Files Guard` check runs on that event, and GitHub's default Actions policy blocks it in public repositories from 2026-12-02 — without the policy every pull request stays blocked on a check that never reports. The policy is a repository setting, so it is not copied with the template; it is created on private repositories too, so it is in place when the repository goes public. For a repository whose ruleset already exists, create only the policy with `pwsh ./scripts/Setup-BranchRuleset.ps1 -PullRequestTargetPolicyOnly` (details: [baseline item 25](docs/repository-baseline.md#25-actions-policy-allows-pull_request_target-for-the-protected-files-guard)).
 7. **(Optional) Set up issue labels** - Create standard labels for issues and PRs:
    ```powershell
    pwsh ./scripts/Setup-Labels.ps1
