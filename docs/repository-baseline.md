@@ -203,6 +203,28 @@ Scope rules:
   Fleet maintainers: `Allow-PullRequestTarget.ps1 -Repo <repo> -Apply` in the fleet tooling discovers the file(s), creates the policy and verifies it by reading it back.
 - **Label:** `security`
 
+### 26. Privileged triggers only in no-checkout workflows; no event text in scripts
+
+- **Verify:** In `.github/workflows/`, every workflow triggered by an event an outsider can fire with the base repository's identity — `pull_request_target`, `workflow_run`, `issue_comment`, `issues`, `discussion`, `discussion_comment` (fork `pull_request_review*` runs get a read-only token like `pull_request`, so they are not on the list) — (a) has no `uses: actions/checkout`, (b) uses no secret other than `GITHUB_TOKEN` (no `secrets.X`, no `secrets: inherit`), and (c) says why it is safe: a comment on the trigger line (more than a bare `zizmor: ignore[...]`) or in the header comment above `on:` naming the event. And no workflow puts event text — `github.head_ref` or a `github.event.*` title, body, message, ref, label or branch name — in a `${{ }}` expression inside a `run:` or `script:` body; it goes through `env:` and is read as `"$VAR"`. `zizmor --persona auditor .github` reports no un-waived `dangerous-triggers` and no `template-injection` on an event field.
+- **Why:** These events run the *base* branch's workflow with the base repository's token and secrets, whoever opened the PR, issue or comment. A workflow on one that checks out and builds PR code is the "pwn request" shape: the PR's code runs with that identity. A `${{ github.event.pull_request.title }}` inside a shell script is spliced in before the shell parses it, so a PR title is code. Today the only such workflows are `protected-files.yaml` (lists changed files through the API, never checks out) and ETL-Csv's `workflow-failure-watchdog.yaml` (`workflow_run`, reads only the triggering run's metadata through `env:`); a fleet scan of every workflow on the default branches found no event text inside a script (2026-11-10).
+- **Fix:** Move the work to `pull_request` (read-only token, no secrets for forks) as `pr.yaml` did, or split it: the privileged workflow only reads API metadata, the build runs unprivileged. Pass event text through `env:`:
+
+  ```yaml
+  - name: Use the PR title
+    env:
+      TITLE: ${{ github.event.pull_request.title }}
+    run: printf '%s\n' "$TITLE"
+  ```
+
+- **Label:** `security`
+
+### 27. Self-hosted runner jobs only on `schedule` or `workflow_dispatch`
+
+- **Verify:** Every workflow with a job whose `runs-on:` includes `self-hosted` is triggered only by `schedule` and/or `workflow_dispatch`. If any such job exists, `gh api repos/{owner}/{repo}/actions/permissions/fork-pr-contributor-approval --jq .approval_policy` returns `all_external_contributors`; otherwise it returns `first_time_contributors` or `all_external_contributors`. A repository with no self-hosted job passes the first half trivially.
+- **Why:** A self-hosted runner is not wiped between jobs. PR code that reaches one — through `pull_request*`, `workflow_run` or a comment event in a public repository — keeps access to the machine, its network and whatever later jobs leave behind. The planned self-hosted runner exists for 24-hour soak tests, which are scheduled or started by hand anyway.
+- **Fix:** Trigger the job only on `schedule` / `workflow_dispatch`, target the runner by label (`runs-on: [self-hosted, soak]`), and put the runner in a runner group limited to the repositories that soak (*Settings → Actions → Runner groups*). Require approval for all outside contributors: *Settings → Actions → General → Approval for running fork pull request workflows from contributors → Require approval for all external contributors*, or `gh api -X PUT repos/{owner}/{repo}/actions/permissions/fork-pr-contributor-approval -f approval_policy=all_external_contributors`.
+- **Label:** `security`
+
 ## Account-level settings
 
 These are not per-repository and are not checked by the script. Verify on the account settings pages and record the state; the audit report lists them under "manual checks".
