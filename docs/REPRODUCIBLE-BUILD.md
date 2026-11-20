@@ -66,7 +66,7 @@ You need git, the GitHub CLI (`gh`), Python 3 and a Linux machine (or container)
    for d in $(git ls-files 'src/*.csproj' 'src/**/*.csproj' | xargs -n1 dirname); do
      [ -d "$d/bin/Release" ] || continue
      (cd "$d/bin/Release" && find . -mindepth 2 -maxdepth 2 \( -name '*.dll' -o -name '*.pdb' \) \
-       | sed 's|^\./||' | xargs sha256sum)
+       | sed 's|^\./||' | xargs sha256sum | sed 's/ \*/  /')   # Git Bash on Windows prints ' *<file>' (binary mode)
    done | sort -u -k2 > ../rebuilt-assemblies.txt
    grep -vE '\.s?nupkg$' ../release/SHA256SUMS.txt | sort -k2 | diff - ../rebuilt-assemblies.txt \
      && echo "Assemblies and symbols: identical"
