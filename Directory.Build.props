@@ -148,15 +148,13 @@
     <None Include="$(MSBuildProjectDirectory)/obj/THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- SourceLink: embed source provenance into PDBs so debuggers can step
-         into NuGet package code from GitHub. Dependabot does not bump this
-         file, so check https://www.nuget.org/packages/Microsoft.SourceLink.GitHub
-         when a NuGetAudit advisory names Microsoft.Build.Tasks.Git
-         (CVE-2026-62900 covered 8.0.0 and 10.0.300-10.0.301). -->
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="11.0.100">
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-  </ItemGroup>
+  <!-- SourceLink: the .NET SDK (8.0+) ships SourceLink for GitHub and enables it
+       by default, so no Microsoft.SourceLink.GitHub PackageReference is needed.
+       The 11.x package pulls in System.IO.Hashing 11.0.0, which warns on every
+       net8.0 build. The SourceLink build tasks now come with the SDK pinned in
+       global.json, so a fix for an advisory such as CVE-2026-62900
+       (Microsoft.Build.Tasks.Git) arrives with an SDK update. PublishRepositoryUrl /
+       EmbedUntrackedSources above still apply; sourcelink.yaml verifies the PDB
+       map on every PR. -->
 
 </Project>
