@@ -2,7 +2,7 @@ name: SourceLink
 
 # End-to-end SourceLink verification.
 #
-# Directory.Build.props enables Microsoft.SourceLink.GitHub + EmbedUntrackedSources
+# The SDK's built-in SourceLink plus Directory.Build.props' EmbedUntrackedSources
 # and the release packs .snupkg symbol packages. That embeds, into every PDB, a
 # map from each source document to its raw.githubusercontent.com URL at the build
 # commit. If a release mis-tags the commit or the SourceLink map is wrong, a
