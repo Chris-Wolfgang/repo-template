@@ -188,6 +188,7 @@ root/
 ├── examples/               # Example projects (optional)
 ├── docfx_project/          # DocFX source (built docs go to the gh-pages branch)
 ├── docs/                   # Guides: baseline, workflow security, release setup, stacked PRs, ...
+│   └── adr/                # Architecture Decision Records (0000 = the practice; TEMPLATE.md, index.md)
 ├── .editorconfig           # Code style rules and analyzer severities
 ├── .gitattributes          # LF for every text file
 ├── .gitignore              # Comprehensive .NET gitignore
