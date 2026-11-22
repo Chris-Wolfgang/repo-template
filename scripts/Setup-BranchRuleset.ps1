@@ -378,6 +378,12 @@ $rulesetConfig = @{
                     @{ context = "Stage 1: Linux Tests + Coverage Gate" },
                     @{ context = "Stage 2: Windows Tests" },
                     @{ context = "Stage 3: macOS Tests" },
+                    # Stage 4, Stage 5 and the arm64 AOT leg: a repository requires each one only after it has
+                    # passed on that repository's own main HEAD. A required check that never reports blocks every
+                    # PR, so leave an entry out of that repository's ruleset until its check is green there.
+                    @{ context = "Stage 4: Linux ARM64 Tests" },
+                    @{ context = "Stage 5: Windows ARM64 Tests" },
+                    @{ context = "AOT smoke (linux-arm64)" },
                     @{ context = "Security Scan (DevSkim)" },
                     @{ context = "Security Scan (CodeQL) (csharp)" },
                     @{ context = "Secrets Scan (gitleaks)" },
@@ -466,6 +472,9 @@ try {
         Write-Host "      - Stage 1: Linux Tests + Coverage Gate" -ForegroundColor DarkGray
         Write-Host "      - Stage 2: Windows Tests" -ForegroundColor DarkGray
         Write-Host "      - Stage 3: macOS Tests" -ForegroundColor DarkGray
+        Write-Host "      - Stage 4: Linux ARM64 Tests" -ForegroundColor DarkGray
+        Write-Host "      - Stage 5: Windows ARM64 Tests" -ForegroundColor DarkGray
+        Write-Host "      - AOT smoke (linux-arm64)" -ForegroundColor DarkGray
         Write-Host "      - Security Scan (DevSkim)" -ForegroundColor DarkGray
         Write-Host "      - Security Scan (CodeQL) (csharp)" -ForegroundColor DarkGray
         Write-Host "      - Secrets Scan (gitleaks)" -ForegroundColor DarkGray
