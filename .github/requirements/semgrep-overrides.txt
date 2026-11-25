@@ -21,3 +21,8 @@ opentelemetry-instrumentation==0.66b2
 opentelemetry-instrumentation-requests==0.66b2
 opentelemetry-instrumentation-threading==0.66b2
 opentelemetry-util-http==0.66b2
+
+# semgrep pins wcmatch~=8.3 (still true of 1.187.0), but wcmatch <= 11.1 is affected by
+# GHSA-53pm-wgxf-c6qf (polynomial-time ReDoS on multi-star patterns).
+# Drop this override once a semgrep release allows wcmatch >= 11.2.
+wcmatch>=11.2
