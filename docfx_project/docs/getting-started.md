@@ -5,7 +5,7 @@ This guide will help you quickly get up and running with {{PROJECT_NAME}}.
 ## Prerequisites
 
 <!-- List any prerequisites needed. For example:
-- .NET 10.0 SDK or later (see Supported Frameworks in the README for the runtimes the package targets)
+- .NET 11.0 SDK or later (see Supported Frameworks in the README for the runtimes the package targets)
 - Visual Studio 2022 or Visual Studio Code
 -->
 

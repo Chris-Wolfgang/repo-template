@@ -11,7 +11,7 @@ This is a **repository template** for creating new .NET repositories. It provide
 ## Build and Validation Instructions
 
 ### Prerequisites
-- .NET SDK — the current release (10.0); CI installs 3.1 through 10.0 for the multi-target matrix
+- .NET SDK — the current release (11.0); CI installs 3.1 through 11.0 for the multi-target matrix
 - PowerShell 7 (`pwsh`) — every script under `scripts/`
 - A bash on PATH for the pre-commit hook (`.githooks/pre-commit`; Git for Windows ships one) plus the optional gitleaks CLI (`git config core.hooksPath .githooks`)
 
@@ -85,7 +85,7 @@ Runs on `pull_request` (plus `push` to `main`): the PR's own workflow file, conf
 
 1. **Secrets Scan (gitleaks)** and **Detect .NET Projects** (project discovery) run first; the **Protected Files Guard** classifies the PR's changed files from its own workflow.
 2. **Changelog Fragment Check** and **ReSharper InspectCode** run in parallel with the test stages.
-3. **Stage 1 Linux** (.NET 5.0–10.0, unit and integration test projects + coverage gate) → **Stage 2 Windows** (.NET Core 3.1, .NET 5.0–10.0, .NET Framework 4.6.2–4.8.1; the full-TFM backstop) → **Stage 3 macOS** (.NET 6.0–10.0). Each stage discovers the projects' target frameworks at run time. A test project that sets `<RequiresLinuxContainers>true</RequiresLinuxContainers>` (it needs Linux containers) runs on Stage 1 only; every other project runs on all three.
+3. **Stage 1 Linux** (.NET 5.0–11.0, unit and integration test projects + coverage gate) → **Stage 2 Windows** (.NET Core 3.1, .NET 5.0–11.0, .NET Framework 4.6.2–4.8.1; the full-TFM backstop) → **Stage 3 macOS** (.NET 6.0–11.0). Each stage discovers the projects' target frameworks at run time. A test project that sets `<RequiresLinuxContainers>true</RequiresLinuxContainers>` (it needs Linux containers) runs on Stage 1 only; every other project runs on all three.
 4. **Security Scan (DevSkim)**; CodeQL, actionlint/zizmor, license audit and SBOM run from their own workflows.
 5. **Required checks** (ruleset): Protected Files Guard, Detect .NET Projects, Stages 1-5 (`Stage 4: Linux ARM64 Tests`, `Stage 5: Windows ARM64 Tests`), `AOT smoke (linux-arm64)`, DevSkim, CodeQL, gitleaks, Changelog Fragment Check. A repository adds Stage 4, Stage 5 and the arm64 AOT leg only after each has passed on its own `main` HEAD; a required check that never reports blocks every PR. InspectCode, actionlint/zizmor, license audit and SBOM are advisory.
 
