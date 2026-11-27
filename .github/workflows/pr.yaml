@@ -18,7 +18,7 @@
 #   with other changes. A PR therefore cannot weaken the checks it is subject to without either
 #   failing that guard or being a configuration-only PR that a maintainer reviews on its own.
 # - The only write scope in this file is `security-events: write` on inspectcode-upload, a job
-#   that never checks out PR code.
+#   that never checks out PR code and runs on push to main only, never on pull_request (#756).
 # - persist-credentials: false prevents the checkout token from being written to git config for subsequent git commands
 #   (it does NOT, by itself, prevent steps from accessing github.token / GITHUB_TOKEN if you explicitly expose it)
 
@@ -45,8 +45,8 @@ on:
   pull_request:
     branches:
       - main
-  # A push to main re-runs the same gates on the merged result and keeps the InspectCode
-  # alert set on main current (a pull_request run attributes its SARIF to the PR ref).
+  # A push to main re-runs the same gates on the merged result and is the only run that
+  # uploads the InspectCode SARIF, keeping main's alert set current (#756).
   push:
     branches:
       - main
@@ -364,14 +364,16 @@ jobs:
 
       - name: Hand the SARIF to the upload job
         # Runs even when the gate below fails so warning-level findings still reach
-        # Code Scanning; the upload job holds the write scope this job does not.
+        # Code Scanning on push, and a PR keeps them as this artifact (#756); the upload
+        # job holds the write scope this job does not.
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: inspectcode-sarif
           path: inspect.sarif
           if-no-files-found: ignore
-          retention-days: 1
+          # A PR's only copy of the warnings (no PR upload, #756): keep it for review.
+          retention-days: 7
 
       - name: Gate on error-severity findings
         run: |
@@ -403,32 +405,35 @@ jobs:
             exit 1
           fi
           if [ "$count" -gt 0 ]; then
-            echo "::error::$count InspectCode error-severity finding(s) — see Security → Code scanning"
+            # A pull_request run uploads nothing to Code Scanning (#756), so the findings are
+            # listed here; the full SARIF is the run's `inspectcode-sarif` artifact.
+            jq -r '.runs[].results[] | select(.level=="error")
+              | "\(.locations[0].physicalLocation.artifactLocation.uri // "?"):\(.locations[0].physicalLocation.region.startLine // "?") \(.ruleId) \(.message.text)"' inspect.sarif
+            echo "::error::$count InspectCode error-severity finding(s), listed above; full SARIF in the inspectcode-sarif artifact"
             exit 1
           fi
           echo "✅ No error-severity InspectCode findings."
 
   # ============================================================================
-  # INSPECTCODE UPLOAD: the only job with security-events: write. It never checks
-  # out PR code — the checkout below is the base branch, which upload-sarif needs
-  # only to resolve the workspace — and it uploads the SARIF the job above produced. Runs after a gate failure too (the
-  # warnings are the point) but not when the analysis never ran.
+  # INSPECTCODE UPLOAD: the only job with security-events: write, and it runs on
+  # push to main only (#756), never on pull_request. It never checks out PR code —
+  # the checkout below is the branch that was pushed, which upload-sarif needs only
+  # to resolve the workspace — and it uploads the SARIF the job above produced.
+  # Runs after a gate failure too (the warnings are the point) but not when the
+  # analysis never ran.
   # ============================================================================
   inspectcode-upload:
     name: "ReSharper InspectCode (upload SARIF)"
     runs-on: ubuntu-latest
     needs: inspectcode
-    # A pull_request run from a fork (or by Dependabot) carries a read-only token that cannot write
-    # Code Scanning; those PRs still get the InspectCode gate above, just no SARIF upload.
-
-    # The Dependabot test reads the PR AUTHOR, not github.actor: re-running or reopening a
-    # Dependabot PR makes the actor a maintainer while the token stays Dependabot's read-only
-    # one, so an actor test would let this write-scoped job run and then fail. Every other
-    # Dependabot guard in this file already tests the author.
+    # Push only (#756, option 2): no pull_request run, same-repo or fork, ever holds
+    # security-events: write. A PR still gets the InspectCode gate above, which fails on
+    # error-severity findings and lists them in its log, and the `inspectcode-sarif` artifact
+    # holds every finding; the Security tab's InspectCode alerts track `main` and update when
+    # the PR merges.
     if: >-
       always() && (needs.inspectcode.result == 'success' || needs.inspectcode.result == 'failure')
-      && (github.event_name == 'push'
-          || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]'))
+      && github.event_name == 'push'
     timeout-minutes: 10
     permissions:
       contents: read
@@ -436,10 +441,10 @@ jobs:
       actions: read            # upload-sarif reads the workflow run to associate the analysis
 
     steps:
-      - name: Checkout base branch
+      - name: Checkout the pushed branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.base.ref || github.ref }}
+          ref: ${{ github.ref }}
           persist-credentials: false
 
       - name: Download the SARIF
