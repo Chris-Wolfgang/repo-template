@@ -1,6 +1,6 @@
 # Sequential PR validation workflow with coverage gating
 # Stage 1: Linux tests with 90% coverage requirement
-# Stage 2: Windows .NET (5.0-10.0) and .NET Framework (4.6.2-4.8.1) tests (only if Linux passes)
+# Stage 2: Windows .NET (5.0-11.0) and .NET Framework (4.6.2-4.8.1) tests (only if Linux passes)
 # Stage 3: macOS tests (only if Stage 2 passes)
 # Stage 4: Linux ARM64 tests and Stage 5: Windows ARM64 tests (net6.0+, in parallel with
 #   Stages 1-3, public repositories only; fleet standard test-matrix)
@@ -641,7 +641,7 @@ jobs:
           echo ""
           echo "✅ All compatible projects built successfully"
 
-      - name: Run tests with coverage (.NET Core 5.0 - 10.0)
+      - name: Run tests with coverage (.NET Core 5.0 - 11.0)
         # Explicit bash: GitHub's implicit default is `bash -e` WITHOUT
         # pipefail; the explicit form is `bash -eo pipefail`, which the
         # `dotnet test ... | tee` below needs so a failing test run is not
@@ -761,7 +761,7 @@ jobs:
             done < <(printf '%s' "$tfm_raw" | tr ';' '\n')
             
             if [ -z "$frameworks" ]; then
-              echo "⊘ Skipping: No compatible .NET 5.0-10.0 target frameworks found"
+              echo "⊘ Skipping: No compatible .NET 5.0-11.0 target frameworks found"
               echo ""
               continue
             fi
@@ -1090,7 +1090,7 @@ jobs:
       - name: Build solution
         run: dotnet build --no-restore --configuration Release
 
-      - name: Run all .NET tests (.NET 5.0-10.0 and Framework 4.6.2-4.8.1)
+      - name: Run all .NET tests (.NET 5.0-11.0 and Framework 4.6.2-4.8.1)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -1236,7 +1236,7 @@ jobs:
             }
 
             if ($frameworks.Count -eq 0) {
-              Write-Host "⊘ Skipping: No compatible .NET 5.0-10.0 or Framework 4.6.2-4.8.1 target frameworks found" -ForegroundColor Yellow
+              Write-Host "⊘ Skipping: No compatible .NET 5.0-11.0 or Framework 4.6.2-4.8.1 target frameworks found" -ForegroundColor Yellow
               Write-Host ""
               continue
             }
@@ -1613,7 +1613,7 @@ jobs:
           echo ""
           echo "Building projects..."
           # Build each project, handling multi-targeting projects
-          # For multi-targeting projects, build only macOS ARM64-compatible frameworks (net6.0-10.0)
+          # For multi-targeting projects, build only macOS ARM64-compatible frameworks (net6.0-11.0)
           for proj in "${projects[@]}"; do
             echo "Building: $proj"
             
@@ -2014,6 +2014,7 @@ jobs:
           echo "  - .NET 8.0 ✅"
           echo "  - .NET 9.0 ✅"
           echo "  - .NET 10.0 ✅"
+          echo "  - .NET 11.0 ✅"
           echo ""
           echo ".NET Core 3.1 is tested on Windows (Stage 2); .NET 5.0 is tested on Linux (Stage 1) and Windows (Stage 2)"
           echo ""
@@ -2145,7 +2146,7 @@ jobs:
           echo ""
           echo "Building projects..."
           # Build each project, handling multi-targeting projects
-          # For multi-targeting projects, build only linux-arm64 frameworks (net6.0-10.0)
+          # For multi-targeting projects, build only linux-arm64 frameworks (net6.0-11.0)
           for proj in "${projects[@]}"; do
             echo "Building: $proj"
             
@@ -2487,7 +2488,7 @@ jobs:
           echo ""
           echo "Building projects..."
           # Build each project, handling multi-targeting projects
-          # For multi-targeting projects, build only windows-arm64 frameworks (net6.0-10.0)
+          # For multi-targeting projects, build only windows-arm64 frameworks (net6.0-11.0)
           for proj in "${projects[@]}"; do
             echo "Building: $proj"
             
