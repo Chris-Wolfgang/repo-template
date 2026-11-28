@@ -6,6 +6,7 @@
 [![Downloads](https://img.shields.io/nuget/dt/{{PACKAGE_NAME}}.svg?logo=nuget&label=downloads)](https://www.nuget.org/packages/{{PACKAGE_NAME}}/)
 [![PR build](https://img.shields.io/github/actions/workflow/status/{{GITHUB_OWNER}}/{{REPO_NAME}}/pr.yaml?event=pull_request&label=PR%20build&logo=github)]({{GITHUB_REPO_URL}}/actions/workflows/pr.yaml)
 [![release](https://img.shields.io/github/actions/workflow/status/{{GITHUB_OWNER}}/{{REPO_NAME}}/release.yaml?event=release&label=release&logo=github)]({{GITHUB_REPO_URL}}/actions/workflows/release.yaml)
+[![Reproducible build](https://img.shields.io/github/actions/workflow/status/{{GITHUB_OWNER}}/{{REPO_NAME}}/reproducible-build.yaml?event=pull_request&label=reproducible%20build&logo=github)](docs/REPRODUCIBLE-BUILD.md)
 [![License: {{LICENSE_TYPE}}](https://img.shields.io/badge/License-{{LICENSE_TYPE}}-blue.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-Multi--Targeted-purple.svg)](https://dotnet.microsoft.com/)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)]({{GITHUB_REPO_URL}})
@@ -60,6 +61,8 @@ This project is licensed under the **{{LICENSE_TYPE}} License**. See the [LICENS
 
 See the [NuGet package page](https://www.nuget.org/packages/{{PACKAGE_NAME}}/) for the authoritative per-TFM compatibility matrix.
 
+**Test matrix.** Every pull request runs the test suite on five legs and all five must pass: Linux x64, Linux ARM64, Windows x64, Windows ARM64 and macOS ARM64. Windows x64 runs every target framework (the only leg with .NET Framework); Linux x64 runs .NET Core 3.1 and .NET 5.0 and later; the three ARM64 legs run .NET 6.0 and later.
+
 ---
 
 ## 🔍 Code Quality & Static Analysis
@@ -95,7 +98,7 @@ This library uses **`BannedSymbols.txt`** to prohibit synchronous APIs and enfor
 ## 🛠️ Building from Source
 
 ### Prerequisites
-- [.NET SDK](https://dotnet.microsoft.com/download) - the current release (10.0); see *Supported Frameworks* for the targets that are built
+- [.NET SDK](https://dotnet.microsoft.com/download) - the current release (11.0); see *Supported Frameworks* for the targets that are built
 - [PowerShell 7](https://github.com/PowerShell/PowerShell) (`pwsh`) for the scripts under `scripts/`
 
 ### Build Steps

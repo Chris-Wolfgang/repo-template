@@ -64,8 +64,11 @@ You can contribute in several ways:
    - **actionlint** and **zizmor** (`actions-audit.yaml`) on the workflow files themselves.
    - License audit and SBOM generation for the dependency closure (`license-audit.yaml`, `sbom.yaml`).
 
-   The branch ruleset **requires** the Protected Files Guard, Detect .NET Projects, the three test
-   stages, DevSkim, CodeQL, gitleaks and the Changelog Fragment Check to pass before merging. InspectCode, actionlint/zizmor,
+   The branch ruleset **requires** the Protected Files Guard, Detect .NET Projects, the five test
+   stages (Stage 4 Linux ARM64 and Stage 5 Windows ARM64 included), AOT smoke (linux-arm64), DevSkim,
+   CodeQL, gitleaks and the Changelog Fragment Check to pass before merging. A repository adds Stage 4,
+   Stage 5 and AOT smoke (linux-arm64) to its ruleset only after each has passed on its own `main`
+   HEAD, because a required check that never reports blocks every PR. InspectCode, actionlint/zizmor,
    the license audit and the SBOM are advisory — they annotate the PR and the Security tab but do
    not block the merge on their own. If a check fails, read its log, fix, and push.
    `pwsh ./scripts/build-pr.ps1` reproduces the Windows stage locally (see *Build and Test* below).
@@ -200,7 +203,7 @@ The complete list (65 symbols, each with the reason and the replacement) is [`Ba
 ## Build and Test Instructions
 
 ### Prerequisites
-- Latest .NET SDK recommended (the CI matrix tests .NET Core 3.1, .NET 5.0-10.0 and .NET Framework 4.6.2-4.8.1; the SDK you actually need depends on your project's target frameworks. The template itself contains no csproj.)
+- Latest .NET SDK recommended (the CI matrix tests .NET Core 3.1, .NET 5.0-11.0 and .NET Framework 4.6.2-4.8.1; the SDK you actually need depends on your project's target frameworks. The template itself contains no csproj.)
 - PowerShell 7 (`pwsh`) — every script under `scripts/` is PowerShell (`build-pr.ps1`, `changelog.ps1`, `format.ps1`, `setup.ps1`, ...)
 - [gitleaks](https://github.com/gitleaks/gitleaks#installing) for the pre-commit hook (optional locally; CI runs it regardless)
 
@@ -297,7 +300,7 @@ If this repository requires linear history, stacked pull requests are restacked 
 
 Changes to protected configuration files (`.editorconfig`, `Directory.Build.props`, workflows, ...) must be a PR of their own, separate from code that depends on them — mixed PRs fail the protected-files guard and cannot be bypassed; a configuration-only PR runs CI with the new configuration and is reviewed by a maintainer on its own. See [docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md#making-changes-to-protected-configuration-files).
 
-Dependabot pull requests whose highest version bump is a **patch** are merged automatically: `dependabot-auto-merge.yaml` enables GitHub auto-merge (squash) on them, and GitHub merges once every check the branch ruleset requires has passed. Minor and major bumps are left for a maintainer to review. Because `dependabot.yml` groups updates, a grouped PR counts as its highest bump - one minor bump in the group means the whole PR waits for review. The repository setting *Allow auto-merge* must be on for this to work.
+Dependabot pull requests are merged by a maintainer once every check the branch ruleset requires has passed; nothing merges them automatically. Because `dependabot.yml` groups updates, read a grouped PR as its highest bump when deciding how closely to review it.
 
 - Ensure your pull request passes all tests and analyzer checks.
 - Respond to review feedback in a timely manner.

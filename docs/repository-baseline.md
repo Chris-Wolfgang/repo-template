@@ -179,6 +179,52 @@ Scope rules:
 - **Fix:** `gh api -X PUT repos/{owner}/{repo}/actions/workflows/{file}/enable`, then push a commit (or re-run) so the PR gets a fresh run — a workflow without `workflow_dispatch` cannot be triggered by hand. Any commit to the default branch resets the 60-day clock for the whole repository.
 - **Label:** `process`
 
+### 25. Actions policy allows `pull_request_target` for the protected-files guard
+
+- **Verify:** For a public repository with a workflow whose trigger is `pull_request_target` (the template's `.github/workflows/protected-files.yaml`; comments that merely mention the event do not count), `gh api -H "X-GitHub-Api-Version: 2026-03-10" repos/{owner}/{repo}/actions/policies` lists a policy that, read by id, has `enforcement: active`, a `restrict_action_events` rule whose `allowed_events` contains `pull_request_target`, and `conditions.workflow_path.include` naming that workflow file (or `~ALL`). A repository with no such workflow is `na`; private repositories are `na` (the default policy does not apply to them).
+- **Why:** GitHub's default Actions event policy blocks `pull_request_target` in public repositories: evaluate mode since November 2026, enforced from **2026-12-02** for repositories still on the default. A blocked run is a `startup_failure` with zero jobs — `Protected Files Guard` never reports, every PR sits BLOCKED on a required check, and the run cannot be re-run (a brownout on 2026-11-09 did exactly this to ETL-FixedWidth#666). The guard is the one workflow that must stay on this event — it runs from `main` so a PR cannot edit it, and it never checks out PR code — so the event is allowed for that file only. The policy is a repository *setting*, not a file: creating a repository from the template does not carry it over. `scripts/Setup-BranchRuleset.ps1` creates it right after the ruleset.
+- **Fix:** Run `pwsh ./scripts/Setup-BranchRuleset.ps1 -PullRequestTargetPolicyOnly` (creates the policy below, skips it when a policy already allows the event, and verifies it by reading it back), or create the policy by hand, scoped to the guard. An unscoped allow-list of one event blocks every other event in the repository, so keep `workflow_path.include` to the guard:
+
+  `policy.json`:
+
+  ```json
+  {
+    "name": "Allow pull_request_target for the protected-files guard",
+    "enforcement": "active",
+    "conditions": { "workflow_path": { "include": [".github/workflows/protected-files.yaml"], "exclude": [] } },
+    "rules": [ { "type": "restrict_action_events", "parameters": { "allowed_events": ["pull_request_target"] } } ]
+  }
+  ```
+
+  ```bash
+  gh api -X POST -H "X-GitHub-Api-Version: 2026-03-10" repos/{owner}/{repo}/actions/policies --input policy.json
+  ```
+
+  Fleet maintainers: `Allow-PullRequestTarget.ps1 -Repo <repo> -Apply` in the fleet tooling discovers the file(s), creates the policy and verifies it by reading it back.
+- **Label:** `security`
+
+### 26. Privileged triggers only in no-checkout workflows; no event text in scripts
+
+- **Verify:** In `.github/workflows/`, every workflow triggered by an event an outsider can fire with the base repository's identity — `pull_request_target`, `workflow_run`, `issue_comment`, `issues`, `discussion`, `discussion_comment` (fork `pull_request_review*` runs get a read-only token like `pull_request`, so they are not on the list) — (a) has no `uses: actions/checkout`, (b) uses no secret other than `GITHUB_TOKEN` (no `secrets.X`, no `secrets: inherit`), and (c) says why it is safe: a comment on the trigger line (more than a bare `zizmor: ignore[...]`) or in the header comment above `on:` naming the event. And no workflow puts event text — `github.head_ref` or a `github.event.*` title, body, message, ref, label or branch name — in a `${{ }}` expression inside a `run:` or `script:` body; it goes through `env:` and is read as `"$VAR"`. `zizmor --persona auditor .github` reports no un-waived `dangerous-triggers` and no `template-injection` on an event field.
+- **Why:** These events run the *base* branch's workflow with the base repository's token and secrets, whoever opened the PR, issue or comment. A workflow on one that checks out and builds PR code is the "pwn request" shape: the PR's code runs with that identity. A `${{ github.event.pull_request.title }}` inside a shell script is spliced in before the shell parses it, so a PR title is code. Today the only such workflows are `protected-files.yaml` (lists changed files through the API, never checks out) and ETL-Csv's `workflow-failure-watchdog.yaml` (`workflow_run`, reads only the triggering run's metadata through `env:`); a fleet scan of every workflow on the default branches found no event text inside a script (2026-11-10).
+- **Fix:** Move the work to `pull_request` (read-only token, no secrets for forks) as `pr.yaml` did, or split it: the privileged workflow only reads API metadata, the build runs unprivileged. Pass event text through `env:`:
+
+  ```yaml
+  - name: Use the PR title
+    env:
+      TITLE: ${{ github.event.pull_request.title }}
+    run: printf '%s\n' "$TITLE"
+  ```
+
+- **Label:** `security`
+
+### 27. Self-hosted runner jobs only on `schedule` or `workflow_dispatch`
+
+- **Verify:** Every workflow with a job whose `runs-on:` includes `self-hosted` is triggered only by `schedule` and/or `workflow_dispatch`. If any such job exists, `gh api repos/{owner}/{repo}/actions/permissions/fork-pr-contributor-approval --jq .approval_policy` returns `all_external_contributors`; otherwise it returns `first_time_contributors` or `all_external_contributors`. A repository with no self-hosted job passes the first half trivially.
+- **Why:** A self-hosted runner is not wiped between jobs. PR code that reaches one — through `pull_request*`, `workflow_run` or a comment event in a public repository — keeps access to the machine, its network and whatever later jobs leave behind. The planned self-hosted runner exists for 24-hour soak tests, which are scheduled or started by hand anyway.
+- **Fix:** Trigger the job only on `schedule` / `workflow_dispatch`, target the runner by label (`runs-on: [self-hosted, soak]`), and put the runner in a runner group limited to the repositories that soak (*Settings → Actions → Runner groups*). Require approval for all outside contributors: *Settings → Actions → General → Approval for running fork pull request workflows from contributors → Require approval for all external contributors*, or `gh api -X PUT repos/{owner}/{repo}/actions/permissions/fork-pr-contributor-approval -f approval_policy=all_external_contributors`.
+- **Label:** `security`
+
 ## Account-level settings
 
 These are not per-repository and are not checked by the script. Verify on the account settings pages and record the state; the audit report lists them under "manual checks".

@@ -53,10 +53,15 @@ Ensure the following settings are enabled:
   - "Stage 1: Linux Tests + Coverage Gate"
   - "Stage 2: Windows Tests"
   - "Stage 3: macOS Tests"
+  - "Stage 4: Linux ARM64 Tests"
+  - "Stage 5: Windows ARM64 Tests"
+  - "AOT smoke (linux-arm64)"
   - "Security Scan (DevSkim)"
   - "Security Scan (CodeQL) (csharp)"
   - "Secrets Scan (gitleaks)"
   - "Changelog Fragment Check"
+
+  Stage 4, Stage 5 and the arm64 AOT leg are listed in the template's ruleset, but a repository requires each one only after that check has passed on its own `main` HEAD: a required check that never reports blocks every PR. Until then, leave it out of that repository's ruleset.
 
   A required check name says what is checked, never how: no TFM ranges, OS or tool versions, because a ruleset requires a check by exact name and renaming the job blocks every PR until the ruleset is edited. The TFMs each stage ran are listed in that job's step summary.
 
@@ -175,6 +180,7 @@ Before publishing a production GitHub Release (for example `v1.0.0`):
 - [ ] Every `src/` change since the last release has a changelog fragment (or the `no-changelog` label)
 - [ ] `pwsh ./scripts/changelog.ps1 assemble -Version X.Y.Z` run and merged
 - [ ] `<Version>X.Y.Z</Version>` set in the `src/` csproj(s) (the tag must match one of them) and merged
+- [ ] First release of a new calendar year: `<Copyright>` in `Directory.Build.props` bumped to `<first-year>-<this-year>` in the same PR (a literal year, never the build clock, so the tag rebuilds byte-identical; `LICENSE` kept in step)
 - [ ] Local dry run passes: `pwsh ./scripts/build-pr.ps1`
 - [ ] Security tab shows no open High/Critical alerts
 

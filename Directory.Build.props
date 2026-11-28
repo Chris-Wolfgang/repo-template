@@ -59,7 +59,7 @@
     </PackageReference>
     
     <!-- Microsoft Threading Analyzers - Thread safety -->
-    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="18.7.23">
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="18.12.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -71,13 +71,13 @@
     </PackageReference>
     
     <!-- Meziantou - Comprehensive code quality -->
-    <PackageReference Include="Meziantou.Analyzer" Version="3.0.299">
+    <PackageReference Include="Meziantou.Analyzer" Version="3.0.342">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
 
     <!-- SonarAnalyzer - Industry-standard analysis -->
-    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.35.0.4138">
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.37.0.15768">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -113,10 +113,13 @@
          Change these three lines when forking the template for another owner. -->
     <Authors>Chris Wolfgang</Authors>
     <Company>Chris Wolfgang</Company>
-    <!-- A literal year, never $([System.DateTime]::UtcNow.Year): that puts the BUILD year in
-         AssemblyCopyrightAttribute, so a rebuild after 1 January no longer matches the
-         released binary and the build is no longer reproducible. Keep it in step with
-         LICENSE. -->
+    <!-- A literal year range, never $([System.DateTime]::UtcNow.Year): that puts the BUILD year
+         in AssemblyCopyrightAttribute, so a rebuild after 1 January no longer matches the
+         released binary and the build is no longer reproducible (fleet standard:
+         reproducible-builds, item 2). Form: <first-year>-<release-year>, a single year while
+         the two are equal. scripts/setup.ps1 writes the creation year here; the first release
+         PR of each new calendar year bumps the second year, next to the <Version> bump. Keep
+         it in step with LICENSE. -->
     <Copyright>Copyright (c) 2026 Chris Wolfgang</Copyright>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -126,6 +129,17 @@
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
+  <ItemGroup Condition="$(_RelativeProjectDir.StartsWith('src/')) and $(TargetFramework.StartsWith('net4'))">
+    <!-- Byte-identical output across operating systems (fleet standard: reproducible-builds,
+         item 2). The portable PDB records every referenced assembly's timestamp and MVID. For
+         .NET Framework TFMs the SDK uses the machine's installed targeting pack when there is
+         one (Windows) and this NuGet package when there is not (Linux). They are different
+         builds of the same reference assemblies, so the same commit produced different PDBs,
+         and therefore different DLLs, per OS. Referencing the package explicitly makes every
+         OS compile against it. src/ only: tests and tools are never compared across OSes. -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+  </ItemGroup>
+
   <ItemGroup Condition="$(_RelativeProjectDir.StartsWith('src/')) and Exists('$(MSBuildProjectDirectory)/obj/THIRD-PARTY-NOTICES.md')">
     <!-- Third-party attribution: scripts/third-party-notices.ps1 renders the
          package's transitive NuGet closure to obj/THIRD-PARTY-NOTICES.md
@@ -134,15 +148,13 @@
     <None Include="$(MSBuildProjectDirectory)/obj/THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- SourceLink: embed source provenance into PDBs so debuggers can step
-         into NuGet package code from GitHub. Dependabot does not bump this
-         file, so check https://www.nuget.org/packages/Microsoft.SourceLink.GitHub
-         when a NuGetAudit advisory names Microsoft.Build.Tasks.Git
-         (CVE-2026-62900 covered 8.0.0 and 10.0.300-10.0.301). -->
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401">
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-  </ItemGroup>
+  <!-- SourceLink: the .NET SDK (8.0+) ships SourceLink for GitHub and enables it
+       by default, so no Microsoft.SourceLink.GitHub PackageReference is needed.
+       The 11.x package pulls in System.IO.Hashing 11.0.0, which warns on every
+       net8.0 build. The SourceLink build tasks now come with the SDK pinned in
+       global.json, so a fix for an advisory such as CVE-2026-62900
+       (Microsoft.Build.Tasks.Git) arrives with an SDK update. PublishRepositoryUrl /
+       EmbedUntrackedSources above still apply; sourcelink.yaml verifies the PDB
+       map on every PR. -->
 
 </Project>

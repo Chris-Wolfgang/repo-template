@@ -184,7 +184,7 @@ if (-not $SkipTests -and $failed.Count -eq 0) {
             }
 
             $frameworks = @($tfmRaw -split ';' |
-                Where-Object { $_ -match '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0|462|47|471|472|48|481|coreapp3\.1)$' })
+                Where-Object { $_ -match '^net(5\.0|6\.0|7\.0|8\.0|9\.0|10\.0|11\.0|462|47|471|472|48|481|coreapp3\.1)$' })
 
             if ($frameworks.Count -eq 0) {
                 Write-Host "  No compatible frameworks — skipping" -ForegroundColor Yellow
@@ -392,7 +392,7 @@ if (-not $SkipSecurity) {
             --file-format text `
             --output-file devskim-results.txt `
             --ignore-rule-ids DS176209 `
-            --ignore-globs "**/api/**,**/CoverageReport/**,**/TestResults/**"
+            --ignore-globs "**/api/**,**/CoverageReport/**,**/TestResults/**,**/.github/license-audit/**"
         # Mirror pr.yaml, where a non-zero exit fails the DevSkim step.
         $devskimExit = $LASTEXITCODE
         $devskimRan = ($devskimExit -eq 0)

@@ -26,7 +26,10 @@ permissions:
 
 concurrency:
   group: actions-audit-${{ github.ref }}
-  cancel-in-progress: true
+  # Only a superseded pull_request run is cancelled. A push to main is never cancelled:
+  # with cancel-in-progress on every event, two merges a few minutes apart left the
+  # earlier merge commit with a cancelled run and no result for it on main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   actionlint:
@@ -40,9 +43,12 @@ jobs:
           persist-credentials: false
 
       - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version: 'stable'
+          # No go.mod or go.sum here: actionlint is installed with `go install`, so
+          # setup-go's default module cache has nothing to key on and warns on every run.
+          cache: false
 
       - name: Install actionlint
         run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
@@ -97,7 +103,7 @@ jobs:
         # not granted), so the upload would fail after a successful scan. Skip it there; the
         # scan step above still gates the job.
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: zizmor.sarif
 
