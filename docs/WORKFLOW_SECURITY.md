@@ -24,7 +24,7 @@ on:
 
 - The workflow file, the code and every analyzer/config file come from the PR's merge commit, so what is validated is what merges.
 - GitHub gives a `pull_request` run a **read-only `GITHUB_TOKEN`** and **no repository secrets** when the PR comes from a fork; `pr.yaml` declares `permissions: contents: read` so same-repo PRs get the same. Nothing in `pr.yaml` reads a secret.
-- The push-to-`main` run re-validates the merged result and keeps the InspectCode alert set on `main` current — a `pull_request` run attributes its SARIF to the PR ref, not to `main`.
+- The push-to-`main` run re-validates the merged result and is the only run that uploads the InspectCode SARIF, so the InspectCode alert set tracks `main`. A `pull_request` run uploads nothing: it gets the InspectCode gate, which lists its error-severity findings in the job log, and the `inspectcode-sarif` artifact with every finding (#756).
 
 **Why not `pull_request_target`?** Running the *base* branch's workflow against the *PR's* code gives that code the base repository's identity (secrets, a token that can be granted write scopes). Every job that built PR code was a place where a malicious MSBuild target or test could reach that identity, and Scorecard's *Dangerous-Workflow* and CodeQL's *untrusted-checkout* rightly flag the shape. Under `pull_request` there is nothing to reach.
 
@@ -79,13 +79,13 @@ permissions:
   contents: read
 ```
 
-is the workflow default. The only elevation is `security-events: write` (+ `actions: read`) on `inspectcode-upload`, scoped to that job.
+is the workflow default. The only elevation is `security-events: write` (+ `actions: read`) on `inspectcode-upload`, scoped to that job, which runs on push to `main` only, never on `pull_request`.
 
 ### 5. No Write Scope in Any Job That Builds PR Code
 
-**Mechanism**: job split — `inspectcode` (checks out and builds PR code, `contents: read` only, hands `inspect.sarif` off as an artifact) and `inspectcode-upload` (checks out the base branch, never PR code, downloads the artifact and is the only job holding `security-events: write`).
+**Mechanism**: job split — `inspectcode` (checks out and builds the code, `contents: read` only, hands `inspect.sarif` off as an artifact) and `inspectcode-upload` (runs on push to `main` only, checks out the pushed branch, downloads the artifact and is the only job holding `security-events: write`).
 
-Every job that runs the PR's code — `detect-projects`, `inspectcode`, the three test stages, `security-scan` — holds `contents: read` and nothing else, so a PR's MSBuild targets, tests or analyzers can reach neither the repository nor Code Scanning through the job token. `inspectcode-upload` is skipped for fork and Dependabot PRs, whose token cannot write Code Scanning anyway; those PRs still get the InspectCode gate.
+Every job that runs the PR's code — `detect-projects`, `inspectcode`, the three test stages, `security-scan` — holds `contents: read` and nothing else, so a PR's MSBuild targets, tests or analyzers can reach neither the repository nor Code Scanning through the job token. `inspectcode-upload` never runs on `pull_request`, same-repository, fork or Dependabot alike (#756), so no PR run holds a write scope at all; every PR still gets the InspectCode gate and the `inspectcode-sarif` artifact.
 
 ### 6. Pinned Actions and Audited Workflow Files
 

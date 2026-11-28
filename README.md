@@ -92,7 +92,7 @@ All code is analyzed during builds by these industry-standard tools:
 7. **SonarAnalyzer.CSharp** - Industry-standard code analysis and security
 8. **Microsoft.CodeAnalysis.PublicApiAnalyzers** (opt-in) - Tracks the public API surface; activates for a project that carries `PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt`
 
-Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn analyzers, results in the Security tab) and `GenerateDocumentationFile` on for every `src/` project, so undocumented public members fail the Release build.
+Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn analyzers; a PR gets the error gate and a SARIF artifact, and the push to `main` uploads the results to the Security tab) and `GenerateDocumentationFile` on for every `src/` project, so undocumented public members fail the Release build.
 
 **Result:** Enforces async-first patterns, prevents common mistakes, and maintains consistent code quality.
 
@@ -294,7 +294,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 
 ### Security Scanning
 - **gitleaks, DevSkim:** PR checks (gitleaks logs findings; DevSkim uploads a text artifact)
-- **CodeQL, Semgrep, InspectCode:** PR checks whose SARIF lands in the Security tab
+- **CodeQL, Semgrep, InspectCode:** PR checks whose SARIF lands in the Security tab (InspectCode's on push to `main` only; a PR keeps it as an artifact)
 - **zizmor, Scorecard, license audit, SBOM, nightly alert triage:** see *Security & Safety* above
 
 ---
