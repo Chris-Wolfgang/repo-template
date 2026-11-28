@@ -16,7 +16,7 @@ Before using this template, ensure you have the following installed:
   - Windows: `winget install GitHub.cli`
   - macOS: `brew install gh`
   - Linux: [Install instructions](https://cli.github.com/)
-- **.NET SDK** - the current LTS/STS SDK (10.0 at the time of writing); older SDKs are installed by CI for the multi-target matrix
+- **.NET SDK** - the current LTS/STS SDK (11.0 at the time of writing); older SDKs are installed by CI for the multi-target matrix
 - **gitleaks** (optional) - `winget install gitleaks` / `brew install gitleaks`; enables the pre-commit secret scan (`git config core.hooksPath .githooks`)
 
 ## 🚀 Quick Start
@@ -118,7 +118,7 @@ Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn
 
 #### Pull Request Workflow (`.github/workflows/pr.yaml`)
 - **Multi-stage testing** across Linux, Windows, macOS, plus two ARM64 gates: `Stage 4: Linux ARM64 Tests` (`ubuntu-24.04-arm`) and `Stage 5: Windows ARM64 Tests` (`windows-11-arm`), net6.0 and later, in parallel with Stages 1-3, public repositories only
-- **Multi-framework testing** (.NET Core 3.1, .NET 5.0-10.0, .NET Framework 4.6.2-4.8.1) - every TFM of every test project, discovered at run time; a TFM that runs zero tests fails
+- **Multi-framework testing** (.NET Core 3.1, .NET 5.0-11.0, .NET Framework 4.6.2-4.8.1) - every TFM of every test project, discovered at run time; a TFM that runs zero tests fails
 - **Code coverage gates** - 90 % line coverage for `src/`, 100 % for `tests/`
 - **Protected Files Guard** (`.github/workflows/protected-files.yaml`) - a PR that changes only protected files (workflows, `Directory.Build.props`, `.editorconfig`, `BannedSymbols.txt`, `*.DotSettings`, ...) passes with a notice and merges on review; a PR that mixes them with other changes fails the guard and is split ([docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md))
 - **Changelog fragment check** - a PR touching `src/` must add `changelog/unreleased/<name>.md` or carry the `no-changelog` label
@@ -290,7 +290,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 ### Build Configuration
 - **Debug:** Warnings allowed (development)
 - **Release:** Warnings treated as errors (CI); `LangVersion` is `latestMajor`
-- **Multi-targeting:** Supports .NET Core 3.1, .NET 5.0-10.0 + .NET Framework 4.6.2-4.8.1
+- **Multi-targeting:** Supports .NET Core 3.1, .NET 5.0-11.0 + .NET Framework 4.6.2-4.8.1
 
 ### Security Scanning
 - **gitleaks, DevSkim:** PR checks (gitleaks logs findings; DevSkim uploads a text artifact)
@@ -535,7 +535,7 @@ The script provides interactive prompts to choose between single-developer or mu
 
 ✅ **7 Code Analyzers + InspectCode** - Comprehensive quality enforcement
 ✅ **Multi-Platform CI/CD** - Linux, Windows, macOS
-✅ **Multi-Framework** - .NET Core 3.1, .NET 5.0-10.0 + Framework 4.6.2-4.8.1
+✅ **Multi-Framework** - .NET Core 3.1, .NET 5.0-11.0 + Framework 4.6.2-4.8.1
 ✅ **Coverage Gates** - 90 % src / 100 % tests, automated
 ✅ **Security Scanning** - gitleaks, DevSkim, CodeQL, Semgrep, zizmor, Scorecard, license audit, SBOM
 ✅ **Supply Chain** - SHA-pinned actions, trusted publishing, SLSA provenance attestations
@@ -570,7 +570,7 @@ Projects created from this template can use any license - the setup script offer
 Created by [Chris Wolfgang](https://github.com/Chris-Wolfgang) and Copilot
 
 Built with:
-- .NET SDK (10.0 and the older SDKs the matrix needs)
+- .NET SDK (11.0 and the older SDKs the matrix needs)
 - DocFX for documentation
 - Multiple Roslyn analyzers and ReSharper InspectCode
 - GitHub Actions for CI/CD
