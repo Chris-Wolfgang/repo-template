@@ -1,0 +1,76 @@
+<Project>
+
+  <!--
+    Cross-OS byte-identical output.
+
+    The SDK writes its generated sources (<Project>.AssemblyInfo.cs,
+    .NETCoreApp,Version=*.AssemblyAttributes.cs and, when implicit usings are on,
+    <Project>.GlobalUsings.g.cs) with the build machine's newline, so they are CRLF
+    on Windows and LF on Linux. Those files are compiled into the assembly and the
+    portable PDB records each one's hash and embeds its text, so the PDB differs per
+    OS. The PDB checksum and the module version id are derived from it, which makes
+    the DLL differ as well even though the compiled IL is identical.
+
+    Rewriting the generated files to LF before compilation removes the only input
+    that differed, so the same commit packs to identical bytes on every OS.
+    Packable projects only: tests and tools are never compared across operating systems.
+  -->
+  <UsingTask TaskName="NormalizeGeneratedLineEndings"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Files ParameterType="System.String[]" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Collections.Generic" />
+      <Using Namespace="System.IO" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+        foreach (var file in Files)
+        {
+            if (string.IsNullOrEmpty(file) || !File.Exists(file))
+            {
+                continue;
+            }
+
+            // Byte level and encoding-agnostic: a UTF-8 CRLF pair is the bytes 0x0D 0x0A.
+            var bytes = File.ReadAllBytes(file);
+            var normalized = new List<byte>(bytes.Length);
+            var changed = false;
+            for (var i = 0; i < bytes.Length; i++)
+            {
+                if (bytes[i] == 0x0D && i + 1 < bytes.Length && bytes[i + 1] == 0x0A)
+                {
+                    changed = true;
+                    continue;
+                }
+
+                normalized.Add(bytes[i]);
+            }
+
+            // Written only when something changed, so an up-to-date build leaves the
+            // timestamp alone and does not force CoreCompile to run again.
+            if (changed)
+            {
+                File.WriteAllBytes(file, normalized.ToArray());
+            }
+        }
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="NormalizeGeneratedLineEndings"
+          BeforeTargets="CoreCompile"
+          DependsOnTargets="GenerateAssemblyInfo;GenerateTargetFrameworkMonikerAttribute"
+          Condition="'$(IsPackable)' == 'true'">
+    <ItemGroup>
+      <_GeneratedSourceToNormalize Include="$(GeneratedAssemblyInfoFile)" />
+      <_GeneratedSourceToNormalize Include="$(TargetFrameworkMonikerAssemblyAttributesPath)" />
+      <_GeneratedSourceToNormalize Include="$(GeneratedGlobalUsingsFile)" />
+    </ItemGroup>
+
+    <NormalizeGeneratedLineEndings Files="@(_GeneratedSourceToNormalize)" />
+  </Target>
+
+</Project>

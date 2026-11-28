@@ -22,7 +22,10 @@ permissions:
 
 concurrency:
   group: sbom-${{ github.ref }}
-  cancel-in-progress: true
+  # Only a superseded pull_request run is cancelled. A push to main is never cancelled:
+  # with cancel-in-progress on every event, two merges a few minutes apart left the
+  # earlier merge commit with a cancelled run and no result for it on main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   sbom:
@@ -47,9 +50,11 @@ jobs:
 
       - name: Setup .NET
         if: steps.detect.outputs.found == 'true'
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73  # v6.1.0
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: |
+            10.0.x
+            11.0.x
 
       - name: Restore CI tools (CycloneDX)
         if: steps.detect.outputs.found == 'true'

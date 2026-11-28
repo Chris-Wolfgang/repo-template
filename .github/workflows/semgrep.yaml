@@ -22,7 +22,10 @@ permissions:
 
 concurrency:
   group: semgrep-${{ github.ref }}
-  cancel-in-progress: true
+  # Only a superseded pull_request run is cancelled. A push to main is never cancelled:
+  # with cancel-in-progress on every event, two merges a few minutes apart left the
+  # earlier merge commit with a cancelled run and no result for it on main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   semgrep:
@@ -75,6 +78,13 @@ jobs:
             1) echo "semgrep: findings reported (see the Security tab after upload)" ;;
             *) echo "::error::semgrep failed with exit code $rc (not a findings result)"; exit "$rc" ;;
           esac
+          # Exit code 1 is also what a crash before the scan returns (a bad import, for
+          # example): then no SARIF exists and the upload step fails with "Path does not
+          # exist". Require the file so a crash fails here, named for what it is.
+          if [ ! -s semgrep.sarif ]; then
+            echo "::error::semgrep exited $rc but wrote no semgrep.sarif - a crash, not a findings result"
+            exit 1
+          fi
 
       - name: Upload Semgrep SARIF
         # A fork's pull_request token cannot write Code Scanning (security-events: write is
@@ -83,7 +93,7 @@ jobs:
         # below surface its findings instead, so reviewers are not left blind until the change
         # lands in this repository.
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: semgrep.sarif
 

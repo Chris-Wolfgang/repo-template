@@ -20,7 +20,10 @@ permissions: read-all
 
 concurrency:
   group: scorecard-${{ github.ref }}
-  cancel-in-progress: true
+  # Only a superseded pull_request run is cancelled. A push to main is never cancelled:
+  # with cancel-in-progress on every event, two merges a few minutes apart left the
+  # earlier merge commit with a cancelled run and no result for it on main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   analysis:
@@ -51,7 +54,7 @@ jobs:
       # that, so the run stays green while the README badge reports "invalid
       # repo path". The SARIF filter therefore runs in the separate job below.
       - name: Upload SARIF artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: scorecard-sarif
           path: results.sarif
@@ -75,7 +78,7 @@ jobs:
           persist-credentials: false
 
       - name: Download SARIF artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: scorecard-sarif
 
@@ -87,8 +90,8 @@ jobs:
       #
       # The published scorecard.dev score (README badge) is unaffected — this
       # only trims the Code Scanning tab and the issues security-alerts.yml
-      # opens from it. Every rule NOT listed here (BranchProtectionID,
-      # TokenPermissionsID, gitHubAction pins, ...) still fires.
+      # opens from it. Every rule NOT listed here (TokenPermissionsID,
+      # gitHubAction pins, ...) still fires.
       #
       # Suppressed whole rules:
       #   (DangerousWorkflowID is NOT suppressed: pr.yaml runs on pull_request
@@ -98,6 +101,12 @@ jobs:
       #                          the old shape must fire.)
       #   CodeReviewID         — solo-maintainer repository; requiring a second
       #                          approver would force admin-bypass on every PR.
+      #   BranchProtectionID   — same reason. main IS protected (the
+      #                          "Protect main branch" ruleset), but the
+      #                          remaining points need required approvers,
+      #                          code-owner review and last-push approval, which
+      #                          a solo maintainer can only meet with an admin
+      #                          bypass, and that waives every rule.
       #   CIIBestPracticesID   — bestpractices.dev badge is an external
       #                          registration, not something CI can earn.
       #   PinnedDependenciesID / nugetCommand, RESTORE commands only —
@@ -134,7 +143,7 @@ jobs:
       - name: Filter suppressed findings from SARIF
         shell: bash
         env:
-          SUPPRESSED_RULES: 'CodeReviewID CIIBestPracticesID'
+          SUPPRESSED_RULES: 'CodeReviewID BranchProtectionID CIIBestPracticesID'
           # PinnedDependenciesID message substrings suppressed everywhere, but
           # only when the finding's snippet is a restore command (see the
           # comment block above).
@@ -181,6 +190,6 @@ jobs:
           mv results.filtered.sarif results.sarif
 
       - name: Upload SARIF to Code Scanning
-        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: results.sarif

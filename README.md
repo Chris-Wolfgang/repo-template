@@ -16,7 +16,7 @@ Before using this template, ensure you have the following installed:
   - Windows: `winget install GitHub.cli`
   - macOS: `brew install gh`
   - Linux: [Install instructions](https://cli.github.com/)
-- **.NET SDK** - the current LTS/STS SDK (10.0 at the time of writing); older SDKs are installed by CI for the multi-target matrix
+- **.NET SDK** - the current LTS/STS SDK (11.0 at the time of writing); older SDKs are installed by CI for the multi-target matrix
 - **gitleaks** (optional) - `winget install gitleaks` / `brew install gitleaks`; enables the pre-commit secret scan (`git config core.hooksPath .githooks`)
 
 ## 🚀 Quick Start
@@ -45,6 +45,8 @@ Before using this template, ensure you have the following installed:
    The script will ask if you want:
    - **Single Developer**: No PR approvals required (you can merge your own PRs)
    - **Multi-Developer**: Requires 1+ approval and code owner review
+
+   The script then creates the Actions policy that allows the `pull_request_target` event for the protected-files guard. The required `Protected Files Guard` check runs on that event, and GitHub's default Actions policy blocks it in public repositories from 2026-12-02 — without the policy every pull request stays blocked on a check that never reports. The policy is a repository setting, so it is not copied with the template; it is created on private repositories too, so it is in place when the repository goes public. For a repository whose ruleset already exists, create only the policy with `pwsh ./scripts/Setup-BranchRuleset.ps1 -PullRequestTargetPolicyOnly` (details: [baseline item 25](docs/repository-baseline.md#25-actions-policy-allows-pull_request_target-for-the-protected-files-guard)).
 7. **(Optional) Set up issue labels** - Create standard labels for issues and PRs:
    ```powershell
    pwsh ./scripts/Setup-Labels.ps1
@@ -90,7 +92,7 @@ All code is analyzed during builds by these industry-standard tools:
 7. **SonarAnalyzer.CSharp** - Industry-standard code analysis and security
 8. **Microsoft.CodeAnalysis.PublicApiAnalyzers** (opt-in) - Tracks the public API surface; activates for a project that carries `PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt`
 
-Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn analyzers, results in the Security tab) and `GenerateDocumentationFile` on for every `src/` project, so undocumented public members fail the Release build.
+Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn analyzers; a PR gets the error gate and a SARIF artifact, and the push to `main` uploads the results to the Security tab) and `GenerateDocumentationFile` on for every `src/` project, so undocumented public members fail the Release build.
 
 **Result:** Enforces async-first patterns, prevents common mistakes, and maintains consistent code quality.
 
@@ -115,8 +117,8 @@ Plus **ReSharper InspectCode** on every PR (a different rule set from the Roslyn
 ### 📦 CI/CD Workflows
 
 #### Pull Request Workflow (`.github/workflows/pr.yaml`)
-- **Multi-stage testing** across Linux, Windows, macOS
-- **Multi-framework testing** (.NET Core 3.1, .NET 5.0-10.0, .NET Framework 4.6.2-4.8.1) - every TFM of every test project, discovered at run time; a TFM that runs zero tests fails
+- **Multi-stage testing** across Linux, Windows, macOS, plus two ARM64 gates: `Stage 4: Linux ARM64 Tests` (`ubuntu-24.04-arm`) and `Stage 5: Windows ARM64 Tests` (`windows-11-arm`), net6.0 and later, in parallel with Stages 1-3, public repositories only
+- **Multi-framework testing** (.NET Core 3.1, .NET 5.0-11.0, .NET Framework 4.6.2-4.8.1) - every TFM of every test project, discovered at run time; a TFM that runs zero tests fails
 - **Code coverage gates** - 90 % line coverage for `src/`, 100 % for `tests/`
 - **Protected Files Guard** (`.github/workflows/protected-files.yaml`) - a PR that changes only protected files (workflows, `Directory.Build.props`, `.editorconfig`, `BannedSymbols.txt`, `*.DotSettings`, ...) passes with a notice and merges on review; a PR that mixes them with other changes fails the guard and is split ([docs/WORKFLOW_SECURITY.md](docs/WORKFLOW_SECURITY.md))
 - **Changelog fragment check** - a PR touching `src/` must add `changelog/unreleased/<name>.md` or carry the `no-changelog` label
@@ -186,6 +188,7 @@ root/
 ├── examples/               # Example projects (optional)
 ├── docfx_project/          # DocFX source (built docs go to the gh-pages branch)
 ├── docs/                   # Guides: baseline, workflow security, release setup, stacked PRs, ...
+│   └── adr/                # Architecture Decision Records (0000 = the practice; TEMPLATE.md, index.md)
 ├── .editorconfig           # Code style rules and analyzer severities
 ├── .gitattributes          # LF for every text file
 ├── .gitignore              # Comprehensive .NET gitignore
@@ -279,7 +282,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 
 ### Test Strategy
 - Every project under `tests/` is a test project, `*.Tests.Integration.*` included; Stage 1 (Linux, with Docker) runs them all and holds every test assembly to `CODECOV_TEST_MINIMUM`
-- A test project that needs Linux containers (Testcontainers, Docker) declares `<RequiresLinuxContainers>true</RequiresLinuxContainers>` in its csproj. Stage 2 (Windows), Stage 3 (macOS) and release validation skip it, and Stage 1 runs and coverage-gates it. The marker decides, not the project name: an integration project that needs no container runs on every stage, including its .NET Framework TFMs on Windows
+- A test project that needs Linux containers (Testcontainers, Docker) declares `<RequiresLinuxContainers>true</RequiresLinuxContainers>` in its csproj. Stage 2 (Windows), Stage 3 (macOS), Stages 4/5 (ARM64) and release validation skip it, and Stage 1 runs and coverage-gates it. The marker decides, not the project name: an integration project that needs no container runs on every stage, including its .NET Framework TFMs on Windows
 - A test assembly that ran but recorded no coverage fails the gate
 - Every `<TargetFrameworks>` entry is tested; a TFM on which zero tests ran fails the stage
 - Coverage collection with `XPlat Code Coverage` (`coverlet.runsettings`)
@@ -287,11 +290,11 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 ### Build Configuration
 - **Debug:** Warnings allowed (development)
 - **Release:** Warnings treated as errors (CI); `LangVersion` is `latestMajor`
-- **Multi-targeting:** Supports .NET Core 3.1, .NET 5.0-10.0 + .NET Framework 4.6.2-4.8.1
+- **Multi-targeting:** Supports .NET Core 3.1, .NET 5.0-11.0 + .NET Framework 4.6.2-4.8.1
 
 ### Security Scanning
 - **gitleaks, DevSkim:** PR checks (gitleaks logs findings; DevSkim uploads a text artifact)
-- **CodeQL, Semgrep, InspectCode:** PR checks whose SARIF lands in the Security tab
+- **CodeQL, Semgrep, InspectCode:** PR checks whose SARIF lands in the Security tab (InspectCode's on push to `main` only; a PR keeps it as an artifact)
 - **zizmor, Scorecard, license audit, SBOM, nightly alert triage:** see *Security & Safety* above
 
 ---
@@ -307,7 +310,7 @@ If you prefer manual setup, see [TEMPLATE-PLACEHOLDERS.md](TEMPLATE-PLACEHOLDERS
 | `TEMPLATE-PLACEHOLDERS.md` | Complete placeholder documentation including template identification |
 | `REPO-INSTRUCTIONS.md` | Manual setup instructions and the post-setup script reference |
 | `scripts/setup.ps1` | PowerShell setup automation (offers to delete itself at the end; default is to keep it) |
-| `docs/repository-baseline.md` | The 24-item hardening baseline every repo is audited against (by `audit-repos.ps1`, kept with the maintainer's fleet tooling) |
+| `docs/repository-baseline.md` | The 27-item hardening baseline every repo is audited against (by `audit-repos.ps1`, kept with the maintainer's fleet tooling) |
 
 [^1]: Modified during setup process
 
@@ -466,10 +469,15 @@ Configured by running the local PowerShell setup script (see "How It Works" belo
   - Stage 1: Linux Tests + Coverage Gate
   - Stage 2: Windows Tests
   - Stage 3: macOS Tests
+  - Stage 4: Linux ARM64 Tests
+  - Stage 5: Windows ARM64 Tests
+  - AOT smoke (linux-arm64)
   - Security Scan (DevSkim)
   - Security Scan (CodeQL) (csharp)
   - Secrets Scan (gitleaks)
   - Changelog Fragment Check
+
+  Stage 4, Stage 5 and the arm64 AOT leg are listed in the template's ruleset, but a repository requires each one only after that check has passed on its own `main` HEAD: a required check that never reports blocks every PR. Until then, leave it out of that repository's ruleset.
 
   A required check name says what is checked, never how: no TFM ranges, OS or tool versions, because a ruleset requires a check by exact name and renaming the job blocks every PR until the ruleset is edited. The TFMs each stage ran are listed in that job's step summary.
 
@@ -527,7 +535,7 @@ The script provides interactive prompts to choose between single-developer or mu
 
 ✅ **7 Code Analyzers + InspectCode** - Comprehensive quality enforcement
 ✅ **Multi-Platform CI/CD** - Linux, Windows, macOS
-✅ **Multi-Framework** - .NET Core 3.1, .NET 5.0-10.0 + Framework 4.6.2-4.8.1
+✅ **Multi-Framework** - .NET Core 3.1, .NET 5.0-11.0 + Framework 4.6.2-4.8.1
 ✅ **Coverage Gates** - 90 % src / 100 % tests, automated
 ✅ **Security Scanning** - gitleaks, DevSkim, CodeQL, Semgrep, zizmor, Scorecard, license audit, SBOM
 ✅ **Supply Chain** - SHA-pinned actions, trusted publishing, SLSA provenance attestations
@@ -562,7 +570,7 @@ Projects created from this template can use any license - the setup script offer
 Created by [Chris Wolfgang](https://github.com/Chris-Wolfgang) and Copilot
 
 Built with:
-- .NET SDK (10.0 and the older SDKs the matrix needs)
+- .NET SDK (11.0 and the older SDKs the matrix needs)
 - DocFX for documentation
 - Multiple Roslyn analyzers and ReSharper InspectCode
 - GitHub Actions for CI/CD
